@@ -25,6 +25,7 @@ FastAPI backend for group, schedule, and parsing workflows.
 - `POST /v1/members/me/setup/complete`
 - `GET /v1/members/me/home`
 - `GET /v1/groups/{group_id}/schedule` (`must_see_only`, `member_ids` query filters)
+- `GET /v1/groups/{group_id}/individual-schedules`
 
 ## Dev Notes
 - Session-protected endpoints expect `x-session-token` header.

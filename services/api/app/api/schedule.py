@@ -98,3 +98,69 @@ def group_schedule(
         "filters": {"must_see_only": must_see_only, "member_ids": member_filter},
         "sets": schedule_sets,
     }
+
+
+@router.get("/groups/{group_id}/individual-schedules")
+def individual_schedules(group_id: str, session=Depends(require_session)) -> dict:
+    if session["group_id"] != group_id:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    with get_conn() as conn:
+        group = conn.execute("SELECT id, name FROM groups WHERE id = ?", (group_id,)).fetchone()
+        if group is None:
+            raise HTTPException(status_code=404, detail="group_not_found")
+
+        rows = conn.execute(
+            """
+            SELECT
+              m.id AS member_id,
+              m.display_name,
+              m.setup_status,
+              cs.id AS canonical_set_id,
+              cs.artist_name,
+              cs.stage_name,
+              cs.start_time_pt,
+              cs.end_time_pt,
+              cs.day_index,
+              msp.preference,
+              msp.attendance
+            FROM members m
+            LEFT JOIN member_set_preferences msp ON msp.member_id = m.id
+            LEFT JOIN canonical_sets cs ON cs.id = msp.canonical_set_id
+            WHERE m.group_id = ? AND m.active = 1
+            ORDER BY m.created_at, cs.day_index, cs.start_time_pt
+            """,
+            (group_id,),
+        ).fetchall()
+
+    by_member: dict[str, dict] = {}
+    for row in rows:
+        member_id = row["member_id"]
+        if member_id not in by_member:
+            by_member[member_id] = {
+                "member_id": member_id,
+                "display_name": row["display_name"],
+                "setup_status": row["setup_status"],
+                "sets": [],
+            }
+
+        if row["canonical_set_id"] is None:
+            continue
+
+        by_member[member_id]["sets"].append(
+            {
+                "canonical_set_id": row["canonical_set_id"],
+                "artist_name": row["artist_name"],
+                "stage_name": row["stage_name"],
+                "start_time_pt": row["start_time_pt"],
+                "end_time_pt": row["end_time_pt"],
+                "day_index": row["day_index"],
+                "preference": row["preference"],
+                "attendance": row["attendance"],
+            }
+        )
+
+    return {
+        "group": {"id": group["id"], "name": group["name"]},
+        "members": list(by_member.values()),
+    }

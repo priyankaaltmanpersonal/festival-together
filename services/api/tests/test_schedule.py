@@ -129,3 +129,12 @@ def test_group_schedule_filters() -> None:
     assert len(one_member_sets) >= 1
     for set_item in one_member_sets:
         assert all(attendee["member_id"] == member_ids[0] for attendee in set_item["attendees"])
+
+    individual_resp = client.get(
+        f"/v1/groups/{group_id}/individual-schedules",
+        headers={"x-session-token": member_session},
+    )
+    assert individual_resp.status_code == 200
+    member_blocks = individual_resp.json()["members"]
+    assert len(member_blocks) >= 2
+    assert any(block["display_name"] == "Taylor" for block in member_blocks)
