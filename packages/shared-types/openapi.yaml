@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info:
+  title: Coachella Group Planner API
+  version: 0.1.0
+paths:
+  /health:
+    get:
+      responses:
+        '200':
+          description: Health check
+  /v1/meta/version:
+    get:
+      responses:
+        '200':
+          description: Service version metadata

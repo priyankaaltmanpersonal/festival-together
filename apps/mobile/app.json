@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Coachella Group Planner",
+    "slug": "coachella-group-planner",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#fff4e6"
+      }
+    }
+  }
+}

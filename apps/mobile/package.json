@@ -1,0 +1,16 @@
+{
+  "name": "coachella-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "lint": "echo 'Add eslint config in M1'"
+  },
+  "dependencies": {
+    "expo": "~53.0.0",
+    "react": "19.0.0",
+    "react-native": "0.79.0"
+  }
+}
