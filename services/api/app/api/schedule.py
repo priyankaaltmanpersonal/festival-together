@@ -6,6 +6,16 @@ from app.core.db import get_conn
 router = APIRouter(tags=["schedule"])
 
 
+def _popularity_tier(attendee_count: int) -> str:
+    if attendee_count <= 0:
+        return "none"
+    if attendee_count == 1:
+        return "low"
+    if attendee_count <= 3:
+        return "medium"
+    return "high"
+
+
 @router.get("/groups/{group_id}/schedule")
 def group_schedule(
     group_id: str,
@@ -90,12 +100,37 @@ def group_schedule(
                 "attendees": set_attendees,
                 "attendee_count": len(set_attendees),
                 "must_see_count": sum(1 for item in set_attendees if item["preference"] == "must_see"),
+                "popularity_tier": _popularity_tier(len(set_attendees)),
+            }
+        )
+
+    stages = sorted({item["stage_name"] for item in schedule_sets if item["stage_name"]})
+    row_groups: dict[tuple[int, str], list[dict]] = {}
+    for set_item in schedule_sets:
+        key = (set_item["day_index"], set_item["start_time_pt"])
+        row_groups.setdefault(key, []).append(set_item)
+
+    time_rows = []
+    for key in sorted(row_groups.keys()):
+        day_index, start_time_pt = key
+        row_sets = row_groups[key]
+        cells = {stage: [] for stage in stages}
+        for item in row_sets:
+            cells.setdefault(item["stage_name"], []).append(item)
+
+        time_rows.append(
+            {
+                "day_index": day_index,
+                "time_pt": start_time_pt,
+                "cells": cells,
             }
         )
 
     return {
         "group": {"id": group["id"], "name": group["name"]},
         "filters": {"must_see_only": must_see_only, "member_ids": member_filter},
+        "stages": stages,
+        "time_rows": time_rows,
         "sets": schedule_sets,
     }
 

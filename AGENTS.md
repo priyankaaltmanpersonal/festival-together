@@ -25,6 +25,7 @@
 - Share short progress updates during longer tasks.
 - Surface important risks early and clearly.
 - Include what changed, what was validated, and what is next.
+- Prefix every assistant message with a Pacific Time timestamp in this format: `[YYYY-MM-DD HH:MM PT]`.
 
 ## Scope and Quality
 - Keep v1 scope tight unless explicitly expanded.

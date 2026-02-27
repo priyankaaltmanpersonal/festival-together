@@ -38,13 +38,39 @@ export function GroupScheduleScreen({
       <View style={styles.card}>
         <Text style={styles.label}>Schedule Grid Data</Text>
         <Text style={styles.helper}>Total sets: {scheduleSnapshot?.sets?.length || 0}</Text>
-        {(scheduleSnapshot?.sets || []).slice(0, 20).map((setItem) => (
-          <View key={setItem.id} style={styles.setCard}>
-            <Text style={styles.title}>{setItem.artist_name}</Text>
-            <Text style={styles.helper}>{setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT</Text>
-            <Text style={styles.helper}>Attendees {setItem.attendee_count} • Must-sees {setItem.must_see_count}</Text>
+        <ScrollView horizontal>
+          <View>
+            <View style={styles.gridHeader}>
+              <Text style={[styles.gridCell, styles.gridTime, styles.gridHeaderText]}>Time</Text>
+              {(scheduleSnapshot?.stages || []).map((stage) => (
+                <Text key={stage} style={[styles.gridCell, styles.gridStage, styles.gridHeaderText]}>
+                  {stage}
+                </Text>
+              ))}
+            </View>
+            {(scheduleSnapshot?.time_rows || []).map((row) => (
+              <View key={`${row.day_index}-${row.time_pt}`} style={styles.gridRow}>
+                <Text style={[styles.gridCell, styles.gridTime]}>{row.time_pt}</Text>
+                {(scheduleSnapshot?.stages || []).map((stage) => {
+                  const items = row.cells?.[stage] || [];
+                  return (
+                    <View key={`${row.day_index}-${row.time_pt}-${stage}`} style={[styles.gridCell, styles.gridStage]}>
+                      {items.length === 0 ? <Text style={styles.helper}>-</Text> : null}
+                      {items.slice(0, 2).map((setItem) => (
+                        <View key={setItem.id} style={[styles.setCard, tierStyle(setItem.popularity_tier)]}>
+                          <Text style={styles.title}>{setItem.artist_name}</Text>
+                          <Text style={styles.helper}>
+                            {setItem.attendee_count} going • {setItem.must_see_count} must-see
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </View>
-        ))}
+        </ScrollView>
       </View>
     </ScrollView>
   );
@@ -95,5 +121,43 @@ const styles = StyleSheet.create({
     marginTop: 6,
     backgroundColor: '#fffcf7'
   },
-  title: { fontWeight: '700', color: '#2f2f2f' }
+  title: { fontWeight: '700', color: '#2f2f2f', fontSize: 12 },
+  gridHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: '#d8c8b2'
+  },
+  gridRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: '#eee0cd'
+  },
+  gridCell: {
+    padding: 8,
+    borderRightWidth: 1,
+    borderColor: '#eee0cd'
+  },
+  gridTime: {
+    width: 72
+  },
+  gridStage: {
+    width: 170
+  },
+  gridHeaderText: {
+    fontWeight: '700',
+    color: '#2d2d2d'
+  }
 });
+
+function tierStyle(tier) {
+  if (tier === 'high') {
+    return { borderColor: '#1f7a42', backgroundColor: '#e6f6eb' };
+  }
+  if (tier === 'medium') {
+    return { borderColor: '#7a6d1f', backgroundColor: '#faf7e8' };
+  }
+  if (tier === 'low') {
+    return { borderColor: '#6a6a6a', backgroundColor: '#f7f7f7' };
+  }
+  return { borderColor: '#dfd0bb', backgroundColor: '#fffcf7' };
+}

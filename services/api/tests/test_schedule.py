@@ -108,8 +108,14 @@ def test_group_schedule_filters() -> None:
         headers={"x-session-token": member_session},
     )
     assert all_sets_resp.status_code == 200
-    all_sets = all_sets_resp.json()["sets"]
+    all_payload = all_sets_resp.json()
+    all_sets = all_payload["sets"]
     assert len(all_sets) >= 1
+    assert len(all_payload["stages"]) >= 1
+    assert len(all_payload["time_rows"]) >= 1
+    sample_row = all_payload["time_rows"][0]
+    assert "time_pt" in sample_row
+    assert "cells" in sample_row
 
     must_see_resp = client.get(
         f"/v1/groups/{group_id}/schedule?must_see_only=true",
@@ -119,6 +125,7 @@ def test_group_schedule_filters() -> None:
     must_see_sets = must_see_resp.json()["sets"]
     assert len(must_see_sets) >= 1
     assert all(item["must_see_count"] >= 1 for item in must_see_sets)
+    assert all(item["popularity_tier"] in {"none", "low", "medium", "high"} for item in must_see_sets)
 
     one_member_resp = client.get(
         f"/v1/groups/{group_id}/schedule?member_ids={member_ids[0]}",
