@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export function GroupScheduleScreen({
@@ -9,6 +10,8 @@ export function GroupScheduleScreen({
   onToggleMember,
   onLoadSchedule
 }) {
+  const [showLegend, setShowLegend] = useState(false);
+
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
@@ -33,6 +36,16 @@ export function GroupScheduleScreen({
         <Pressable onPress={onLoadSchedule} style={styles.buttonPrimary}>
           <Text style={styles.buttonText}>Refresh Group Schedule</Text>
         </Pressable>
+        <Pressable onPress={() => setShowLegend((prev) => !prev)} style={styles.infoButton}>
+          <Text style={styles.infoButtonText}>{showLegend ? 'Hide Legend' : 'Show Legend'}</Text>
+        </Pressable>
+        {showLegend ? (
+          <View style={styles.legendBox}>
+            <Text style={styles.helper}>Avatar opacity: full = must-see, faded = flexible.</Text>
+            <Text style={styles.helper}>No avatar = not going or setup incomplete.</Text>
+            <Text style={styles.helper}>Popularity colors: gray low, yellow medium, green high.</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.card}>
@@ -62,6 +75,22 @@ export function GroupScheduleScreen({
                           <Text style={styles.helper}>
                             {setItem.attendee_count} going • {setItem.must_see_count} must-see
                           </Text>
+                          <View style={styles.avatarRow}>
+                            {(setItem.attendees || []).slice(0, 6).map((attendee) => (
+                              <View
+                                key={attendee.member_id}
+                                style={[
+                                  styles.avatarBubble,
+                                  attendee.preference === 'must_see' ? styles.avatarMustSee : styles.avatarFlexible
+                                ]}
+                              >
+                                <Text style={styles.avatarText}>{initials(attendee.display_name)}</Text>
+                              </View>
+                            ))}
+                            {setItem.attendee_count > 6 ? (
+                              <Text style={styles.helper}>+{setItem.attendee_count - 6}</Text>
+                            ) : null}
+                          </View>
                         </View>
                       ))}
                     </View>
@@ -112,6 +141,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 10
   },
+  infoButton: {
+    borderWidth: 1,
+    borderColor: '#a78f71',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#f9f2e6'
+  },
+  infoButtonText: {
+    color: '#4d3b2a',
+    fontWeight: '700'
+  },
+  legendBox: {
+    borderWidth: 1,
+    borderColor: '#dfd0bb',
+    borderRadius: 10,
+    padding: 8,
+    backgroundColor: '#fffaf2',
+    gap: 4
+  },
   buttonText: { color: '#fff', fontWeight: '700' },
   setCard: {
     borderWidth: 1,
@@ -146,6 +195,36 @@ const styles = StyleSheet.create({
   gridHeaderText: {
     fontWeight: '700',
     color: '#2d2d2d'
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6
+  },
+  avatarBubble: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1
+  },
+  avatarMustSee: {
+    backgroundColor: '#1f7a42',
+    borderColor: '#185c31',
+    opacity: 1
+  },
+  avatarFlexible: {
+    backgroundColor: '#2f6f4a',
+    borderColor: '#1f5135',
+    opacity: 0.45
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700'
   }
 });
 
@@ -160,4 +239,12 @@ function tierStyle(tier) {
     return { borderColor: '#6a6a6a', backgroundColor: '#f7f7f7' };
   }
   return { borderColor: '#dfd0bb', backgroundColor: '#fffcf7' };
+}
+
+function initials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  const first = parts[0]?.[0] || '';
+  const second = parts[1]?.[0] || '';
+  return `${first}${second}`.toUpperCase();
 }
