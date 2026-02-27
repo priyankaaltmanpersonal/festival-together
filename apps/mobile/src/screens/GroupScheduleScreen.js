@@ -5,12 +5,14 @@ export function GroupScheduleScreen({
   homeSnapshot,
   scheduleSnapshot,
   mustSeeOnly,
-  selectedMemberId,
+  selectedMemberIds,
   onToggleMustSee,
   onToggleMember,
+  onResetFilters,
   onLoadSchedule
 }) {
   const [showLegend, setShowLegend] = useState(false);
+  const hasActiveFilters = mustSeeOnly || (selectedMemberIds || []).length > 0;
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
@@ -25,14 +27,19 @@ export function GroupScheduleScreen({
             <Pressable
               key={member.id}
               onPress={() => onToggleMember(member.id)}
-              style={[styles.pill, selectedMemberId === member.id && styles.pillSelected]}
+              style={[styles.pill, (selectedMemberIds || []).includes(member.id) && styles.pillSelected]}
             >
-              <Text style={[styles.pillText, selectedMemberId === member.id && styles.pillTextSelected]}>
+              <Text style={[styles.pillText, (selectedMemberIds || []).includes(member.id) && styles.pillTextSelected]}>
                 {member.display_name}
               </Text>
             </Pressable>
           ))}
         </View>
+        {hasActiveFilters ? (
+          <Pressable onPress={onResetFilters} style={styles.resetButton}>
+            <Text style={styles.resetButtonText}>Reset Filters</Text>
+          </Pressable>
+        ) : null}
         <Pressable onPress={onLoadSchedule} style={styles.buttonPrimary}>
           <Text style={styles.buttonText}>Refresh Group Schedule</Text>
         </Pressable>
@@ -162,6 +169,18 @@ const styles = StyleSheet.create({
     gap: 4
   },
   buttonText: { color: '#fff', fontWeight: '700' },
+  resetButton: {
+    borderWidth: 1,
+    borderColor: '#d2a55e',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff6e8'
+  },
+  resetButtonText: {
+    color: '#6d4720',
+    fontWeight: '700'
+  },
   setCard: {
     borderWidth: 1,
     borderColor: '#dfd0bb',

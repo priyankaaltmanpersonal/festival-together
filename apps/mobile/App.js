@@ -33,7 +33,7 @@ export default function App() {
   const [individualSnapshot, setIndividualSnapshot] = useState(null);
 
   const [mustSeeOnly, setMustSeeOnly] = useState(false);
-  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
@@ -181,8 +181,8 @@ export default function App() {
         sessionToken: memberSession
       });
       setHomeSnapshot(payload);
-      if (!selectedMemberId && payload.members?.length) {
-        setSelectedMemberId(payload.members[0].id);
+      if (!selectedMemberIds.length) {
+        setSelectedMemberIds([]);
       }
     });
 
@@ -192,7 +192,7 @@ export default function App() {
 
       const query = new URLSearchParams();
       if (mustSeeOnly) query.set('must_see_only', 'true');
-      if (selectedMemberId) query.set('member_ids', selectedMemberId);
+      if (selectedMemberIds.length) query.set('member_ids', selectedMemberIds.join(','));
       const suffix = query.toString() ? `?${query.toString()}` : '';
 
       const payload = await apiRequest({
@@ -261,9 +261,17 @@ export default function App() {
             homeSnapshot={homeSnapshot}
             scheduleSnapshot={scheduleSnapshot}
             mustSeeOnly={mustSeeOnly}
-            selectedMemberId={selectedMemberId}
+            selectedMemberIds={selectedMemberIds}
             onToggleMustSee={() => setMustSeeOnly((prev) => !prev)}
-            onToggleMember={(memberId) => setSelectedMemberId((prev) => (prev === memberId ? '' : memberId))}
+            onToggleMember={(memberId) =>
+              setSelectedMemberIds((prev) =>
+                prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
+              )
+            }
+            onResetFilters={() => {
+              setMustSeeOnly(false);
+              setSelectedMemberIds([]);
+            }}
             onLoadSchedule={loadSchedule}
           />
         ) : null}
