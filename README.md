@@ -15,9 +15,10 @@ Offline-first group coordination app for Coachella friend groups.
 - Implementation plan: `docs/implementation-plan.md`
 - Feature ideas/enhancements: `docs/feature-ideas.md`
 - PR/review process: `docs/review-workflow.md`
+- Security guardrails: `docs/security-guardrails.md`
 - Milestone in progress: `M0 Foundation`
 
-## Local Dev (Planned)
+## Local Dev (Docker-First)
 1. See available shortcuts:
    - `make help`
 2. Create local env files (do not commit real values):
@@ -26,14 +27,14 @@ Offline-first group coordination app for Coachella friend groups.
    - `cp apps/mobile/.env.example apps/mobile/.env`
 3. Start API + local infra containers:
    - `make up`
-4. Build Docker images:
+4. Build Docker images (optional if you already ran `make up`):
    - `make build`
 5. Run API tests in Docker:
    - `make tests`
-6. Or run API directly (without Docker):
-   - `make api`
-7. Run mobile:
+6. Run mobile:
    - `make mobile`
+7. Optional if you specifically need tunnel mode:
+   - `make mobile-tunnel`
 
 ## GitHub Workflow
 1. Create a feature branch:
