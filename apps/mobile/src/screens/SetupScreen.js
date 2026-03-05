@@ -1,117 +1,255 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 export function SetupScreen({
-  apiUrl,
-  setApiUrl,
-  founderName,
-  setFounderName,
+  userRole,
+  onboardingStep,
+  displayName,
+  setDisplayName,
   groupName,
   setGroupName,
-  memberName,
-  setMemberName,
-  screenshotCount,
-  setScreenshotCount,
+  inviteCodeInput,
+  setInviteCodeInput,
   inviteCode,
-  founderSession,
-  memberSession,
+  selectedChipColor,
+  setSelectedChipColor,
+  chipColorOptions,
+  availableJoinColors,
   personalSets,
-  homeSnapshot,
   loading,
   error,
   log,
-  onCreateFounderGroup,
-  onCompleteFounderCanonicalSetup,
-  onCreateJoinerAndJoin,
+  onBeginProfile,
+  onCompleteFounderSetup,
   onImportPersonal,
-  onSetAllMustSee,
-  onCompleteMemberSetup,
-  onLoadHome
+  onSetPreference,
+  onContinueFromReview,
+  onFinishOnboarding,
+  onRunSimulatorDemoFlow,
+  onResetFlow,
+  onChoosePath
 }) {
+  const reviewCount = (personalSets || []).length;
+  const isWelcome = onboardingStep === 'welcome';
+
   return (
-    <ScrollView contentContainerStyle={styles.wrap}>
-      <View style={styles.card}>
-        <Text style={styles.label}>API Base URL</Text>
-        <TextInput value={apiUrl} onChangeText={setApiUrl} style={styles.input} autoCapitalize="none" />
-        <Text style={styles.helper}>iOS simulator: 127.0.0.1 / Android emulator: 10.0.2.2</Text>
-      </View>
+    <ScrollView contentContainerStyle={[styles.wrap, isWelcome && styles.wrapWelcome]}>
+      {isWelcome ? (
+        <View style={styles.welcomeScreen}>
+          <View style={styles.card}>
+            <Text style={styles.kicker}>Welcome</Text>
+            <Text style={styles.h1}>Plan your festival day with your crew</Text>
+          </View>
+          <View style={styles.welcomeActions}>
+            <ActionButton
+              label="Create a Group"
+              onPress={() => onChoosePath('founder')}
+              primary
+              disabled={loading}
+              large
+            />
+            <ActionButton label="Join a Group" onPress={() => onChoosePath('member')} disabled={loading} large />
+          </View>
+        </View>
+      ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Founder Setup</Text>
-        <TextInput value={founderName} onChangeText={setFounderName} style={styles.input} placeholder="Founder name" />
-        <TextInput value={groupName} onChangeText={setGroupName} style={styles.input} placeholder="Group name" />
-        <Pressable onPress={onCreateFounderGroup} style={styles.buttonPrimary}>
-          <Text style={styles.buttonText}>1) Create Founder Group</Text>
-        </Pressable>
-        <Pressable disabled={!founderSession} onPress={onCompleteFounderCanonicalSetup} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>2) Import + Confirm Canonical</Text>
-        </Pressable>
-      </View>
+      {onboardingStep === 'profile_create' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Create Group</Text>
+          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" />
+          <TextInput value={groupName} onChangeText={setGroupName} style={styles.input} placeholder="Group name" />
+          <ColorPicker
+            options={chipColorOptions}
+            selected={selectedChipColor}
+            onSelect={setSelectedChipColor}
+          />
+          <ActionButton label="Continue" onPress={onBeginProfile} primary disabled={loading || !selectedChipColor} />
+        </View>
+      ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Member Onboarding</Text>
-        <TextInput value={memberName} onChangeText={setMemberName} style={styles.input} placeholder="Member name" />
-        <TextInput
-          value={screenshotCount}
-          onChangeText={setScreenshotCount}
-          style={styles.input}
-          keyboardType="number-pad"
-          placeholder="Screenshot count"
-        />
-        <Pressable disabled={!inviteCode} onPress={onCreateJoinerAndJoin} style={styles.buttonPrimary}>
-          <Text style={styles.buttonText}>3) Create Joiner + Join</Text>
-        </Pressable>
-        <Pressable disabled={!memberSession} onPress={onImportPersonal} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>4) Import Personal Schedule</Text>
-        </Pressable>
-        <Pressable disabled={!personalSets?.length} onPress={onSetAllMustSee} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>5) Set All Must-See</Text>
-        </Pressable>
-        <Pressable disabled={!memberSession} onPress={onCompleteMemberSetup} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>6) Complete Setup</Text>
-        </Pressable>
-        <Pressable disabled={!memberSession} onPress={onLoadHome} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>7) Load Home Snapshot</Text>
-        </Pressable>
-      </View>
+      {onboardingStep === 'profile_join' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Join Group</Text>
+          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" />
+          <TextInput
+            value={inviteCodeInput}
+            onChangeText={setInviteCodeInput}
+            style={styles.input}
+            autoCapitalize="characters"
+            placeholder="Invite code"
+          />
+          <ColorPicker
+            options={chipColorOptions}
+            selected={selectedChipColor}
+            onSelect={setSelectedChipColor}
+            availableSet={new Set(availableJoinColors || [])}
+          />
+          <ActionButton label="Continue" onPress={onBeginProfile} primary disabled={loading || !selectedChipColor} />
+        </View>
+      ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Status</Text>
-        <Text style={styles.helper}>Invite: {inviteCode || 'n/a'}</Text>
-        <Text style={styles.helper}>Founder session: {founderSession ? 'set' : 'empty'}</Text>
-        <Text style={styles.helper}>Member session: {memberSession ? 'set' : 'empty'}</Text>
-        <Text style={styles.helper}>Personal sets: {personalSets?.length || 0}</Text>
-        <Text style={styles.helper}>Group: {homeSnapshot?.group?.name || 'n/a'}</Text>
-        {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-      </View>
+      {onboardingStep === 'founder_setup' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Founder Setup</Text>
+          <Text style={styles.helper}>Import and confirm the canonical schedule for your group.</Text>
+          <ActionButton label="Upload Schedule Screenshots" onPress={onCompleteFounderSetup} primary disabled={loading} />
+          {inviteCode ? <Text style={styles.helper}>Invite code: {inviteCode}</Text> : null}
+        </View>
+      ) : null}
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Recent Log</Text>
-        {(log || []).length ? (log || []).map((entry, idx) => <Text key={`${entry}-${idx}`} style={styles.logLine}>{entry}</Text>) : <Text style={styles.helper}>No actions yet.</Text>}
-      </View>
+      {onboardingStep === 'choose_library' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Choose from Library</Text>
+          <Text style={styles.helper}>Select your schedule screenshots from photo library to parse.</Text>
+          <ActionButton label="Choose from Library" onPress={onImportPersonal} primary disabled={loading} />
+        </View>
+      ) : null}
+
+      {onboardingStep === 'review' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Review and Confirm</Text>
+          {reviewCount ? (
+            <View style={{ gap: 8 }}>
+              {(personalSets || []).slice(0, 8).map((setItem) => (
+                <View key={setItem.canonical_set_id} style={styles.setRow}>
+                  <Text style={styles.setTitle}>{setItem.artist_name}</Text>
+                  <Text style={styles.helper}>{setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT</Text>
+                  <View style={styles.prefRow}>
+                    <PrefButton
+                      label="Must See"
+                      selected={setItem.preference === 'must_see'}
+                      onPress={() => onSetPreference(setItem.canonical_set_id, 'must_see')}
+                    />
+                    <PrefButton
+                      label="Maybe"
+                      selected={setItem.preference !== 'must_see'}
+                      onPress={() => onSetPreference(setItem.canonical_set_id, 'flexible')}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.helper}>No parsed sets yet.</Text>
+          )}
+          <ActionButton
+            label="Looks Good, Continue"
+            onPress={onContinueFromReview}
+            primary
+            disabled={loading || !reviewCount}
+          />
+        </View>
+      ) : null}
+
+      {onboardingStep === 'confirm' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Enter Group Schedule</Text>
+          <Text style={styles.helper}>Finish setup and open the full schedule grid.</Text>
+          <ActionButton label="Finish Setup" onPress={onFinishOnboarding} primary disabled={loading} />
+        </View>
+      ) : null}
+
+      {onboardingStep !== 'welcome' ? (
+        <View style={styles.card}>
+          <Text style={styles.label}>Developer Tools</Text>
+          <ActionButton label="Run Full Simulator Demo Flow" onPress={onRunSimulatorDemoFlow} disabled={loading} />
+          <ActionButton label="Restart Onboarding" onPress={onResetFlow} />
+          {(log || []).length ?
+            (log || []).slice(0, 4).map((entry, idx) => <Text key={`${entry}-${idx}`} style={styles.logLine}>{entry}</Text>) : null}
+        </View>
+      ) : null}
+
+      {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>
   );
 }
 
+function ActionButton({ label, onPress, primary = false, disabled = false, large = false }) {
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        primary ? styles.buttonPrimary : styles.buttonSecondary,
+        large && styles.buttonLarge,
+        disabled && styles.buttonDisabled
+      ]}
+    >
+      <Text style={[styles.buttonText, large && styles.buttonTextLarge]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function PrefButton({ label, selected, onPress }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.prefButton, selected && styles.prefButtonSelected]}>
+      <Text style={[styles.prefButtonText, selected && styles.prefButtonTextSelected]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function ColorPicker({ options, selected, onSelect, availableSet = null }) {
+  return (
+    <View style={styles.colorBlock}>
+      <Text style={styles.label}>Pick your color</Text>
+      <View style={styles.colorRow}>
+        {(options || []).map((color) => {
+          const enabled = !availableSet || availableSet.size === 0 || availableSet.has(color);
+          return (
+            <Pressable
+              key={color}
+              disabled={!enabled}
+              onPress={() => onSelect(color)}
+              style={[
+                styles.colorSwatch,
+                { backgroundColor: color, borderColor: selected === color ? '#1f3024' : '#d2c5b3' },
+                selected === color && styles.colorSwatchSelected,
+                !enabled && styles.colorSwatchDisabled
+              ]}
+            />
+          );
+        })}
+      </View>
+      {availableSet && availableSet.size > 0 ? (
+        <Text style={styles.helper}>Unavailable colors are dimmed if already taken in that group.</Text>
+      ) : null}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrap: { gap: 10, paddingBottom: 22 },
+  wrap: { flexGrow: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 24 },
+  wrapWelcome: { paddingTop: 20 },
+  welcomeScreen: { flex: 1, justifyContent: 'space-between' },
+  welcomeActions: { gap: 12, paddingBottom: 24 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: '#fffdf8',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e8d8c1',
+    borderColor: '#e5d7c3',
     padding: 12,
     gap: 8
   },
-  label: { fontWeight: '700', color: '#303030' },
+  stepCard: {
+    backgroundColor: '#fffefb',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#d7c9b4',
+    padding: 12,
+    gap: 8
+  },
+  kicker: { color: '#7a684f', fontWeight: '700', fontSize: 12, textTransform: 'uppercase' },
+  h1: { color: '#1f3024', fontSize: 21, fontWeight: '800', lineHeight: 26 },
+  label: { color: '#303030', fontWeight: '700' },
+  stepTitle: { color: '#2f302f', fontWeight: '700', fontSize: 16 },
   helper: { color: '#666', fontSize: 12 },
   input: {
     borderWidth: 1,
     borderColor: '#d8c8b2',
     borderRadius: 10,
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: '#fffdf9'
+    paddingVertical: 9,
+    backgroundColor: '#fff'
   },
   buttonPrimary: {
     backgroundColor: '#183a27',
@@ -125,7 +263,49 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 10
   },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  buttonText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
+  buttonLarge: {
+    minHeight: 66,
+    justifyContent: 'center',
+    borderRadius: 14
+  },
+  buttonTextLarge: { fontSize: 20, fontWeight: '800' },
+  buttonDisabled: { opacity: 0.45 },
+  setRow: {
+    borderWidth: 1,
+    borderColor: '#e4d6c3',
+    borderRadius: 10,
+    padding: 8,
+    backgroundColor: '#fffdfa',
+    gap: 4
+  },
+  setTitle: { color: '#2f2f2f', fontWeight: '700', fontSize: 13 },
+  prefRow: { flexDirection: 'row', gap: 6 },
+  prefButton: {
+    borderWidth: 1,
+    borderColor: '#cab697',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#fbf6ee'
+  },
+  prefButtonSelected: { borderColor: '#2f6244', backgroundColor: '#e6f2e8' },
+  prefButtonText: { color: '#4e4e4e', fontSize: 12, fontWeight: '700' },
+  prefButtonTextSelected: { color: '#214731' },
+  colorBlock: { gap: 6, marginTop: 2 },
+  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  colorSwatch: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    borderWidth: 2
+  },
+  colorSwatchSelected: {
+    transform: [{ scale: 1.08 }]
+  },
+  colorSwatchDisabled: {
+    opacity: 0.25
+  },
   error: { color: '#b52424', fontWeight: '600' },
-  logLine: { color: '#444', fontSize: 12 }
+  logLine: { color: '#444', fontSize: 11 }
 });

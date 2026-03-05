@@ -53,6 +53,7 @@ def group_schedule(
               msp.canonical_set_id,
               m.id AS member_id,
               m.display_name,
+              m.chip_color,
               msp.preference,
               msp.attendance,
               m.setup_status
@@ -75,6 +76,7 @@ def group_schedule(
             {
                 "member_id": row["member_id"],
                 "display_name": row["display_name"],
+                "chip_color": row["chip_color"],
                 "preference": row["preference"],
             }
         )

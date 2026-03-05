@@ -14,6 +14,54 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
+def _seed_full_day_sets(group_id: str, now: datetime) -> list[tuple]:
+    stages = ["Main Stage", "Sahara", "Outdoor", "Mojave", "Gobi", "Sonora"]
+    artist_pool = [
+        "Aurora Skyline", "Neon Valley", "Desert Echo", "Sundial City", "Palm Static", "Mirage Club",
+        "Golden Transit", "Afterglow Kids", "Cactus Choir", "Solar Ritual", "Moonline", "Circuit Bloom",
+        "Dune Parade", "Velvet Arcade", "Night Ferry", "Cosmic Lanes", "Heatwave Social", "Luma Avenue",
+        "Atlas Garden", "Echo Harbor", "Midnight Current", "Prism Motel", "Radiant Form", "Tropic Fade",
+    ]
+    sets: list[tuple] = []
+    artist_idx = 0
+    for stage_idx, stage in enumerate(stages):
+        current_min = (12 * 60) + (stage_idx * 10)  # stagger start per stage
+        slot = 0
+        while current_min <= (23 * 60):
+            start_hour = current_min // 60
+            if start_hour < 17:
+                duration = [45, 50, 60][(slot + stage_idx) % 3]
+            elif start_hour < 20:
+                duration = [60, 70, 75][(slot + stage_idx) % 3]
+            else:
+                duration = [75, 85, 90][(slot + stage_idx) % 3]
+            gap = [30, 45, 60][(slot + stage_idx + 1) % 3]
+            start_h, start_m = divmod(current_min, 60)
+            end_total = current_min + duration
+            if end_total > (23 * 60 + 59):
+                break
+            end_h, end_m = divmod(end_total, 60)
+
+            artist_name = artist_pool[artist_idx % len(artist_pool)]
+            artist_idx += 1
+            sets.append(
+                (
+                    str(uuid4()),
+                    group_id,
+                    artist_name,
+                    stage,
+                    f"{start_h:02d}:{start_m:02d}",
+                    f"{end_h:02d}:{end_m:02d}",
+                    1,
+                    "resolved",
+                    now.isoformat(),
+                )
+            )
+            current_min = end_total + gap
+            slot += 1
+    return sets
+
+
 @router.post("/groups/{group_id}/canonical/import")
 def import_canonical(group_id: str, payload: CanonicalImportRequest, session=Depends(require_session)) -> dict:
     if session["group_id"] != group_id or session["role"] != "founder":
@@ -21,7 +69,7 @@ def import_canonical(group_id: str, payload: CanonicalImportRequest, session=Dep
 
     now = _now()
     job_id = str(uuid4())
-    unresolved_count = 1
+    unresolved_count = 0
 
     with get_conn() as conn:
         group = conn.execute("SELECT id FROM groups WHERE id = ?", (group_id,)).fetchone()
@@ -47,11 +95,7 @@ def import_canonical(group_id: str, payload: CanonicalImportRequest, session=Dep
         )
 
         # Placeholder parse output for M2 wiring; real OCR mapping lands in parser-worker milestones.
-        sets = [
-            (str(uuid4()), group_id, "Artist A", "Main Stage", "18:00", "18:45", 1, "resolved", now.isoformat()),
-            (str(uuid4()), group_id, "Artist B", "Sahara", "19:00", "19:45", 1, "resolved", now.isoformat()),
-            (str(uuid4()), group_id, "Unresolved Set", "TBD", "20:00", "20:45", 1, "unresolved", now.isoformat()),
-        ]
+        sets = _seed_full_day_sets(group_id, now)
         conn.executemany(
             """
             INSERT INTO canonical_sets (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status, created_at)

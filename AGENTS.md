@@ -25,9 +25,14 @@
 - Share short progress updates during longer tasks.
 - Surface important risks early and clearly.
 - Include what changed, what was validated, and what is next.
-- Prefix every assistant message with a Pacific Time timestamp in this format: `[YYYY-MM-DD HH:MM PT]`.
+- Prefix every assistant message with a Pacific Time timestamp from the live system clock (not estimated) in this format: `**MM/DD/YY h:MM AM/PM**` (example: `**02/26/26 11:35 PM**`).
 
 ## Scope and Quality
 - Keep v1 scope tight unless explicitly expanded.
 - Ship working increments with validation whenever possible.
 - Prefer practical, maintainable implementations over over-engineering.
+
+## Documentation Style
+- Documentation should be thorough but concise.
+- Prefer simple, easy-to-scan structures over heavy detail in early drafts.
+- Avoid redundant docs; keep one source of truth per topic and link to it.

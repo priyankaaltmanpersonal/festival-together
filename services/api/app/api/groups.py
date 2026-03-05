@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth import require_session
+from app.core.colors import CHIP_COLOR_PALETTE, normalize_chip_color, validate_chip_color
 from app.core.db import get_conn
 from app.schemas.groups import (
     GroupCreateRequest,
@@ -25,6 +26,27 @@ def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
 
+def _reserve_member_color(conn, group_id: str, requested_color: str | None) -> str:
+    normalized = normalize_chip_color(requested_color)
+    used_rows = conn.execute(
+        "SELECT chip_color FROM members WHERE group_id = ? AND active = 1 AND chip_color IS NOT NULL",
+        (group_id,),
+    ).fetchall()
+    used = {row["chip_color"] for row in used_rows}
+    available = [color for color in CHIP_COLOR_PALETTE if color not in used]
+
+    if normalized is not None:
+        if not validate_chip_color(normalized):
+            raise HTTPException(status_code=400, detail="invalid_chip_color")
+        if normalized in used:
+            raise HTTPException(status_code=409, detail="chip_color_unavailable")
+        return normalized
+
+    if not available:
+        raise HTTPException(status_code=409, detail="no_chip_colors_available")
+    return available[0]
+
+
 @router.post("/groups", response_model=GroupCreateResponse)
 def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
     group_id = str(uuid4())
@@ -34,6 +56,7 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
     now = _now_iso()
 
     with get_conn() as conn:
+        founder_color = _reserve_member_color(conn, group_id, payload.chip_color)
         conn.execute(
             """
             INSERT INTO groups (id, name, icon_url, invite_code, founder_member_id, setup_complete, created_at)
@@ -43,10 +66,10 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
         )
         conn.execute(
             """
-            INSERT INTO members (id, group_id, display_name, avatar_photo_url, role, setup_status, active, created_at)
-            VALUES (?, ?, ?, NULL, 'founder', 'complete', 1, ?)
+            INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
+            VALUES (?, ?, ?, ?, NULL, 'founder', 'complete', 1, ?)
             """,
-            (member_id, group_id, payload.display_name.strip(), now),
+            (member_id, group_id, payload.display_name.strip(), founder_color, now),
         )
         conn.execute(
             """
@@ -68,6 +91,7 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
             id=member_id,
             group_id=group_id,
             display_name=payload.display_name.strip(),
+            chip_color=founder_color,
             role="founder",
             setup_status="complete",
         ),
@@ -112,6 +136,15 @@ def preview_invite(invite_code: str) -> InvitePreviewResponse:
             "SELECT id, name, icon_url, setup_complete FROM groups WHERE invite_code = ?",
             (invite_code,),
         ).fetchone()
+        if row is not None:
+            used_rows = conn.execute(
+                "SELECT chip_color FROM members WHERE group_id = ? AND active = 1 AND chip_color IS NOT NULL",
+                (row["id"],),
+            ).fetchall()
+            used = {used_row["chip_color"] for used_row in used_rows}
+            available = [color for color in CHIP_COLOR_PALETTE if color not in used]
+        else:
+            available = []
 
     if row is None:
         raise HTTPException(status_code=404, detail="invite_not_found")
@@ -122,6 +155,7 @@ def preview_invite(invite_code: str) -> InvitePreviewResponse:
         group_id=row["id"],
         group_name=row["name"],
         group_icon_url=row["icon_url"],
+        available_chip_colors=available,
     )
 
 
@@ -159,14 +193,15 @@ def join_invite(
 
         # Leave current group and become fresh profile in the target group.
         conn.execute("UPDATE members SET active = 0 WHERE id = ?", (session["member_id"],))
+        next_color = _reserve_member_color(conn, target_group_id, payload.chip_color)
         new_member_id = str(uuid4())
         now = _now_iso()
         conn.execute(
             """
-            INSERT INTO members (id, group_id, display_name, avatar_photo_url, role, setup_status, active, created_at)
-            VALUES (?, ?, ?, NULL, 'member', 'incomplete', 1, ?)
+            INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
+            VALUES (?, ?, ?, ?, NULL, 'member', 'incomplete', 1, ?)
             """,
-            (new_member_id, target_group_id, payload.display_name.strip(), now),
+            (new_member_id, target_group_id, payload.display_name.strip(), next_color, now),
         )
         conn.execute(
             "UPDATE sessions SET member_id = ? WHERE token = ?",
@@ -208,7 +243,7 @@ def member_home(session=Depends(require_session)) -> dict:
     with get_conn() as conn:
         member = conn.execute(
             """
-            SELECT m.id, m.group_id, m.display_name, m.role, m.setup_status, g.name AS group_name, g.icon_url
+            SELECT m.id, m.group_id, m.display_name, m.chip_color, m.role, m.setup_status, g.name AS group_name, g.icon_url
             FROM members m
             JOIN groups g ON g.id = m.group_id
             WHERE m.id = ? AND m.active = 1
@@ -220,7 +255,7 @@ def member_home(session=Depends(require_session)) -> dict:
 
         members = conn.execute(
             """
-            SELECT id, display_name, role, setup_status, active
+            SELECT id, display_name, chip_color, role, setup_status, active
             FROM members
             WHERE group_id = ? AND active = 1
             ORDER BY created_at
@@ -244,6 +279,7 @@ def member_home(session=Depends(require_session)) -> dict:
         "me": {
             "id": member["id"],
             "display_name": member["display_name"],
+            "chip_color": member["chip_color"] if "chip_color" in member.keys() else None,
             "role": member["role"],
             "setup_status": member["setup_status"],
         },
@@ -256,6 +292,7 @@ def member_home(session=Depends(require_session)) -> dict:
             {
                 "id": row["id"],
                 "display_name": row["display_name"],
+                "chip_color": row["chip_color"] if "chip_color" in row.keys() else None,
                 "role": row["role"],
                 "setup_status": row["setup_status"],
                 "active": bool(row["active"]),

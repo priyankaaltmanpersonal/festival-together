@@ -20,6 +20,28 @@ def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
 
+def _select_mapped_rows(canonical_rows, member_id: str, screenshot_count: int):
+    if len(canonical_rows) == 0:
+        return []
+
+    # Deterministic member-specific mapping to create overlap variety in demo data.
+    seed = sum(ord(ch) for ch in member_id)
+    desired_count = min(len(canonical_rows), max(4, min(12, screenshot_count * 2)))
+    start_idx = seed % len(canonical_rows)
+    stride = 5 + (seed % 7)
+
+    selected = []
+    seen = set()
+    idx = start_idx
+    while len(selected) < desired_count and len(seen) < len(canonical_rows):
+        if idx not in seen:
+            selected.append(canonical_rows[idx])
+            seen.add(idx)
+        idx = (idx + stride) % len(canonical_rows)
+
+    return selected
+
+
 @router.post("/members/me/personal/import")
 def import_personal(payload: PersonalImportRequest, session=Depends(require_session)) -> dict:
     now = _now_iso()
@@ -47,8 +69,12 @@ def import_personal(payload: PersonalImportRequest, session=Depends(require_sess
 
         conn.execute("DELETE FROM member_parse_jobs WHERE member_id = ?", (session["member_id"],))
 
-        # Simulate mapped parse results from screenshots by taking first N canonical sets.
-        mapped_rows = canonical_rows[: min(6, len(canonical_rows))]
+        # Simulate mapped parse results with deterministic per-member variety.
+        mapped_rows = _select_mapped_rows(
+            canonical_rows,
+            member_id=session["member_id"],
+            screenshot_count=payload.screenshot_count,
+        )
         if len(mapped_rows) == 0:
             raise HTTPException(status_code=400, detail="no_parsed_sets")
 

@@ -4,8 +4,11 @@ FastAPI backend for group, schedule, and parsing workflows.
 
 ## Quick Start
 1. Copy `.env.example` to `.env`
+   - Keep sensitive values only in `.env` (never committed)
 2. Install deps (example): `uv sync`
 3. Run: `uv run uvicorn app.main:app --reload --port 8000`
+4. Run tests locally: `PYTHONPATH=. pytest -q`
+5. Run tests in Docker: `docker-compose -f ../../infra/docker-compose.yml run --rm api_tests`
 
 ## Endpoints
 - `GET /health`

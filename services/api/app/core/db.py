@@ -33,6 +33,7 @@ def init_db() -> None:
               id TEXT PRIMARY KEY,
               group_id TEXT NOT NULL,
               display_name TEXT NOT NULL,
+              chip_color TEXT,
               avatar_photo_url TEXT,
               role TEXT NOT NULL,
               setup_status TEXT NOT NULL,
@@ -127,6 +128,9 @@ def init_db() -> None:
             )
             """
         )
+        member_cols = [row[1] for row in conn.execute("PRAGMA table_info(members)").fetchall()]
+        if "chip_color" not in member_cols:
+            conn.execute("ALTER TABLE members ADD COLUMN chip_color TEXT")
         conn.commit()
 
 
