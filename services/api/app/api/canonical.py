@@ -38,6 +38,7 @@ def _seed_full_day_sets(group_id: str, now: datetime) -> list[tuple]:
             gap = [30, 45, 60][(slot + stage_idx + 1) % 3]
             start_h, start_m = divmod(current_min, 60)
             end_total = current_min + duration
+            # Keep seeded demo data within a single calendar day; real OCR imports can span midnight.
             if end_total > (23 * 60 + 59):
                 break
             end_h, end_m = divmod(end_total, 60)

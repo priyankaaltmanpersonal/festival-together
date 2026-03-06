@@ -27,9 +27,12 @@ services:
       API_PREFIX: /v1
       SQLITE_PATH: /tmp/coachella-tests.db
     depends_on:
-      - postgres
-      - redis
-      - minio
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
     command: pytest -q
 
   parser_worker:
@@ -48,6 +51,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - '${POSTGRES_PORT}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 12
     volumes:
       - pgdata:/var/lib/postgresql/data
 

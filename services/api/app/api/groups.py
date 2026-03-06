@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import sqlite3
 from secrets import token_urlsafe
 from uuid import uuid4
 
@@ -265,13 +266,18 @@ def join_invite(
             next_color = _reserve_member_color(conn, target_group_id, payload.chip_color)
             new_member_id = str(uuid4())
             now = _now_iso()
-            conn.execute(
-                """
-                INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
-                VALUES (?, ?, ?, ?, NULL, 'member', 'incomplete', 1, ?)
-                """,
-                (new_member_id, target_group_id, payload.display_name.strip(), next_color, now),
-            )
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
+                    VALUES (?, ?, ?, ?, NULL, 'member', 'incomplete', 1, ?)
+                    """,
+                    (new_member_id, target_group_id, payload.display_name.strip(), next_color, now),
+                )
+            except sqlite3.IntegrityError as exc:
+                if "idx_members_active_group_color" in str(exc):
+                    raise HTTPException(status_code=409, detail="chip_color_unavailable") from exc
+                raise
             conn.execute(
                 """
                 INSERT INTO sessions (token, member_id, created_at, active)
@@ -295,13 +301,18 @@ def join_invite(
         next_color = _reserve_member_color(conn, target_group_id, payload.chip_color)
         new_member_id = str(uuid4())
         now = _now_iso()
-        conn.execute(
-            """
-            INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
-            VALUES (?, ?, ?, ?, NULL, 'member', 'incomplete', 1, ?)
-            """,
-            (new_member_id, target_group_id, payload.display_name.strip(), next_color, now),
-        )
+        try:
+            conn.execute(
+                """
+                INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
+                VALUES (?, ?, ?, ?, NULL, 'member', 'incomplete', 1, ?)
+                """,
+                (new_member_id, target_group_id, payload.display_name.strip(), next_color, now),
+            )
+        except sqlite3.IntegrityError as exc:
+            if "idx_members_active_group_color" in str(exc):
+                raise HTTPException(status_code=409, detail="chip_color_unavailable") from exc
+            raise
         conn.execute(
             "UPDATE sessions SET member_id = ? WHERE token = ?",
             (new_member_id, session["token"]),

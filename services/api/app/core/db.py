@@ -45,6 +45,13 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_members_active_group_color
+            ON members(group_id, chip_color)
+            WHERE active = 1 AND chip_color IS NOT NULL
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS sessions (
               token TEXT PRIMARY KEY,
               member_id TEXT NOT NULL,

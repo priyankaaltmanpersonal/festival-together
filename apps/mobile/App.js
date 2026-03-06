@@ -158,13 +158,26 @@ export default function App() {
       }
 
       const joinerSession = await createAnonymousSession();
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/invites/${inviteCodeInput.trim()}/join`,
-        method: 'POST',
-        sessionToken: joinerSession,
-        body: { display_name: displayName.trim(), leave_current_group: true, chip_color: selectedChipColor }
-      });
+      try {
+        await apiRequest({
+          baseUrl: apiUrl,
+          path: `/v1/invites/${inviteCodeInput.trim()}/join`,
+          method: 'POST',
+          sessionToken: joinerSession,
+          body: { display_name: displayName.trim(), leave_current_group: true, chip_color: selectedChipColor }
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === 'chip_color_unavailable') {
+          const refreshedPreview = await apiRequest({
+            baseUrl: apiUrl,
+            path: `/v1/invites/${inviteCodeInput.trim()}/preview`,
+            method: 'GET'
+          });
+          setAvailableJoinColors(refreshedPreview.available_chip_colors || []);
+          throw new Error('That color was just taken. Choose another.');
+        }
+        throw err;
+      }
 
       const homePayload = await apiRequest({
         baseUrl: apiUrl,
@@ -260,13 +273,25 @@ export default function App() {
       if (!memberSession) throw new Error('Need session first');
       if (!personalSets.length) throw new Error('No sets loaded yet');
 
-      await Promise.all(personalSets.map((setItem) => apiRequest({
+      const results = await Promise.allSettled(personalSets.map((setItem) => apiRequest({
           baseUrl: apiUrl,
           path: `/v1/members/me/sets/${setItem.canonical_set_id}`,
           method: 'PATCH',
           sessionToken: memberSession,
           body: { preference: 'must_see' }
         })));
+
+      const failedCount = results.filter((result) => result.status === 'rejected').length;
+      if (failedCount > 0) {
+        const review = await apiRequest({
+          baseUrl: apiUrl,
+          path: '/v1/members/me/personal/review',
+          method: 'GET',
+          sessionToken: memberSession
+        });
+        setPersonalSets(review.sets || []);
+        throw new Error(`Updated some sets, but ${failedCount} request${failedCount === 1 ? '' : 's'} failed. Review and retry.`);
+      }
 
       setPersonalSets((prev) => prev.map((setItem) => ({ ...setItem, preference: 'must_see' })));
     });

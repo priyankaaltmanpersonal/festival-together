@@ -131,6 +131,32 @@ def test_anonymous_session_rate_limited_per_ip() -> None:
     assert other_ip.status_code == 200
 
 
+def test_join_rejects_taken_chip_color() -> None:
+    founder = _create_group("Weekend Crew", "Priyanka")
+    founder_group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+    invite_code = founder["group"]["invite_code"]
+
+    _complete_founder_setup(founder_group_id, founder_session)
+
+    first_joiner_session = client.post("/v1/sessions").json()["token"]
+    first_join = client.post(
+        f"/v1/invites/{invite_code}/join",
+        headers={"x-session-token": first_joiner_session},
+        json={"display_name": "Taylor", "chip_color": "20a36b"},
+    )
+    assert first_join.status_code == 200
+
+    second_joiner_session = client.post("/v1/sessions").json()["token"]
+    second_join = client.post(
+        f"/v1/invites/{invite_code}/join",
+        headers={"x-session-token": second_joiner_session},
+        json={"display_name": "Jordan", "chip_color": "20a36b"},
+    )
+    assert second_join.status_code == 409
+    assert second_join.json()["detail"] == "chip_color_unavailable"
+
+
 def test_founder_cannot_leave_but_can_delete_group() -> None:
     founder = _create_group("Delete Me", "Founder")
     group_id = founder["group"]["id"]
