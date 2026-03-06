@@ -4,7 +4,7 @@ import tempfile
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.db import init_db
+from app.core.db import get_conn, init_db
 from app.main import app
 
 client = TestClient(app)
@@ -75,6 +75,44 @@ def test_group_create_and_preview_and_join_blocking() -> None:
     )
     assert join_with_leave.status_code == 200
     assert join_with_leave.json()["ok"] is True
+
+
+def test_join_with_anonymous_session_does_not_create_temp_group() -> None:
+    founder = _create_group("Weekend Crew", "Priyanka")
+    founder_group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+    invite_code = founder["group"]["invite_code"]
+
+    _complete_founder_setup(founder_group_id, founder_session)
+
+    with get_conn() as conn:
+        group_count_before = conn.execute("SELECT COUNT(*) AS cnt FROM groups").fetchone()["cnt"]
+
+    anon_session_resp = client.post("/v1/sessions")
+    assert anon_session_resp.status_code == 200
+    anon_session = anon_session_resp.json()["token"]
+
+    join_resp = client.post(
+        f"/v1/invites/{invite_code}/join",
+        headers={"x-session-token": anon_session},
+        json={"display_name": "Taylor", "chip_color": "20a36b"},
+    )
+    assert join_resp.status_code == 200
+    assert join_resp.json()["ok"] is True
+
+    home_resp = client.get(
+        "/v1/members/me/home",
+        headers={"x-session-token": anon_session},
+    )
+    assert home_resp.status_code == 200
+    home_payload = home_resp.json()
+    assert home_payload["group"]["id"] == founder_group_id
+    assert home_payload["me"]["display_name"] == "Taylor"
+    assert home_payload["me"]["chip_color"] == "#20A36B"
+
+    with get_conn() as conn:
+        group_count_after = conn.execute("SELECT COUNT(*) AS cnt FROM groups").fetchone()["cnt"]
+        assert group_count_after == group_count_before
 
 
 def test_founder_cannot_leave_but_can_delete_group() -> None:

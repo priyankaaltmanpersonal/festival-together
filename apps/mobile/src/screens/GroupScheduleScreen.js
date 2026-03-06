@@ -366,14 +366,16 @@ function withAlpha(hexColor, alpha) {
 
 function timeToMinutes(timePt) {
   const [h, m] = (timePt || '00:00').split(':').map((n) => Number.parseInt(n, 10));
-  return (h * 60) + m;
+  const adjustedHour = h < 6 ? h + 24 : h;
+  return (adjustedHour * 60) + m;
 }
 
 function formatTime(totalMinutes) {
   const h24 = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
-  const suffix = h24 >= 12 ? 'PM' : 'AM';
-  const h12 = ((h24 + 11) % 12) + 1;
+  const normalizedHour = h24 % 24;
+  const suffix = normalizedHour >= 12 ? 'PM' : 'AM';
+  const h12 = ((normalizedHour + 11) % 12) + 1;
   return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 

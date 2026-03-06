@@ -2,6 +2,7 @@ services:
   api:
     build:
       context: ../services/api
+      target: base
     container_name: coachella_api
     environment:
       APP_ENV: local
@@ -25,6 +26,10 @@ services:
       APP_VERSION: 0.1.0
       API_PREFIX: /v1
       SQLITE_PATH: /tmp/coachella-tests.db
+    depends_on:
+      - postgres
+      - redis
+      - minio
     command: pytest -q
 
   parser_worker:

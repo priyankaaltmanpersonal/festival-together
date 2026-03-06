@@ -56,6 +56,15 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS anonymous_sessions (
+              token TEXT PRIMARY KEY,
+              created_at TEXT NOT NULL,
+              active INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS canonical_sets (
               id TEXT PRIMARY KEY,
               group_id TEXT NOT NULL,

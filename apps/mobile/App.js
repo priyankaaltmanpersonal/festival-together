@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { apiRequest } from './src/api/client';
@@ -25,6 +25,8 @@ const CHIP_COLOR_OPTIONS = [
 ];
 
 export default function App() {
+  const scheduleFilterTimeoutRef = useRef(null);
+  const scheduleRequestIdRef = useRef(0);
   const [activeView, setActiveView] = useState('onboarding');
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -57,6 +59,12 @@ export default function App() {
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
+  useEffect(() => () => {
+    if (scheduleFilterTimeoutRef.current) {
+      clearTimeout(scheduleFilterTimeoutRef.current);
+    }
+  }, []);
+
   const run = async (label, action) => {
     setLoading(true);
     setError('');
@@ -73,6 +81,11 @@ export default function App() {
   };
 
   const clearSessionData = () => {
+    if (scheduleFilterTimeoutRef.current) {
+      clearTimeout(scheduleFilterTimeoutRef.current);
+      scheduleFilterTimeoutRef.current = null;
+    }
+    scheduleRequestIdRef.current += 1;
     setFounderSession('');
     setMemberSession('');
     setInviteCode('');
@@ -92,6 +105,15 @@ export default function App() {
       setAvailableJoinColors([]);
     }
     setOnboardingStep(role === 'founder' ? 'profile_create' : 'profile_join');
+  };
+
+  const createAnonymousSession = async () => {
+    const payload = await apiRequest({
+      baseUrl: apiUrl,
+      path: '/v1/sessions',
+      method: 'POST'
+    });
+    return payload.token;
   };
 
   const beginProfile = () =>
@@ -135,14 +157,7 @@ export default function App() {
         throw new Error('That color is already taken in this group. Choose another.');
       }
 
-      const joiner = await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/groups',
-        method: 'POST',
-        body: { group_name: `tmp-${displayName.trim()}`, display_name: displayName.trim() }
-      });
-
-      const joinerSession = joiner.session.token;
+      const joinerSession = await createAnonymousSession();
       await apiRequest({
         baseUrl: apiUrl,
         path: `/v1/invites/${inviteCodeInput.trim()}/join`,
@@ -245,15 +260,13 @@ export default function App() {
       if (!memberSession) throw new Error('Need session first');
       if (!personalSets.length) throw new Error('No sets loaded yet');
 
-      for (const setItem of personalSets) {
-        await apiRequest({
+      await Promise.all(personalSets.map((setItem) => apiRequest({
           baseUrl: apiUrl,
           path: `/v1/members/me/sets/${setItem.canonical_set_id}`,
           method: 'PATCH',
           sessionToken: memberSession,
           body: { preference: 'must_see' }
-        });
-      }
+        })));
 
       setPersonalSets((prev) => prev.map((setItem) => ({ ...setItem, preference: 'must_see' })));
     });
@@ -271,17 +284,57 @@ export default function App() {
     });
   };
 
-  const applyScheduleFilters = (nextSelectedMemberIds) =>
-    run('apply schedule filters', async () => {
-      if (!memberSession || !groupId) throw new Error('Need group and member session first');
-      const payload = await fetchSchedule(memberSession, groupId, {
-        memberIds: nextSelectedMemberIds
-      });
-      setSelectedMemberIds(nextSelectedMemberIds);
-      setScheduleSnapshot(payload);
-      setActiveView('group');
-      setMenuOpen(false);
-    });
+  const applyScheduleFilters = (nextSelectedMemberIds, options = {}) => {
+    const { debounceMs = 0 } = options;
+
+    setSelectedMemberIds(nextSelectedMemberIds);
+    setActiveView('group');
+    setMenuOpen(false);
+
+    if (scheduleFilterTimeoutRef.current) {
+      clearTimeout(scheduleFilterTimeoutRef.current);
+      scheduleFilterTimeoutRef.current = null;
+    }
+
+    const requestId = scheduleRequestIdRef.current + 1;
+    scheduleRequestIdRef.current = requestId;
+
+    const execute = async () => {
+      if (!memberSession || !groupId) {
+        const msg = 'Need group and member session first';
+        setError(msg);
+        appendLog(`ERR: apply schedule filters -> ${msg}`);
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+      try {
+        const payload = await fetchSchedule(memberSession, groupId, {
+          memberIds: nextSelectedMemberIds
+        });
+        if (scheduleRequestIdRef.current !== requestId) return;
+        setScheduleSnapshot(payload);
+        appendLog('OK: apply schedule filters');
+      } catch (err) {
+        if (scheduleRequestIdRef.current !== requestId) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg);
+        appendLog(`ERR: apply schedule filters -> ${msg}`);
+      } finally {
+        if (scheduleRequestIdRef.current === requestId) {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (debounceMs > 0) {
+      scheduleFilterTimeoutRef.current = setTimeout(execute, debounceMs);
+      return;
+    }
+
+    execute();
+  };
 
   const loadSchedule = () =>
     applyScheduleFilters(selectedMemberIds);
@@ -369,6 +422,7 @@ export default function App() {
         baseUrl: apiUrl,
         path: '/v1/groups',
         method: 'POST',
+        // Keep the founder identity fixed for deterministic demo screenshots/logs.
         body: { group_name: groupName.trim(), display_name: 'Priyanka', chip_color: CHIP_COLOR_OPTIONS[0] }
       });
 
@@ -407,13 +461,7 @@ export default function App() {
       const createdMembers = [];
 
       for (const name of memberNames) {
-        const joiner = await apiRequest({
-          baseUrl: apiUrl,
-          path: '/v1/groups',
-          method: 'POST',
-          body: { group_name: `Temporary-${name}`, display_name: name }
-        });
-        const memberSessionToken = joiner.session.token;
+        const memberSessionToken = await createAnonymousSession();
         await apiRequest({
           baseUrl: apiUrl,
           path: `/v1/invites/${nextInviteCode}/join`,
@@ -588,9 +636,9 @@ export default function App() {
             const nextMemberIds = selectedMemberIds.includes(memberId)
               ? selectedMemberIds.filter((id) => id !== memberId)
               : [...selectedMemberIds, memberId];
-            applyScheduleFilters(nextMemberIds);
+            applyScheduleFilters(nextMemberIds, { debounceMs: 300 });
           }}
-          onResetFilters={() => applyScheduleFilters([])}
+          onResetFilters={() => applyScheduleFilters([], { debounceMs: 300 })}
         />
       ) : null}
 

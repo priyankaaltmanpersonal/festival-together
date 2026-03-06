@@ -51,9 +51,9 @@ export function EditMyScheduleScreen({
                 </Pressable>
                 <Pressable
                   onPress={() => onSetPreference(setItem.canonical_set_id, 'flexible')}
-                  style={[styles.prefButton, setItem.preference !== 'must_see' && styles.prefButtonActive]}
+                  style={[styles.prefButton, setItem.preference === 'flexible' && styles.prefButtonActive]}
                 >
-                  <Text style={[styles.prefText, setItem.preference !== 'must_see' && styles.prefTextActive]}>Maybe</Text>
+                  <Text style={[styles.prefText, setItem.preference === 'flexible' && styles.prefTextActive]}>Maybe</Text>
                 </Pressable>
               </View>
             </View>

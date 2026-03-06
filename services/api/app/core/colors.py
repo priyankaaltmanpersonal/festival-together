@@ -18,8 +18,8 @@ def normalize_chip_color(color: str | None) -> str | None:
     if color is None:
         return None
     normalized = color.strip().upper()
-    if normalized.startswith('#'):
-        normalized = f"#{normalized[1:]}"
+    if normalized and not normalized.startswith('#'):
+        normalized = f"#{normalized}"
     return normalized
 
 

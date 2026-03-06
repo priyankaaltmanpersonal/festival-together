@@ -3,6 +3,7 @@ from secrets import token_urlsafe
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Header
 
 from app.core.auth import require_session
 from app.core.colors import CHIP_COLOR_PALETTE, normalize_chip_color, validate_chip_color
@@ -20,6 +21,16 @@ from app.schemas.groups import (
 )
 
 router = APIRouter(tags=["groups"])
+
+
+def _create_session_token(conn) -> str:
+    token = token_urlsafe(32)
+    while (
+        conn.execute("SELECT 1 FROM sessions WHERE token = ?", (token,)).fetchone() is not None
+        or conn.execute("SELECT 1 FROM anonymous_sessions WHERE token = ?", (token,)).fetchone() is not None
+    ):
+        token = token_urlsafe(32)
+    return token
 
 
 def _now_iso() -> str:
@@ -52,10 +63,10 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
     group_id = str(uuid4())
     member_id = str(uuid4())
     invite_code = token_urlsafe(8)
-    session_token = token_urlsafe(32)
     now = _now_iso()
 
     with get_conn() as conn:
+        session_token = _create_session_token(conn)
         founder_color = _reserve_member_color(conn, group_id, payload.chip_color)
         conn.execute(
             """
@@ -97,6 +108,21 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
         ),
         session=SessionSummary(token=session_token),
     )
+
+
+@router.post("/sessions", response_model=SessionSummary)
+def create_session() -> SessionSummary:
+    now = _now_iso()
+    with get_conn() as conn:
+        session_token = _create_session_token(conn)
+        conn.execute(
+            """
+            INSERT INTO anonymous_sessions (token, created_at, active)
+            VALUES (?, ?, 1)
+            """,
+            (session_token, now),
+        )
+    return SessionSummary(token=session_token)
 
 
 @router.patch("/groups/{group_id}")
@@ -163,8 +189,11 @@ def preview_invite(invite_code: str) -> InvitePreviewResponse:
 def join_invite(
     invite_code: str,
     payload: JoinInviteRequest,
-    session=Depends(require_session),
+    x_session_token: str | None = Header(default=None),
 ) -> dict:
+    if not x_session_token:
+        raise HTTPException(status_code=401, detail="missing_session")
+
     with get_conn() as conn:
         target = conn.execute(
             "SELECT id, setup_complete FROM groups WHERE invite_code = ?",
@@ -175,15 +204,48 @@ def join_invite(
         if target["setup_complete"] != 1:
             raise HTTPException(status_code=409, detail="setup_pending")
 
-        member = conn.execute(
-            "SELECT id, group_id, active FROM members WHERE id = ?",
-            (session["member_id"],),
+        session = conn.execute(
+            """
+            SELECT s.token, s.member_id, m.group_id, m.active, m.role
+            FROM sessions s
+            JOIN members m ON m.id = s.member_id
+            WHERE s.token = ? AND s.active = 1
+            """,
+            (x_session_token,),
         ).fetchone()
-        if member is None or member["active"] != 1:
-            raise HTTPException(status_code=401, detail="invalid_session")
+        anonymous_session = None
+        if session is None:
+            anonymous_session = conn.execute(
+                "SELECT token FROM anonymous_sessions WHERE token = ? AND active = 1",
+                (x_session_token,),
+            ).fetchone()
+            if anonymous_session is None:
+                raise HTTPException(status_code=401, detail="invalid_session")
 
-        current_group_id = member["group_id"]
         target_group_id = target["id"]
+
+        if session is None:
+            next_color = _reserve_member_color(conn, target_group_id, payload.chip_color)
+            new_member_id = str(uuid4())
+            now = _now_iso()
+            conn.execute(
+                """
+                INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
+                VALUES (?, ?, ?, ?, NULL, 'member', 'incomplete', 1, ?)
+                """,
+                (new_member_id, target_group_id, payload.display_name.strip(), next_color, now),
+            )
+            conn.execute(
+                """
+                INSERT INTO sessions (token, member_id, created_at, active)
+                VALUES (?, ?, ?, 1)
+                """,
+                (anonymous_session["token"], new_member_id, now),
+            )
+            conn.execute("DELETE FROM anonymous_sessions WHERE token = ?", (anonymous_session["token"],))
+            return {"ok": True, "already_joined": False}
+
+        current_group_id = session["group_id"]
 
         if current_group_id == target_group_id:
             return {"ok": True, "already_joined": True}
