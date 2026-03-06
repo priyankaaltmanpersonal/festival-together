@@ -146,14 +146,11 @@ def post_review(
     comments: list[dict],
     valid_lines: set[tuple[str, int]],
 ) -> int:
-    event_map = {
-        "approve": "APPROVE",
-        "request_changes": "REQUEST_CHANGES",
-        "comment": "COMMENT",
-    }
+    # Always use COMMENT event — GitHub rejects APPROVE/REQUEST_CHANGES when
+    # the token owner is the same user who opened the PR (HTTP 422).
+    # Verdict is communicated via emoji in the review body instead.
+    gh_event = "COMMENT"
     emoji_map = {"approve": "✅", "request_changes": "🔴", "comment": "💬"}
-
-    gh_event = event_map.get(verdict, "COMMENT")
     emoji = emoji_map.get(verdict, "💬")
 
     body = (
