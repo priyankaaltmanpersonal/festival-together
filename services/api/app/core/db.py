@@ -33,6 +33,7 @@ def init_db() -> None:
               id TEXT PRIMARY KEY,
               group_id TEXT NOT NULL,
               display_name TEXT NOT NULL,
+              chip_color TEXT,
               avatar_photo_url TEXT,
               role TEXT NOT NULL,
               setup_status TEXT NOT NULL,
@@ -44,12 +45,37 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_members_active_group_color
+            ON members(group_id, chip_color)
+            WHERE active = 1 AND chip_color IS NOT NULL
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS sessions (
               token TEXT PRIMARY KEY,
               member_id TEXT NOT NULL,
               created_at TEXT NOT NULL,
               active INTEGER NOT NULL DEFAULT 1,
               FOREIGN KEY(member_id) REFERENCES members(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS anonymous_sessions (
+              token TEXT PRIMARY KEY,
+              created_at TEXT NOT NULL,
+              active INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS anonymous_session_issuance (
+              id TEXT PRIMARY KEY,
+              client_ip TEXT NOT NULL,
+              created_at TEXT NOT NULL
             )
             """
         )
@@ -127,6 +153,9 @@ def init_db() -> None:
             )
             """
         )
+        member_cols = [row[1] for row in conn.execute("PRAGMA table_info(members)").fetchall()]
+        if "chip_color" not in member_cols:
+            conn.execute("ALTER TABLE members ADD COLUMN chip_color TEXT")
         conn.commit()
 
 

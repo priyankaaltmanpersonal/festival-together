@@ -1,6 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual }) {
+  const members = individualSnapshot?.members || [];
+
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
@@ -8,20 +10,25 @@ export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual
         <Pressable onPress={onLoadIndividual} style={styles.buttonPrimary}>
           <Text style={styles.buttonText}>Refresh Individual Schedules</Text>
         </Pressable>
+        {!members.length ? <Text style={styles.helper}>No data yet. Run member setup and refresh.</Text> : null}
       </View>
 
-      {(individualSnapshot?.members || []).map((member) => (
+      {members.map((member) => (
         <View key={member.member_id} style={styles.card}>
           <Text style={styles.memberName}>{member.display_name}</Text>
           <Text style={styles.helper}>Setup: {member.setup_status}</Text>
-          {(member.sets || []).slice(0, 12).map((setItem) => (
-            <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
-              <Text style={styles.setTitle}>{setItem.artist_name}</Text>
-              <Text style={styles.helper}>
-                {setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT • {setItem.preference}
-              </Text>
-            </View>
-          ))}
+          {(member.sets || []).length ? (
+            (member.sets || []).slice(0, 12).map((setItem) => (
+              <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
+                <Text style={styles.setTitle}>{setItem.artist_name}</Text>
+                <Text style={styles.helper}>
+                  {setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT • {setItem.preference}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.helper}>No mapped sets yet for this member.</Text>
+          )}
         </View>
       ))}
     </ScrollView>

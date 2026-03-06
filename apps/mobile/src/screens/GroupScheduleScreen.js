@@ -1,250 +1,334 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+const SLOT_MINUTES = 30;
+const SLOT_HEIGHT = 28;
 
 export function GroupScheduleScreen({
   homeSnapshot,
   scheduleSnapshot,
-  mustSeeOnly,
   selectedMemberIds,
-  onToggleMustSee,
+  loading,
   onToggleMember,
-  onResetFilters,
-  onLoadSchedule
+  onResetFilters
 }) {
-  const [showLegend, setShowLegend] = useState(false);
-  const hasActiveFilters = mustSeeOnly || (selectedMemberIds || []).length > 0;
+  const [expandedSet, setExpandedSet] = useState(null);
+  const members = homeSnapshot?.members || [];
+  const hasActiveFilters = (selectedMemberIds || []).length > 0;
+  const sets = scheduleSnapshot?.sets || [];
+  const stages = scheduleSnapshot?.stages || [];
+
+  const timeline = buildTimeline(sets);
+  const stageColumns = stages.map((stage) => ({
+    stage,
+    sets: sets
+      .filter((item) => item.stage_name === stage)
+      .sort((a, b) => timeToMinutes(a.start_time_pt) - timeToMinutes(b.start_time_pt))
+  }));
+  const memberColorById = useMemo(
+    () => Object.fromEntries(members.map((member) => [member.id, member.chip_color])),
+    [members]
+  );
 
   return (
-    <ScrollView contentContainerStyle={styles.wrap}>
-      <View style={styles.card}>
-        <Text style={styles.label}>Filters</Text>
-        <Pressable onPress={onToggleMustSee} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>{mustSeeOnly ? 'Must-Sees Only: ON' : 'Must-Sees Only: OFF'}</Text>
-        </Pressable>
-        <Text style={styles.helper}>People filter (OR)</Text>
-        <View style={styles.rowWrap}>
-          {(homeSnapshot?.members || []).map((member) => (
-            <Pressable
-              key={member.id}
-              onPress={() => onToggleMember(member.id)}
-              style={[styles.pill, (selectedMemberIds || []).includes(member.id) && styles.pillSelected]}
-            >
-              <Text style={[styles.pillText, (selectedMemberIds || []).includes(member.id) && styles.pillTextSelected]}>
-                {member.display_name}
-              </Text>
+    <ScrollView style={styles.wrap} contentContainerStyle={styles.wrapContent}>
+      <View style={styles.filterBar}>
+        <View style={styles.topRow}>
+          {hasActiveFilters ? (
+            <Pressable onPress={onResetFilters} style={styles.resetBtn}>
+              <Text style={styles.resetBtnText}>Clear Filters</Text>
             </Pressable>
-          ))}
+          ) : null}
         </View>
-        {hasActiveFilters ? (
-          <Pressable onPress={onResetFilters} style={styles.resetButton}>
-            <Text style={styles.resetButtonText}>Reset Filters</Text>
-          </Pressable>
-        ) : null}
-        <Pressable onPress={onLoadSchedule} style={styles.buttonPrimary}>
-          <Text style={styles.buttonText}>Refresh Group Schedule</Text>
-        </Pressable>
-        <Pressable onPress={() => setShowLegend((prev) => !prev)} style={styles.infoButton}>
-          <Text style={styles.infoButtonText}>{showLegend ? 'Hide Legend' : 'Show Legend'}</Text>
-        </Pressable>
-        {showLegend ? (
-          <View style={styles.legendBox}>
-            <Text style={styles.helper}>Avatar opacity: full = must-see, faded = flexible.</Text>
-            <Text style={styles.helper}>No avatar = not going or setup incomplete.</Text>
-            <Text style={styles.helper}>Popularity colors: gray low, yellow medium, green high.</Text>
-          </View>
-        ) : null}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
+          {members.map((member) => {
+            const selected = (selectedMemberIds || []).includes(member.id);
+            const memberColor = member.chip_color || '#5c5c5c';
+            return (
+              <Pressable
+                key={member.id}
+                onPress={() => onToggleMember(member.id)}
+                disabled={loading}
+                style={[styles.chip, selected && styles.chipSelected]}
+              >
+                <Text style={[styles.chipText, { color: memberColor }]}>
+                  {member.display_name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Schedule Grid Data</Text>
-        <Text style={styles.helper}>Total sets: {scheduleSnapshot?.sets?.length || 0}</Text>
-        <ScrollView horizontal>
+      {!timeline ? <Text style={styles.helperPad}>No schedule loaded yet.</Text> : null}
+
+      {timeline ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View>
             <View style={styles.gridHeader}>
-              <Text style={[styles.gridCell, styles.gridTime, styles.gridHeaderText]}>Time</Text>
-              {(scheduleSnapshot?.stages || []).map((stage) => (
-                <Text key={stage} style={[styles.gridCell, styles.gridStage, styles.gridHeaderText]}>
-                  {stage}
+              <Text style={[styles.headerCell, styles.timeCol, styles.headerText]}>Time</Text>
+              {stageColumns.map((column) => (
+                <Text key={column.stage} style={[styles.headerCell, styles.stageCol, styles.headerText]}>
+                  {column.stage}
                 </Text>
               ))}
             </View>
-            {(scheduleSnapshot?.time_rows || []).map((row) => (
-              <View key={`${row.day_index}-${row.time_pt}`} style={styles.gridRow}>
-                <Text style={[styles.gridCell, styles.gridTime]}>{row.time_pt}</Text>
-                {(scheduleSnapshot?.stages || []).map((stage) => {
-                  const items = row.cells?.[stage] || [];
+
+            <View style={styles.gridBody}>
+              <View style={[styles.timeCol, { height: timeline.totalHeight }]}>
+                {timeline.labels.map((minute) => {
+                  const y = minuteToY(minute, timeline.startMinute);
                   return (
-                    <View key={`${row.day_index}-${row.time_pt}-${stage}`} style={[styles.gridCell, styles.gridStage]}>
-                      {items.length === 0 ? <Text style={styles.helper}>-</Text> : null}
-                      {items.slice(0, 2).map((setItem) => (
-                        <View key={setItem.id} style={[styles.setCard, tierStyle(setItem.popularity_tier)]}>
-                          <Text style={styles.title}>{setItem.artist_name}</Text>
-                          <Text style={styles.helper}>
-                            {setItem.attendee_count} going • {setItem.must_see_count} must-see
-                          </Text>
-                          <View style={styles.avatarRow}>
-                            {(setItem.attendees || []).slice(0, 6).map((attendee) => (
-                              <View
-                                key={attendee.member_id}
-                                style={[
-                                  styles.avatarBubble,
-                                  attendee.preference === 'must_see' ? styles.avatarMustSee : styles.avatarFlexible
-                                ]}
-                              >
-                                <Text style={styles.avatarText}>{initials(attendee.display_name)}</Text>
-                              </View>
-                            ))}
-                            {setItem.attendee_count > 6 ? (
-                              <Text style={styles.helper}>+{setItem.attendee_count - 6}</Text>
-                            ) : null}
-                          </View>
-                        </View>
-                      ))}
+                    <View key={`time-${minute}`} style={[styles.timeTick, { top: y }]}>
+                      <Text style={styles.timeText}>{formatTime(minute)}</Text>
                     </View>
                   );
                 })}
               </View>
-            ))}
+
+              {stageColumns.map((column) => (
+                <View key={column.stage} style={[styles.stageCol, { height: timeline.totalHeight }]}>
+                  {timeline.labels.map((minute) => (
+                    <View
+                      key={`${column.stage}-${minute}`}
+                      style={[styles.rowLine, { top: minuteToY(minute, timeline.startMinute) }]}
+                    />
+                  ))}
+
+                  {column.sets.map((setItem) => {
+                    const top = minuteToY(timeToMinutes(setItem.start_time_pt), timeline.startMinute);
+                    const duration = Math.max(15, timeToMinutes(setItem.end_time_pt) - timeToMinutes(setItem.start_time_pt));
+                    const height = Math.max(26, (duration / SLOT_MINUTES) * SLOT_HEIGHT - 2);
+                    const compact = height < 56;
+                    const iconLimit = compact ? 2 : 4;
+                    const definite = (setItem.attendees || []).filter((a) => a.preference === 'must_see');
+                    const maybe = (setItem.attendees || []).filter((a) => a.preference !== 'must_see');
+                    const maybeCount = Math.max(0, (setItem.attendee_count || 0) - definite.length);
+
+                    return (
+                      <View key={setItem.id} style={[styles.setCardWrap, { top, height }]}>
+                        <Pressable
+                          onPress={() => setExpandedSet({ ...setItem, definite, maybe })}
+                          style={[styles.setTag, compact && styles.setTagCompact, tierStyle(setItem.popularity_tier)]}
+                        >
+                          <View style={styles.setMain}>
+                            <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
+                            {!compact ? (
+                              <Text style={styles.timeRangeText} numberOfLines={1}>{setItem.start_time_pt}-{setItem.end_time_pt}</Text>
+                            ) : null}
+                            <View style={styles.attendeeRow}>
+                              {definite.slice(0, iconLimit).map((attendee) => (
+                                <View
+                                  key={attendee.member_id}
+                                  style={[
+                                    styles.attendeeBubble,
+                                    { backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || '#1f7a42' }
+                                  ]}
+                                >
+                                  <Text style={styles.attendeeText}>{initials(attendee.display_name)}</Text>
+                                </View>
+                              ))}
+                              {definite.length > iconLimit ? <Text style={styles.countText}>+{definite.length - iconLimit}</Text> : null}
+                            </View>
+                          </View>
+                          <Text style={[styles.summaryText, compact && styles.summaryTextCompact]} numberOfLines={1}>
+                            {definite.length} definitely • {maybeCount} maybe
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
           </View>
         </ScrollView>
-      </View>
+      ) : null}
+
+      <Modal visible={Boolean(expandedSet)} transparent animationType="fade" onRequestClose={() => setExpandedSet(null)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setExpandedSet(null)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            {expandedSet ? (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={styles.modalTitle}>{expandedSet.artist_name}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {expandedSet.stage_name} • {expandedSet.start_time_pt}-{expandedSet.end_time_pt}
+                </Text>
+
+                <Text style={styles.modalSectionTitle}>Definitely ({expandedSet.definite.length})</Text>
+                {(expandedSet.definite || []).length ? (
+                  <View style={styles.modalList}>
+                    {expandedSet.definite.map((attendee) => (
+                      <AttendeeRow
+                        key={`def-${attendee.member_id}`}
+                        attendee={attendee}
+                        chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.modalEmpty}>No one marked definitely yet.</Text>
+                )}
+
+                <Text style={styles.modalSectionTitle}>Maybe ({expandedSet.maybe.length})</Text>
+                {(expandedSet.maybe || []).length ? (
+                  <View style={styles.modalList}>
+                    {expandedSet.maybe.map((attendee) => (
+                      <AttendeeRow
+                        key={`maybe-${attendee.member_id}`}
+                        attendee={attendee}
+                        chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.modalEmpty}>No maybes for this set.</Text>
+                )}
+              </ScrollView>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
 
+function AttendeeRow({ attendee, chipColor }) {
+  return (
+    <View style={styles.modalRow}>
+      <View
+        style={[
+          styles.modalAvatar,
+          { backgroundColor: withAlpha(chipColor || '#1f7a42', 0.2), borderColor: chipColor || '#1f7a42' }
+        ]}
+      >
+        <Text style={[styles.modalAvatarText, { color: chipColor || '#205735' }]}>
+          {initials(attendee.display_name)}
+        </Text>
+      </View>
+      <Text style={styles.modalName}>{attendee.display_name}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrap: { gap: 10, paddingBottom: 22 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e8d8c1',
-    padding: 12,
-    gap: 8
+  wrap: { flex: 1 },
+  wrapContent: { gap: 8, paddingHorizontal: 12, paddingBottom: 16 },
+  filterBar: { gap: 6 },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
   },
-  label: { fontWeight: '700', color: '#303030' },
-  helper: { color: '#666', fontSize: 12 },
-  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: {
-    borderWidth: 1,
-    borderColor: '#cab697',
-    borderRadius: 999,
-    paddingHorizontal: 10,
+  peopleRow: { gap: 6, paddingBottom: 2 },
+  chip: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    alignSelf: 'flex-start'
+  },
+  chipSelected: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#1f3024'
+  },
+  chipText: { fontSize: 13, fontWeight: '800' },
+  resetBtn: {
     paddingVertical: 6,
-    backgroundColor: '#fbf6ee'
+    paddingHorizontal: 2,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
-  pillSelected: { backgroundColor: '#e4f2e7', borderColor: '#6a9e73' },
-  pillText: { color: '#4a4a4a', fontSize: 12 },
-  pillTextSelected: { color: '#235232' },
-  buttonPrimary: {
-    backgroundColor: '#183a27',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10
+  resetBtnText: {
+    color: '#7a4a1c',
+    fontWeight: '800',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    textDecorationColor: '#c78f52'
   },
-  buttonSecondary: {
-    backgroundColor: '#345a46',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10
-  },
-  infoButton: {
-    borderWidth: 1,
-    borderColor: '#a78f71',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#f9f2e6'
-  },
-  infoButtonText: {
-    color: '#4d3b2a',
-    fontWeight: '700'
-  },
-  legendBox: {
-    borderWidth: 1,
-    borderColor: '#dfd0bb',
-    borderRadius: 10,
-    padding: 8,
-    backgroundColor: '#fffaf2',
-    gap: 4
-  },
-  buttonText: { color: '#fff', fontWeight: '700' },
-  resetButton: {
-    borderWidth: 1,
-    borderColor: '#d2a55e',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#fff6e8'
-  },
-  resetButtonText: {
-    color: '#6d4720',
-    fontWeight: '700'
-  },
-  setCard: {
-    borderWidth: 1,
-    borderColor: '#dfd0bb',
-    borderRadius: 10,
-    padding: 8,
-    marginTop: 6,
-    backgroundColor: '#fffcf7'
-  },
-  title: { fontWeight: '700', color: '#2f2f2f', fontSize: 12 },
-  gridHeader: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#d8c8b2'
-  },
-  gridRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderColor: '#eee0cd'
-  },
-  gridCell: {
-    padding: 8,
+  helperPad: { color: '#666', fontSize: 12, paddingHorizontal: 2, paddingTop: 2 },
+  gridHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#d8c8b2' },
+  headerCell: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
     borderRightWidth: 1,
     borderColor: '#eee0cd'
   },
-  gridTime: {
-    width: 72
+  gridBody: { flexDirection: 'row' },
+  timeCol: { width: 70, borderRightWidth: 1, borderColor: '#eee0cd', backgroundColor: '#faf6ef' },
+  stageCol: { width: 130, borderRightWidth: 1, borderColor: '#eee0cd', position: 'relative', backgroundColor: '#fff' },
+  headerText: { fontWeight: '700', color: '#2d2d2d', fontSize: 12 },
+  timeTick: { position: 'absolute', left: 4, marginTop: -8 },
+  timeText: { color: '#504a41', fontWeight: '700', fontSize: 11 },
+  rowLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#f0e4d4' },
+  setCardWrap: {
+    position: 'absolute',
+    left: 3,
+    right: 3,
+    zIndex: 2
   },
-  gridStage: {
-    width: 170
+  setTag: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    backgroundColor: '#fffcf7',
+    justifyContent: 'space-between',
+    overflow: 'hidden'
   },
-  gridHeaderText: {
-    fontWeight: '700',
-    color: '#2d2d2d'
+  setTagCompact: {
+    paddingVertical: 2
   },
-  avatarRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  setMain: {
+    gap: 1
+  },
+  artistText: { fontWeight: '800', color: '#2f2f2f', fontSize: 10, lineHeight: 11 },
+  timeRangeText: { color: '#555', fontSize: 8, marginTop: 1, lineHeight: 9 },
+  attendeeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  attendeeBubble: {
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+    backgroundColor: '#1f7a42',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 6
+    justifyContent: 'center'
   },
-  avatarBubble: {
+  attendeeText: { color: '#fff', fontSize: 8, fontWeight: '800' },
+  summaryText: { color: '#444', fontSize: 8, lineHeight: 9, marginTop: 2 },
+  summaryTextCompact: { fontSize: 7, lineHeight: 8, marginTop: 1 },
+  countText: { color: '#555', fontSize: 8 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    maxHeight: '80%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#d8c8b2',
+    backgroundColor: '#fffdf8',
+    padding: 14
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#2f2f2f' },
+  modalSubtitle: { marginTop: 2, marginBottom: 10, color: '#66584a', fontSize: 12 },
+  modalSectionTitle: { marginTop: 4, marginBottom: 6, color: '#3d3d3d', fontWeight: '700', fontSize: 13 },
+  modalList: { gap: 6, marginBottom: 6 },
+  modalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modalAvatar: {
     width: 24,
     height: 24,
     borderRadius: 999,
+    borderWidth: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1
+    justifyContent: 'center'
   },
-  avatarMustSee: {
-    backgroundColor: '#1f7a42',
-    borderColor: '#185c31',
-    opacity: 1
-  },
-  avatarFlexible: {
-    backgroundColor: '#2f6f4a',
-    borderColor: '#1f5135',
-    opacity: 0.45
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700'
-  }
+  modalAvatarText: { fontSize: 10, fontWeight: '800' },
+  modalName: { color: '#2d2d2d', fontSize: 13, fontWeight: '600' },
+  modalEmpty: { color: '#7a6d5d', fontSize: 12, marginBottom: 6 }
 });
 
 function tierStyle(tier) {
@@ -264,6 +348,65 @@ function initials(name) {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/);
   const first = parts[0]?.[0] || '';
-  const second = parts[1]?.[0] || '';
+  const second = parts[1]?.[0] || parts[0]?.[1] || '';
   return `${first}${second}`.toUpperCase();
+}
+
+function withAlpha(hexColor, alpha) {
+  const raw = (hexColor || '').replace('#', '');
+  if (!/^[0-9A-Fa-f]{6}$/.test(raw)) {
+    return `rgba(31, 122, 66, ${alpha})`;
+  }
+  const intValue = Number.parseInt(raw, 16);
+  const r = (intValue >> 16) & 255;
+  const g = (intValue >> 8) & 255;
+  const b = intValue & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function timeToMinutes(timePt) {
+  const [h, m] = (timePt || '00:00').split(':').map((n) => Number.parseInt(n, 10));
+  const adjustedHour = h < 6 ? h + 24 : h;
+  return (adjustedHour * 60) + m;
+}
+
+function formatTime(totalMinutes) {
+  const h24 = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  const normalizedHour = h24 % 24;
+  const suffix = normalizedHour >= 12 ? 'PM' : 'AM';
+  const h12 = ((normalizedHour + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+function minuteToY(minute, startMinute) {
+  return ((minute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT;
+}
+
+function buildTimeline(sets) {
+  if (!sets.length) return null;
+
+  let minStart = Number.POSITIVE_INFINITY;
+  let maxEnd = Number.NEGATIVE_INFINITY;
+  for (const setItem of sets) {
+    const start = timeToMinutes(setItem.start_time_pt);
+    const end = timeToMinutes(setItem.end_time_pt);
+    minStart = Math.min(minStart, start);
+    maxEnd = Math.max(maxEnd, end);
+  }
+
+  const startMinute = Math.floor(minStart / SLOT_MINUTES) * SLOT_MINUTES;
+  const endMinute = Math.ceil(maxEnd / SLOT_MINUTES) * SLOT_MINUTES;
+
+  const labels = [];
+  for (let minute = startMinute; minute <= endMinute; minute += SLOT_MINUTES) {
+    labels.push(minute);
+  }
+
+  return {
+    startMinute,
+    endMinute,
+    labels,
+    totalHeight: ((endMinute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT
+  };
 }
