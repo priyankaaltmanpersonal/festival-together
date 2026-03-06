@@ -162,16 +162,39 @@ def post_review(
         f"{SHA_MARKER_PREFIX} {head_sha} -->"
     )
 
-    # Filter to comments with valid line numbers in the diff
-    valid_comments = []
+    # Step 1: post the review body without inline comments (always succeeds)
+    review_payload = {
+        "commit_id": head_sha,
+        "body": body,
+        "event": gh_event,
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(review_payload, f)
+        review_payload_path = f.name
+
+    result = run(
+        f"gh api repos/{repo}/pulls/{pr_number}/reviews --method POST --input {review_payload_path}"
+    )
+    review = json.loads(result) if result else {}
+    review_id = review.get("id")
+    if not review_id:
+        print("Failed to post review body — aborting.", file=sys.stderr)
+        sys.exit(1)
+    print(f"Posted review {review_id}: {gh_event}")
+
+    # Step 2: post each inline comment individually so a bad line number
+    # doesn't block the others.
+    posted = 0
     for c in comments:
         path = c.get("path", "")
         line = c.get("line")
         comment_body = c.get("body", "")
         if not (path and line and comment_body):
             continue
+
+        # Snap to nearest valid diff line (±2 tolerance for model off-by-one)
         if (path, line) not in valid_lines:
-            # Try the line ± 1 to handle minor off-by-one from the model
             found = None
             for delta in (-1, 1, -2, 2):
                 if (path, line + delta) in valid_lines:
@@ -182,25 +205,28 @@ def post_review(
             else:
                 print(f"Skipping comment at {path}:{line} (not in diff)", file=sys.stderr)
                 continue
-        valid_comments.append({"path": path, "line": line, "side": "RIGHT", "body": comment_body})
 
-    payload = {
-        "commit_id": head_sha,
-        "body": body,
-        "event": gh_event,
-        "comments": valid_comments,
-    }
+        comment_payload = {
+            "body": comment_body,
+            "commit_id": head_sha,
+            "path": path,
+            "line": line,
+            "side": "RIGHT",
+        }
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        json.dump(payload, f)
-        payload_path = f.name
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(comment_payload, f)
+            comment_payload_path = f.name
 
-    result = run(
-        f"gh api repos/{repo}/pulls/{pr_number}/reviews --method POST --input {payload_path}"
-    )
-    review = json.loads(result) if result else {}
-    review_id = review.get("id", "unknown")
-    print(f"Posted review {review_id}: {gh_event} with {len(valid_comments)} inline comment(s)")
+        comment_result = run(
+            f"gh api repos/{repo}/pulls/{pr_number}/comments --method POST --input {comment_payload_path}"
+        )
+        if comment_result:
+            posted += 1
+        else:
+            print(f"Failed to post comment at {path}:{line}", file=sys.stderr)
+
+    print(f"Posted {posted} inline comment(s)")
     return review_id
 
 
