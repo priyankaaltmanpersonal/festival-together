@@ -25,7 +25,9 @@ This remains a development harness, but it now reflects the target app sections 
 1. `npm install`
 2. `npm run start`
 3. Ensure API is running at `http://127.0.0.1:8000` (or update API URL in the app)
+4. Use a current Expo Go build that supports Expo SDK 54 when testing on a physical device
 
 ## API URL Notes
 - iOS simulator usually works with `127.0.0.1`
 - Android emulator commonly needs `10.0.2.2`
+- Physical devices cannot use `127.0.0.1`; point the app at your machine's LAN IP instead
