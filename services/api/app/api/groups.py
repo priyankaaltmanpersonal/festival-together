@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi import Header
+from fastapi import Request
 
 from app.core.auth import require_session
 from app.core.colors import CHIP_COLOR_PALETTE, normalize_chip_color, validate_chip_color
@@ -22,6 +23,9 @@ from app.schemas.groups import (
 
 router = APIRouter(tags=["groups"])
 
+ANONYMOUS_SESSION_LIMIT = 10
+ANONYMOUS_SESSION_WINDOW = timedelta(minutes=1)
+
 
 def _create_session_token(conn) -> str:
     token = token_urlsafe(32)
@@ -35,6 +39,36 @@ def _create_session_token(conn) -> str:
 
 def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
+
+
+def _client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for.strip():
+        return forwarded_for.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def _enforce_anonymous_session_rate_limit(conn, client_ip: str, now: datetime) -> None:
+    window_start = now - ANONYMOUS_SESSION_WINDOW
+    conn.execute(
+        "DELETE FROM anonymous_session_issuance WHERE created_at < ?",
+        (window_start.isoformat(),),
+    )
+    recent_count = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM anonymous_session_issuance WHERE client_ip = ? AND created_at >= ?",
+        (client_ip, window_start.isoformat()),
+    ).fetchone()["cnt"]
+    if recent_count >= ANONYMOUS_SESSION_LIMIT:
+        raise HTTPException(status_code=429, detail="session_rate_limited")
+    conn.execute(
+        """
+        INSERT INTO anonymous_session_issuance (id, client_ip, created_at)
+        VALUES (?, ?, ?)
+        """,
+        (str(uuid4()), client_ip, now.isoformat()),
+    )
 
 
 def _reserve_member_color(conn, group_id: str, requested_color: str | None) -> str:
@@ -111,16 +145,18 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
 
 
 @router.post("/sessions", response_model=SessionSummary)
-def create_session() -> SessionSummary:
-    now = _now_iso()
+def create_session(request: Request) -> SessionSummary:
+    now_dt = datetime.now(tz=timezone.utc)
+    client_ip = _client_ip(request)
     with get_conn() as conn:
+        _enforce_anonymous_session_rate_limit(conn, client_ip, now_dt)
         session_token = _create_session_token(conn)
         conn.execute(
             """
             INSERT INTO anonymous_sessions (token, created_at, active)
             VALUES (?, ?, 1)
             """,
-            (session_token, now),
+            (session_token, now_dt.isoformat()),
         )
     return SessionSummary(token=session_token)
 
@@ -225,6 +261,7 @@ def join_invite(
         target_group_id = target["id"]
 
         if session is None:
+            # Anonymous sessions are brand-new joiners, so there is no prior group to leave.
             next_color = _reserve_member_color(conn, target_group_id, payload.chip_color)
             new_member_id = str(uuid4())
             now = _now_iso()

@@ -116,6 +116,21 @@ def test_join_with_anonymous_session_does_not_create_temp_group() -> None:
         assert group_count_after == group_count_before
 
 
+def test_anonymous_session_rate_limited_per_ip() -> None:
+    headers = {"x-forwarded-for": "203.0.113.7"}
+
+    for _ in range(10):
+        response = client.post("/v1/sessions", headers=headers)
+        assert response.status_code == 200
+
+    throttled = client.post("/v1/sessions", headers=headers)
+    assert throttled.status_code == 429
+    assert throttled.json()["detail"] == "session_rate_limited"
+
+    other_ip = client.post("/v1/sessions", headers={"x-forwarded-for": "203.0.113.8"})
+    assert other_ip.status_code == 200
+
+
 def test_founder_cannot_leave_but_can_delete_group() -> None:
     founder = _create_group("Delete Me", "Founder")
     group_id = founder["group"]["id"]
