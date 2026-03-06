@@ -1,7 +1,7 @@
 COMPOSE ?= docker-compose
 COMPOSE_FILE ?= infra/docker-compose.yml
 
-.PHONY: help ensure-env build tests up down logs ps restart clean api test-local mobile
+.PHONY: help ensure-env build tests up down logs ps restart clean api test-local mobile mobile-install
 
 help:
 	@echo "Festival Together Make targets"
@@ -17,6 +17,7 @@ help:
 	@echo "  make clean       Stop stack and remove volumes"
 	@echo "  make api         Run API locally (no Docker)"
 	@echo "  make test-local  Run API tests from project venv"
+	@echo "  make mobile-install Install/update mobile app dependencies"
 	@echo "  make mobile      Start Expo app"
 
 build:
@@ -51,7 +52,10 @@ api:
 test-local:
 	cd services/api && ../../.venv/bin/pytest -q
 
-mobile:
+mobile-install:
+	cd apps/mobile && npm install
+
+mobile: mobile-install
 	cd apps/mobile && npm run start
 
 ensure-env:
