@@ -92,6 +92,7 @@ def test_join_with_anonymous_session_does_not_create_temp_group() -> None:
     assert anon_session_resp.status_code == 200
     anon_session = anon_session_resp.json()["token"]
 
+    # Joining from an anonymous session should not create any extra placeholder group rows.
     join_resp = client.post(
         f"/v1/invites/{invite_code}/join",
         headers={"x-session-token": anon_session},
