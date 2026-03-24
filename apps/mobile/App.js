@@ -7,6 +7,7 @@ import { EditMyScheduleScreen } from './src/screens/EditMyScheduleScreen';
 import { FounderToolsScreen } from './src/screens/FounderToolsScreen';
 import { GroupScheduleScreen } from './src/screens/GroupScheduleScreen';
 import { IndividualSchedulesScreen } from './src/screens/IndividualSchedulesScreen';
+import { PrivacyScreen } from './src/screens/PrivacyScreen';
 import { SetupScreen } from './src/screens/SetupScreen';
 import { clearOfflineState, loadAppState, loadMutationQueue, saveAppState, saveMutationQueue } from './src/state/offlineStore';
 import { pickImages, uploadImages } from './src/services/uploadImages';
@@ -69,6 +70,7 @@ export default function App() {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadFailedCount, setUploadFailedCount] = useState(0);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
@@ -115,6 +117,7 @@ export default function App() {
         setScheduleSnapshot(storedState.scheduleSnapshot || null);
         setIndividualSnapshot(storedState.individualSnapshot || null);
         setSelectedMemberIds(storedState.selectedMemberIds || []);
+        setPrivacyAccepted(Boolean(storedState.privacyAccepted));
         setLog(storedState.log || []);
         setLastSyncAt(storedState.lastSyncAt || '');
       })
@@ -163,6 +166,7 @@ export default function App() {
       scheduleSnapshot,
       individualSnapshot,
       selectedMemberIds,
+      privacyAccepted,
       log,
       lastSyncAt
     }).catch(() => {});
@@ -186,6 +190,7 @@ export default function App() {
     scheduleSnapshot,
     individualSnapshot,
     selectedMemberIds,
+    privacyAccepted,
     log,
     lastSyncAt
   ]);
@@ -1025,7 +1030,11 @@ export default function App() {
         <Text style={styles.statusText}>{statusText}</Text>
       </View>
 
-      {activeView === 'onboarding' ? (
+      {activeView === 'onboarding' && !privacyAccepted ? (
+        <PrivacyScreen onAccept={() => setPrivacyAccepted(true)} />
+      ) : null}
+
+      {activeView === 'onboarding' && privacyAccepted ? (
         <SetupScreen
           userRole={userRole}
           onboardingStep={onboardingStep}
