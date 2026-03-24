@@ -15,14 +15,21 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.festivaltogether.app",
-      "buildNumber": "1.0.0"
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Festival Together needs access to your photo library so you can upload screenshots of the festival schedule."
+      }
     },
     "android": {
       "package": "com.festivaltogether.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#fff4e6"
-      }
+      },
+      "permissions": [
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
+      ]
     },
     "extra": {
       "appEnv": "production"
