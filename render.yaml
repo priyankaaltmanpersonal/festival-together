@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: festival-together-api
+    runtime: python
+    rootDir: services/api
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    healthCheckTimeout: 15
+    plan: starter
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      # Set these manually in the Render dashboard → Environment:
+      #   DATABASE_URL   = postgresql://... (from Neon free tier)
+      #   GOOGLE_VISION_API_KEY = AIza... (from Google Cloud Console)
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_VISION_API_KEY
+        sync: false

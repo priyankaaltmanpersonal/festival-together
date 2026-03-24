@@ -14,6 +14,17 @@ from app.core.db import init_db
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if settings.app_env == "production":
+        if not settings.database_url:
+            raise RuntimeError(
+                "DATABASE_URL must be set in production. "
+                "Add your Neon Postgres connection string in the Render environment settings."
+            )
+        if not settings.google_vision_api_key:
+            raise RuntimeError(
+                "GOOGLE_VISION_API_KEY must be set in production. "
+                "Add your Google Cloud Vision API key in the Render environment settings."
+            )
     init_db()
     yield
 
