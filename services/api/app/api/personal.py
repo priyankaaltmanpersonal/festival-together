@@ -1,11 +1,16 @@
 from datetime import datetime, timezone
+from typing import List
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.core.auth import require_session
 from app.core.db import get_conn
+from app.core.image_utils import ImageValidationError, validate_and_compress
 from app.core.parser import ScreenshotInput, build_demo_personal_screenshots, parse_personal_screenshots
+from app.core.vision_client import extract_text_from_image
+
+MAX_UPLOAD_IMAGES = 30
 from app.schemas.personal import (
     CompleteSetupRequest,
     MemberSetUpdateRequest,
@@ -210,3 +215,97 @@ def complete_setup(payload: CompleteSetupRequest, session=Depends(require_sessio
         )
 
     return {"ok": True}
+
+
+@router.post("/members/me/personal/upload")
+def upload_personal_images(
+    images: List[UploadFile] = File(...),
+    session=Depends(require_session),
+) -> dict:
+    """Accept personal schedule screenshot uploads, run OCR, map to canonical sets.
+
+    Accepts up to 30 JPEG/PNG images as multipart/form-data.
+    Each image is validated, compressed, sent to Google Cloud Vision,
+    and the extracted text is mapped through the existing personal parser.
+    """
+    if len(images) > MAX_UPLOAD_IMAGES:
+        raise HTTPException(status_code=400, detail="too_many_images")
+
+    now = _now_iso()
+    parse_job_id = str(uuid4())
+    failed_count = 0
+
+    with get_conn() as conn:
+        member = conn.execute(
+            "SELECT id, group_id, active FROM members WHERE id = ?",
+            (session["member_id"],),
+        ).fetchone()
+        if member is None or member["active"] != 1:
+            raise HTTPException(status_code=401, detail="invalid_session")
+
+        canonical_rows = conn.execute(
+            """
+            SELECT id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status
+            FROM canonical_sets
+            WHERE group_id = ? AND status = 'resolved'
+            ORDER BY day_index, start_time_pt
+            """,
+            (member["group_id"],),
+        ).fetchall()
+        if len(canonical_rows) == 0:
+            raise HTTPException(status_code=409, detail="canonical_not_ready")
+
+        screenshots: list[ScreenshotInput] = []
+        for idx, upload in enumerate(images):
+            raw = upload.file.read()
+            try:
+                compressed = validate_and_compress(raw)
+            except ImageValidationError:
+                failed_count += 1
+                continue
+            text = extract_text_from_image(compressed)
+            if text is None:
+                failed_count += 1
+                continue
+            screenshots.append(
+                ScreenshotInput(
+                    source_id=upload.filename or f"personal-upload-{idx + 1}",
+                    raw_text=text,
+                )
+            )
+
+        if not screenshots:
+            raise HTTPException(status_code=400, detail="no_parsed_sets")
+
+        mapped_rows = parse_personal_screenshots(screenshots, canonical_rows)
+        if len(mapped_rows) == 0:
+            raise HTTPException(status_code=400, detail="no_parsed_sets")
+
+        conn.execute("DELETE FROM member_parse_jobs WHERE member_id = ?", (session["member_id"],))
+        conn.execute("DELETE FROM member_set_preferences WHERE member_id = ?", (session["member_id"],))
+
+        for row in mapped_rows:
+            conn.execute(
+                """
+                INSERT INTO member_set_preferences
+                (id, member_id, canonical_set_id, preference, attendance, source_confidence, created_at, updated_at)
+                VALUES (?, ?, ?, 'flexible', 'going', ?, ?, ?)
+                """,
+                (str(uuid4()), session["member_id"], row.canonical_set_id, row.source_confidence, now, now),
+            )
+
+        conn.execute(
+            """
+            INSERT INTO member_parse_jobs (id, member_id, status, screenshot_count, parsed_count, failed_count, created_at, completed_at)
+            VALUES (?, ?, 'completed', ?, ?, ?, ?, ?)
+            """,
+            (parse_job_id, session["member_id"], len(screenshots) + failed_count, len(mapped_rows), failed_count, now, now),
+        )
+        conn.execute("UPDATE members SET setup_status = 'incomplete' WHERE id = ?", (session["member_id"],))
+
+    return {
+        "ok": True,
+        "parse_job_id": parse_job_id,
+        "parsed_count": len(mapped_rows),
+        "failed_count": failed_count,
+    }

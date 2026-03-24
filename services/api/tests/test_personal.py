@@ -1,10 +1,13 @@
+import io
 import os
 import tempfile
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.core.config import settings
-from app.core.db import init_db
+from app.core.db import get_conn, init_db
 from app.main import app
 
 client = TestClient(app)
@@ -155,3 +158,60 @@ def test_setup_complete_requires_at_least_one_set() -> None:
     )
     assert done_resp.status_code == 400
     assert done_resp.json()["detail"] == "at_least_one_set_required"
+
+
+# ── Upload endpoint tests ────────────────────────────────────────────────────
+
+
+def _make_jpeg_bytes() -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (100, 100)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+def _get_canonical_ocr_text(group_id: str) -> str:
+    """Build OCR text that matches the first 2 canonical sets for this group."""
+    from app.core.parser import _display_time
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT artist_name, stage_name, start_time_pt, end_time_pt, day_index FROM canonical_sets WHERE group_id = ? LIMIT 2",
+            (group_id,),
+        ).fetchall()
+    lines = [f"DAY {rows[0]['day_index']}"]
+    for row in rows:
+        lines.append(
+            f"{row['artist_name']} | {row['stage_name']} | "
+            f"{_display_time(row['start_time_pt'])} - {_display_time(row['end_time_pt'])}"
+        )
+    return "\n".join(lines)
+
+
+def test_personal_upload_with_vision_mock() -> None:
+    founder = _create_group("Upload Personal Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_token = founder["session"]["token"]
+    invite_code = founder["group"]["invite_code"]
+
+    _complete_founder_setup(group_id, founder_token)
+    vision_text = _get_canonical_ocr_text(group_id)
+
+    # Join as new member via anonymous session
+    anon_resp = client.post("/v1/sessions")
+    anon_token = anon_resp.json()["token"]
+    client.post(
+        f"/v1/invites/{invite_code}/join",
+        headers={"x-session-token": anon_token},
+        json={"display_name": "Tester", "chip_color": "#8A5CE6"},
+    )
+    member_token = anon_token  # promoted on join
+
+    with patch("app.api.personal.extract_text_from_image", return_value=vision_text):
+        response = client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": member_token},
+            files=[("images", ("mine.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["parsed_count"] >= 1
+    assert data["failed_count"] == 0
