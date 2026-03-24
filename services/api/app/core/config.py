@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     api_prefix: str = "/v1"
     sqlite_path: str = "./coachella.db"
+    database_url: str = ""
+    google_vision_api_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
