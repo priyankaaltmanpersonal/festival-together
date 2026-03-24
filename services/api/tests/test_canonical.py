@@ -1,7 +1,10 @@
+import io
 import os
 import tempfile
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.core.config import settings
 from app.core.db import get_conn, init_db
@@ -97,3 +100,116 @@ def test_canonical_import_rejects_non_parseable_payload() -> None:
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "no_parsed_sets"
+
+
+# ── Upload endpoint tests ────────────────────────────────────────────────────
+
+
+def _make_jpeg_bytes() -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (100, 100), color=(50, 100, 150)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
+_TWO_SETS_OCR_TEXT = (
+    "DAY 1\n"
+    "Aurora Skyline | Main Stage | 12:00 PM - 12:45 PM\n"
+    "Neon Valley | Sahara | 1:10 PM - 2:00 PM"
+)
+
+
+def test_canonical_upload_with_vision_mock() -> None:
+    founder = _create_group("Upload Crew", "Founder")
+    group_id = founder["group"]["id"]
+    session_token = founder["session"]["token"]
+
+    with patch("app.api.canonical.extract_text_from_image", return_value=_TWO_SETS_OCR_TEXT):
+        response = client.post(
+            f"/v1/groups/{group_id}/canonical/upload",
+            headers={"x-session-token": session_token},
+            files=[("images", ("shot1.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["parsed_count"] >= 2
+    assert data["failed_count"] == 0
+
+
+def test_canonical_upload_rejects_too_many_images() -> None:
+    founder = _create_group("Upload Crew Limit", "Founder")
+    group_id = founder["group"]["id"]
+    session_token = founder["session"]["token"]
+
+    files = [("images", (f"shot{i}.jpg", _make_jpeg_bytes(), "image/jpeg")) for i in range(31)]
+    response = client.post(
+        f"/v1/groups/{group_id}/canonical/upload",
+        headers={"x-session-token": session_token},
+        files=files,
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "too_many_images"
+
+
+def test_canonical_upload_counts_failed_images() -> None:
+    founder = _create_group("Upload Crew Fail", "Founder")
+    group_id = founder["group"]["id"]
+    session_token = founder["session"]["token"]
+
+    call_count = {"n": 0}
+
+    def _mock_vision(_image_bytes):
+        call_count["n"] += 1
+        return _TWO_SETS_OCR_TEXT if call_count["n"] == 1 else None
+
+    with patch("app.api.canonical.extract_text_from_image", side_effect=_mock_vision):
+        response = client.post(
+            f"/v1/groups/{group_id}/canonical/upload",
+            headers={"x-session-token": session_token},
+            files=[
+                ("images", ("good.jpg", _make_jpeg_bytes(), "image/jpeg")),
+                ("images", ("bad.jpg", _make_jpeg_bytes(), "image/jpeg")),
+            ],
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["failed_count"] == 1
+    assert data["parsed_count"] >= 2
+
+
+def test_canonical_upload_rejects_non_founder() -> None:
+    founder = _create_group("Upload Crew Auth", "Founder")
+    group_id = founder["group"]["id"]
+    founder_token = founder["session"]["token"]
+
+    # Complete founder setup so a member can join
+    client.post(
+        f"/v1/groups/{group_id}/canonical/import",
+        headers={"x-session-token": founder_token},
+        json={"screenshot_count": 1},
+    )
+    client.post(
+        f"/v1/groups/{group_id}/canonical/confirm",
+        headers={"x-session-token": founder_token},
+    )
+    invite_code = founder["group"]["invite_code"]
+
+    # Get an anonymous session token then join — this becomes the member's token
+    anon_resp = client.post("/v1/sessions")
+    assert anon_resp.status_code == 200
+    anon_token = anon_resp.json()["token"]
+    join_resp = client.post(
+        f"/v1/invites/{invite_code}/join",
+        headers={"x-session-token": anon_token},
+        json={"display_name": "Member", "chip_color": "#20A36B"},
+    )
+    assert join_resp.status_code == 200
+    member_token = anon_token  # anonymous token is promoted to member session on join
+
+    with patch("app.api.canonical.extract_text_from_image", return_value=_TWO_SETS_OCR_TEXT):
+        response = client.post(
+            f"/v1/groups/{group_id}/canonical/upload",
+            headers={"x-session-token": member_token},
+            files=[("images", ("shot1.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+        )
+    assert response.status_code == 403
