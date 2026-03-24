@@ -18,9 +18,15 @@ export function SetupScreen({
   loading,
   error,
   log,
+  uploadProgress,
+  failedCount,
   onBeginProfile,
   onCompleteFounderSetup,
+  onChooseFounderScreenshots,
   onImportPersonal,
+  onChooseMemberScreenshots,
+  onRetryUpload,
+  onSkipFailed,
   onSetPreference,
   onContinueFromReview,
   onFinishOnboarding,
@@ -93,26 +99,54 @@ export function SetupScreen({
 
       {onboardingStep === 'founder_setup' ? (
         <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Founder Setup</Text>
+          <Text style={styles.stepTitle}>Upload Festival Schedule</Text>
           <Text style={styles.helper}>
-            Current mobile flow loads demo parsed schedule data. Screenshot picking and OCR are not wired in yet.
+            Take screenshots of the official Coachella schedule (from the app or website) and select them here.
+            You can select up to 30 screenshots.
           </Text>
-          <ActionButton label="Load Demo Schedule" onPress={onCompleteFounderSetup} primary disabled={loading} />
+          {uploadProgress ? <Text style={styles.helper}>{uploadProgress}</Text> : null}
+          <ActionButton
+            label="Choose Screenshots from Library"
+            onPress={onChooseFounderScreenshots}
+            primary
+            disabled={loading}
+          />
+          <ActionButton label="Use Demo Schedule (Simulator)" onPress={onCompleteFounderSetup} disabled={loading} />
           {inviteCode ? <Text style={styles.helper}>Invite code: {inviteCode}</Text> : null}
         </View>
       ) : null}
 
       {onboardingStep === 'choose_library' ? (
         <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Choose from Library</Text>
-          <Text style={styles.helper}>Select your schedule screenshots from photo library to parse.</Text>
-          <ActionButton label="Choose from Library" onPress={onImportPersonal} primary disabled={loading} />
+          <Text style={styles.stepTitle}>Upload Your Schedule</Text>
+          <Text style={styles.helper}>
+            Select screenshots of your personal Coachella schedule. Select up to 30 images.
+          </Text>
+          {uploadProgress ? <Text style={styles.helper}>{uploadProgress}</Text> : null}
+          <ActionButton
+            label="Choose Screenshots from Library"
+            onPress={onChooseMemberScreenshots}
+            primary
+            disabled={loading}
+          />
+          <ActionButton label="Use Demo Data (Simulator)" onPress={onImportPersonal} disabled={loading} />
         </View>
       ) : null}
 
       {onboardingStep === 'review' ? (
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Review and Confirm</Text>
+          {failedCount > 0 ? (
+            <View style={styles.warningBox}>
+              <Text style={styles.warningText}>
+                {failedCount} screenshot{failedCount > 1 ? 's' : ''} could not be read.
+              </Text>
+              <View style={styles.retryRow}>
+                <ActionButton label="Upload More" onPress={onRetryUpload} disabled={loading} />
+                <ActionButton label="Skip & Continue" onPress={onSkipFailed} disabled={loading} />
+              </View>
+            </View>
+          ) : null}
           {reviewCount ? (
             <View style={{ gap: 8 }}>
               {(personalSets || []).slice(0, 8).map((setItem) => (
@@ -133,12 +167,13 @@ export function SetupScreen({
                   </View>
                 </View>
               ))}
+              {reviewCount > 8 ? <Text style={styles.helper}>+{reviewCount - 8} more sets</Text> : null}
             </View>
           ) : (
             <Text style={styles.helper}>No parsed sets yet.</Text>
           )}
           <ActionButton
-            label="Looks Good, Continue"
+            label={reviewCount ? `Looks Good, Continue (${reviewCount} sets)` : 'Looks Good, Continue'}
             onPress={onContinueFromReview}
             primary
             disabled={loading || !reviewCount}
@@ -314,5 +349,20 @@ const styles = StyleSheet.create({
     opacity: 0.25
   },
   error: { color: '#b52424', fontWeight: '600' },
-  logLine: { color: '#444', fontSize: 11 }
+  logLine: { color: '#444', fontSize: 11 },
+  warningBox: {
+    backgroundColor: '#FFF3CD',
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#7B5E00',
+    fontWeight: '600',
+  },
+  retryRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
 });
