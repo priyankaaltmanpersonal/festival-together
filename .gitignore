@@ -24,3 +24,6 @@ apps/mobile/dist-export/
 # Local DB
 *.sqlite
 *.db
+
+# Google Play service account key (never commit)
+google-play-key.json

@@ -890,6 +890,47 @@ export default function App() {
     setLog(['Reset: onboarding restarted']);
   };
 
+  // Shared core: pick images, upload to `endpoint`, fetch personal review, update state.
+  // `advanceStep` is called only when the upload produces at least one parsed set.
+  const pickAndUploadPersonal = async (endpoint, advanceStep) => {
+    if (!memberSession) throw new Error('Start onboarding first');
+    if (!isOnline) throw new Error('Upload requires a connection');
+
+    setUploadProgress('');
+    setUploadFailedCount(0);
+
+    const uris = await pickImages();
+    if (!uris) return;
+
+    const result = await uploadImages(
+      apiUrl,
+      endpoint,
+      sessionRef.current,
+      uris,
+      (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
+    );
+
+    setUploadProgress('');
+    setUploadFailedCount(result.failed_count || 0);
+
+    if (!result.parsed_count && result.failed_count > 0) {
+      // All images failed OCR — stay on current step so the warning is visible
+      // and the user can choose to retry or skip.
+      throw new Error(`None of the ${result.failed_count} screenshot(s) could be read. Please try clearer images.`);
+    }
+
+    const review = await apiRequest({
+      baseUrl: apiUrl,
+      path: '/v1/members/me/personal/review',
+      method: 'GET',
+      sessionToken: sessionRef.current
+    });
+
+    setPersonalSets(review.sets || []);
+    setLastSyncAt(new Date().toISOString());
+    if (advanceStep) advanceStep();
+  };
+
   const chooseFounderScreenshots = () =>
     run('upload group schedule', async () => {
       if (!founderSession || !groupId) throw new Error('Start founder onboarding first');
@@ -901,9 +942,11 @@ export default function App() {
       const uris = await pickImages();
       if (!uris) return;
 
+      // Use ref to avoid stale closure on groupId/founderSession
+      const currentGroupId = groupIdRef.current;
       const result = await uploadImages(
         apiUrl,
-        `/v1/groups/${groupId}/canonical/upload`,
+        `/v1/groups/${currentGroupId}/canonical/upload`,
         founderSession,
         uris,
         (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
@@ -920,7 +963,7 @@ export default function App() {
 
       await apiRequest({
         baseUrl: apiUrl,
-        path: `/v1/groups/${groupId}/canonical/confirm`,
+        path: `/v1/groups/${currentGroupId}/canonical/confirm`,
         method: 'POST',
         sessionToken: founderSession
       });
@@ -930,71 +973,14 @@ export default function App() {
     });
 
   const chooseMemberScreenshots = () =>
-    run('upload my schedule', async () => {
-      if (!memberSession) throw new Error('Start onboarding first');
-      if (!isOnline) throw new Error('Upload requires a connection');
-
-      setUploadProgress('');
-      setUploadFailedCount(0);
-
-      const uris = await pickImages();
-      if (!uris) return;
-
-      const result = await uploadImages(
-        apiUrl,
-        '/v1/members/me/personal/upload',
-        memberSession,
-        uris,
-        (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
-      );
-
-      setUploadProgress('');
-      setUploadFailedCount(result.failed_count || 0);
-
-      const review = await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/members/me/personal/review',
-        method: 'GET',
-        sessionToken: memberSession
-      });
-
-      setPersonalSets(review.sets || []);
-      setLastSyncAt(new Date().toISOString());
-      setOnboardingStep('review');
-    });
+    run('upload my schedule', () =>
+      pickAndUploadPersonal('/v1/members/me/personal/upload', () => setOnboardingStep('review'))
+    );
 
   const retryUpload = () =>
-    run('upload more screenshots', async () => {
-      if (!memberSession) throw new Error('Start onboarding first');
-      if (!isOnline) throw new Error('Upload requires a connection');
-
-      setUploadProgress('');
-      setUploadFailedCount(0);
-
-      const uris = await pickImages();
-      if (!uris) return;
-
-      const result = await uploadImages(
-        apiUrl,
-        '/v1/members/me/personal/upload',
-        memberSession,
-        uris,
-        (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
-      );
-
-      setUploadProgress('');
-      setUploadFailedCount(result.failed_count || 0);
-
-      const review = await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/members/me/personal/review',
-        method: 'GET',
-        sessionToken: memberSession
-      });
-
-      setPersonalSets(review.sets || []);
-      setLastSyncAt(new Date().toISOString());
-    });
+    run('upload more screenshots', () =>
+      pickAndUploadPersonal('/v1/members/me/personal/upload', null)
+    );
 
   const skipFailed = () => {
     setUploadFailedCount(0);
@@ -1030,6 +1016,10 @@ export default function App() {
         <Text style={styles.statusText}>{statusText}</Text>
       </View>
 
+      {/* Privacy screen shown once per install. Intentionally outside the onboardingStep
+          state machine so it gates ALL paths (create group and join group) with a single
+          persistent flag. Once accepted it is never shown again, even after Restart
+          Onboarding — this is intentional: consent survives re-onboarding within the app. */}
       {activeView === 'onboarding' && !privacyAccepted ? (
         <PrivacyScreen onAccept={() => setPrivacyAccepted(true)} />
       ) : null}
