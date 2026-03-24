@@ -191,8 +191,12 @@ def upload_canonical_images(
     if len(images) > MAX_UPLOAD_IMAGES:
         raise HTTPException(status_code=400, detail="too_many_images")
 
-    now = _now()
-    job_id = str(uuid4())
+    # Validate group exists before spending time on OCR
+    with get_conn() as conn:
+        group = conn.execute("SELECT id FROM groups WHERE id = ?", (group_id,)).fetchone()
+    if group is None:
+        raise HTTPException(status_code=404, detail="group_not_found")
+
     screenshots: list[ScreenshotInput] = []
     failed_count = 0
 
@@ -223,11 +227,10 @@ def upload_canonical_images(
     if not parse_outcome.sets:
         raise HTTPException(status_code=400, detail="no_parsed_sets")
 
-    with get_conn() as conn:
-        group = conn.execute("SELECT id FROM groups WHERE id = ?", (group_id,)).fetchone()
-        if group is None:
-            raise HTTPException(status_code=404, detail="group_not_found")
+    now = _now()
+    job_id = str(uuid4())
 
+    with get_conn() as conn:
         conn.execute("DELETE FROM canonical_sets WHERE group_id = ?", (group_id,))
         conn.execute("DELETE FROM canonical_parse_jobs WHERE group_id = ?", (group_id,))
 

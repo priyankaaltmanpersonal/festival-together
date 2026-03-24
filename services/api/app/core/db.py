@@ -130,33 +130,44 @@ _SCHEMA_SQL = [
 ]
 
 
+_POSTGRES_INDEXES = [
+    # Partial unique index: only one active member per chip color per group.
+    # SQLite version is in the sqlite-only block below.
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_members_active_group_color
+    ON members(group_id, chip_color)
+    WHERE active = 1 AND chip_color IS NOT NULL
+    """,
+]
+
+
 def init_db() -> None:
-    """Create all tables. Safe to call multiple times (IF NOT EXISTS)."""
+    """Create all tables and indexes. Safe to call multiple times (IF NOT EXISTS)."""
     with get_conn() as conn:
         for stmt in _SCHEMA_SQL:
             conn.execute(stmt)
+        if settings.database_url:
+            for stmt in _POSTGRES_INDEXES:
+                conn.execute(stmt)
 
     if not settings.database_url:
-        # SQLite only: add columns that may be missing from older databases
+        # SQLite only: add columns that may be missing from older databases and
+        # create partial unique index for chip color uniqueness per active member.
         raw = sqlite3.connect(Path(settings.sqlite_path).resolve())
-        member_cols = [row[1] for row in raw.execute("PRAGMA table_info(members)").fetchall()]
-        if "chip_color" not in member_cols:
-            raw.execute("ALTER TABLE members ADD COLUMN chip_color TEXT")
-        canonical_cols = [row[1] for row in raw.execute("PRAGMA table_info(canonical_sets)").fetchall()]
-        if "source_confidence" not in canonical_cols:
-            raw.execute("ALTER TABLE canonical_sets ADD COLUMN source_confidence REAL NOT NULL DEFAULT 0.0")
-        raw.commit()
-        raw.close()
-
-    if not settings.database_url:
-        # SQLite: create partial unique index for chip color uniqueness per group
-        raw = sqlite3.connect(Path(settings.sqlite_path).resolve())
-        raw.execute(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_members_active_group_color
-            ON members(group_id, chip_color)
-            WHERE active = 1 AND chip_color IS NOT NULL
-            """
-        )
-        raw.commit()
-        raw.close()
+        try:
+            member_cols = [row[1] for row in raw.execute("PRAGMA table_info(members)").fetchall()]
+            if "chip_color" not in member_cols:
+                raw.execute("ALTER TABLE members ADD COLUMN chip_color TEXT")
+            canonical_cols = [row[1] for row in raw.execute("PRAGMA table_info(canonical_sets)").fetchall()]
+            if "source_confidence" not in canonical_cols:
+                raw.execute("ALTER TABLE canonical_sets ADD COLUMN source_confidence REAL NOT NULL DEFAULT 0.0")
+            raw.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_members_active_group_color
+                ON members(group_id, chip_color)
+                WHERE active = 1 AND chip_color IS NOT NULL
+                """
+            )
+            raw.commit()
+        finally:
+            raw.close()

@@ -231,10 +231,7 @@ def upload_personal_images(
     if len(images) > MAX_UPLOAD_IMAGES:
         raise HTTPException(status_code=400, detail="too_many_images")
 
-    now = _now_iso()
-    parse_job_id = str(uuid4())
-    failed_count = 0
-
+    # ── Phase 1: read member + canonical sets (short DB transaction) ──────────
     with get_conn() as conn:
         member = conn.execute(
             "SELECT id, group_id, active FROM members WHERE id = ?",
@@ -255,32 +252,39 @@ def upload_personal_images(
         if len(canonical_rows) == 0:
             raise HTTPException(status_code=409, detail="canonical_not_ready")
 
-        screenshots: list[ScreenshotInput] = []
-        for idx, upload in enumerate(images):
-            raw = upload.file.read()
-            try:
-                compressed = validate_and_compress(raw)
-            except ImageValidationError:
-                failed_count += 1
-                continue
-            text = extract_text_from_image(compressed)
-            if text is None:
-                failed_count += 1
-                continue
-            screenshots.append(
-                ScreenshotInput(
-                    source_id=upload.filename or f"personal-upload-{idx + 1}",
-                    raw_text=text,
-                )
+    # ── Phase 2: OCR (outside transaction — may take up to 30s × 30 images) ──
+    failed_count = 0
+    screenshots: list[ScreenshotInput] = []
+    for idx, upload in enumerate(images):
+        raw = upload.file.read()
+        try:
+            compressed = validate_and_compress(raw)
+        except ImageValidationError:
+            failed_count += 1
+            continue
+        text = extract_text_from_image(compressed)
+        if text is None:
+            failed_count += 1
+            continue
+        screenshots.append(
+            ScreenshotInput(
+                source_id=upload.filename or f"personal-upload-{idx + 1}",
+                raw_text=text,
             )
+        )
 
-        if not screenshots:
-            raise HTTPException(status_code=400, detail="no_parsed_sets")
+    if not screenshots:
+        raise HTTPException(status_code=400, detail="no_parsed_sets")
 
-        mapped_rows = parse_personal_screenshots(screenshots, canonical_rows)
-        if len(mapped_rows) == 0:
-            raise HTTPException(status_code=400, detail="no_parsed_sets")
+    mapped_rows = parse_personal_screenshots(screenshots, canonical_rows)
+    if len(mapped_rows) == 0:
+        raise HTTPException(status_code=400, detail="no_parsed_sets")
 
+    now = _now_iso()
+    parse_job_id = str(uuid4())
+
+    # ── Phase 3: write results (short DB transaction) ─────────────────────────
+    with get_conn() as conn:
         conn.execute("DELETE FROM member_parse_jobs WHERE member_id = ?", (session["member_id"],))
         conn.execute("DELETE FROM member_set_preferences WHERE member_id = ?", (session["member_id"],))
 
