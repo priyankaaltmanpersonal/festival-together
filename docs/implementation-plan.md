@@ -202,9 +202,12 @@ Execution order:
 - Scope creep:
   - Mitigation: hold v1 line; defer recommendation card/Spotify/manual fallback.
 
-## 7) Immediate Next Build Tasks
-1. Scaffold monorepo and root tooling.
-2. Build API health/version shell.
-3. Build mobile navigation shell.
-4. Add local infra compose file and env templates.
-5. Add first integration test for group create/join.
+## 7) Current Completion Snapshot
+1. Monorepo foundation is in place.
+2. API health/version shell is implemented.
+3. Mobile navigation shell and core schedule flows are implemented.
+4. Local infra compose file and env templates are present.
+5. Integration coverage now includes group, canonical, personal, and schedule flows.
+6. Canonical/personal imports run through a parser-based pipeline with dedupe/confidence handling.
+7. Mobile app now persists cached state offline and replays queued schedule preference mutations on reconnect.
+8. Expo release configuration now includes bundle/package identifiers and EAS build profiles.

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth import require_session
 from app.core.db import get_conn
+from app.core.parser import ScreenshotInput, build_demo_canonical_screenshots, parse_canonical_screenshots
 from app.schemas.canonical import CanonicalImportRequest, CanonicalReviewResponse, CanonicalSet
 
 router = APIRouter(tags=["canonical"])
@@ -14,53 +15,16 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-def _seed_full_day_sets(group_id: str, now: datetime) -> list[tuple]:
-    stages = ["Main Stage", "Sahara", "Outdoor", "Mojave", "Gobi", "Sonora"]
-    artist_pool = [
-        "Aurora Skyline", "Neon Valley", "Desert Echo", "Sundial City", "Palm Static", "Mirage Club",
-        "Golden Transit", "Afterglow Kids", "Cactus Choir", "Solar Ritual", "Moonline", "Circuit Bloom",
-        "Dune Parade", "Velvet Arcade", "Night Ferry", "Cosmic Lanes", "Heatwave Social", "Luma Avenue",
-        "Atlas Garden", "Echo Harbor", "Midnight Current", "Prism Motel", "Radiant Form", "Tropic Fade",
-    ]
-    sets: list[tuple] = []
-    artist_idx = 0
-    for stage_idx, stage in enumerate(stages):
-        current_min = (12 * 60) + (stage_idx * 10)  # stagger start per stage
-        slot = 0
-        while current_min <= (23 * 60):
-            start_hour = current_min // 60
-            if start_hour < 17:
-                duration = [45, 50, 60][(slot + stage_idx) % 3]
-            elif start_hour < 20:
-                duration = [60, 70, 75][(slot + stage_idx) % 3]
-            else:
-                duration = [75, 85, 90][(slot + stage_idx) % 3]
-            gap = [30, 45, 60][(slot + stage_idx + 1) % 3]
-            start_h, start_m = divmod(current_min, 60)
-            end_total = current_min + duration
-            # Keep seeded demo data within a single calendar day; real OCR imports can span midnight.
-            if end_total > (23 * 60 + 59):
-                break
-            end_h, end_m = divmod(end_total, 60)
-
-            artist_name = artist_pool[artist_idx % len(artist_pool)]
-            artist_idx += 1
-            sets.append(
-                (
-                    str(uuid4()),
-                    group_id,
-                    artist_name,
-                    stage,
-                    f"{start_h:02d}:{start_m:02d}",
-                    f"{end_h:02d}:{end_m:02d}",
-                    1,
-                    "resolved",
-                    now.isoformat(),
-                )
+def _coerce_screenshots(payload: CanonicalImportRequest) -> list[ScreenshotInput]:
+    if payload.screenshots:
+        return [
+            ScreenshotInput(
+                source_id=item.source_id or f"canonical-upload-{index + 1}",
+                raw_text=item.raw_text,
             )
-            current_min = end_total + gap
-            slot += 1
-    return sets
+            for index, item in enumerate(payload.screenshots)
+        ]
+    return build_demo_canonical_screenshots(payload.screenshot_count)
 
 
 @router.post("/groups/{group_id}/canonical/import")
@@ -70,12 +34,15 @@ def import_canonical(group_id: str, payload: CanonicalImportRequest, session=Dep
 
     now = _now()
     job_id = str(uuid4())
-    unresolved_count = 0
+    screenshots = _coerce_screenshots(payload)
+    parse_outcome = parse_canonical_screenshots(screenshots)
 
     with get_conn() as conn:
         group = conn.execute("SELECT id FROM groups WHERE id = ?", (group_id,)).fetchone()
         if group is None:
             raise HTTPException(status_code=404, detail="group_not_found")
+        if not parse_outcome.sets:
+            raise HTTPException(status_code=400, detail="no_parsed_sets")
 
         conn.execute("DELETE FROM canonical_sets WHERE group_id = ?", (group_id,))
         conn.execute("DELETE FROM canonical_parse_jobs WHERE group_id = ?", (group_id,))
@@ -88,36 +55,59 @@ def import_canonical(group_id: str, payload: CanonicalImportRequest, session=Dep
             (
                 job_id,
                 group_id,
-                payload.screenshot_count,
-                unresolved_count,
+                len(screenshots),
+                parse_outcome.unresolved_count,
                 now.isoformat(),
                 now.isoformat(),
             ),
         )
 
-        # Placeholder parse output for M2 wiring; real OCR mapping lands in parser-worker milestones.
-        sets = _seed_full_day_sets(group_id, now)
         conn.executemany(
             """
-            INSERT INTO canonical_sets (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO canonical_sets (
+              id,
+              group_id,
+              artist_name,
+              stage_name,
+              start_time_pt,
+              end_time_pt,
+              day_index,
+              status,
+              source_confidence,
+              created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            sets,
+            [
+                (
+                    str(uuid4()),
+                    group_id,
+                    item.artist_name,
+                    item.stage_name,
+                    item.start_time_pt,
+                    item.end_time_pt,
+                    item.day_index,
+                    item.status,
+                    round(item.source_confidence, 2),
+                    now.isoformat(),
+                )
+                for item in parse_outcome.sets
+            ],
         )
 
         retention = (now + timedelta(hours=24)).isoformat()
-        for idx in range(payload.screenshot_count):
+        for screenshot in screenshots:
             conn.execute(
                 """
                 INSERT INTO parse_artifacts (id, parse_job_id, temp_image_path, retention_expires_at, deleted_at)
                 VALUES (?, ?, ?, ?, NULL)
                 """,
-                (str(uuid4()), job_id, f"tmp/canonical/{job_id}/{idx}.jpg", retention),
+                (str(uuid4()), job_id, f"tmp/canonical/{job_id}/{screenshot.source_id}.txt", retention),
             )
 
         conn.execute("UPDATE groups SET setup_complete = 0 WHERE id = ?", (group_id,))
 
-    return {"ok": True, "parse_job_id": job_id, "unresolved_count": unresolved_count}
+    return {"ok": True, "parse_job_id": job_id, "unresolved_count": parse_outcome.unresolved_count}
 
 
 @router.get("/groups/{group_id}/canonical/review", response_model=CanonicalReviewResponse)
@@ -132,7 +122,7 @@ def review_canonical(group_id: str, session=Depends(require_session)) -> Canonic
         ).fetchone()
         rows = conn.execute(
             """
-            SELECT id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status
+            SELECT id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status, source_confidence
             FROM canonical_sets
             WHERE group_id = ?
             ORDER BY day_index, start_time_pt, stage_name
@@ -149,6 +139,7 @@ def review_canonical(group_id: str, session=Depends(require_session)) -> Canonic
             end_time_pt=row["end_time_pt"],
             day_index=row["day_index"],
             status=row["status"],
+            source_confidence=row["source_confidence"],
         )
         for row in rows
     ]

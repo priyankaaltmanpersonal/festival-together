@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth import require_session
 from app.core.db import get_conn
+from app.core.parser import ScreenshotInput, build_demo_personal_screenshots, parse_personal_screenshots
 from app.schemas.personal import (
     CompleteSetupRequest,
     MemberSetUpdateRequest,
@@ -20,26 +21,16 @@ def _now_iso() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
 
-def _select_mapped_rows(canonical_rows, member_id: str, screenshot_count: int):
-    if len(canonical_rows) == 0:
-        return []
-
-    # Deterministic member-specific mapping to create overlap variety in demo data.
-    seed = sum(ord(ch) for ch in member_id)
-    desired_count = min(len(canonical_rows), max(4, min(12, screenshot_count * 2)))
-    start_idx = seed % len(canonical_rows)
-    stride = 5 + (seed % 7)
-
-    selected = []
-    seen = set()
-    idx = start_idx
-    while len(selected) < desired_count and len(seen) < len(canonical_rows):
-        if idx not in seen:
-            selected.append(canonical_rows[idx])
-            seen.add(idx)
-        idx = (idx + stride) % len(canonical_rows)
-
-    return selected
+def _coerce_personal_screenshots(payload: PersonalImportRequest, canonical_rows, member_id: str) -> list[ScreenshotInput]:
+    if payload.screenshots:
+        return [
+            ScreenshotInput(
+                source_id=item.source_id or f"personal-upload-{index + 1}",
+                raw_text=item.raw_text,
+            )
+            for index, item in enumerate(payload.screenshots)
+        ]
+    return build_demo_personal_screenshots(canonical_rows, member_id=member_id, screenshot_count=payload.screenshot_count)
 
 
 @router.post("/members/me/personal/import")
@@ -68,17 +59,16 @@ def import_personal(payload: PersonalImportRequest, session=Depends(require_sess
             raise HTTPException(status_code=409, detail="canonical_not_ready")
 
         conn.execute("DELETE FROM member_parse_jobs WHERE member_id = ?", (session["member_id"],))
+        conn.execute("DELETE FROM member_set_preferences WHERE member_id = ?", (session["member_id"],))
 
-        # Simulate mapped parse results with deterministic per-member variety.
-        mapped_rows = _select_mapped_rows(
-            canonical_rows,
+        screenshots = _coerce_personal_screenshots(
+            payload,
+            canonical_rows=canonical_rows,
             member_id=session["member_id"],
-            screenshot_count=payload.screenshot_count,
         )
+        mapped_rows = parse_personal_screenshots(screenshots, canonical_rows)
         if len(mapped_rows) == 0:
             raise HTTPException(status_code=400, detail="no_parsed_sets")
-
-        conn.execute("DELETE FROM member_set_preferences WHERE member_id = ?", (session["member_id"],))
 
         for row in mapped_rows:
             conn.execute(
@@ -87,7 +77,7 @@ def import_personal(payload: PersonalImportRequest, session=Depends(require_sess
                 (id, member_id, canonical_set_id, preference, attendance, source_confidence, created_at, updated_at)
                 VALUES (?, ?, ?, 'flexible', 'going', ?, ?, ?)
                 """,
-                (str(uuid4()), session["member_id"], row["id"], 0.85, now, now),
+                (str(uuid4()), session["member_id"], row.canonical_set_id, row.source_confidence, now, now),
             )
 
         conn.execute(
@@ -95,7 +85,7 @@ def import_personal(payload: PersonalImportRequest, session=Depends(require_sess
             INSERT INTO member_parse_jobs (id, member_id, status, screenshot_count, parsed_count, failed_count, created_at, completed_at)
             VALUES (?, ?, 'completed', ?, ?, 0, ?, ?)
             """,
-            (parse_job_id, session["member_id"], payload.screenshot_count, len(mapped_rows), now, now),
+            (parse_job_id, session["member_id"], len(screenshots), len(mapped_rows), now, now),
         )
         conn.execute(
             "UPDATE members SET setup_status = 'incomplete' WHERE id = ?",

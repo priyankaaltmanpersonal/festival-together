@@ -1,16 +1,31 @@
 {
   "expo": {
-    "name": "Coachella Group Planner",
-    "slug": "coachella-group-planner",
-    "version": "0.1.0",
+    "name": "Festival Together",
+    "slug": "festival-together",
+    "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "festivaltogether",
+    "userInterfaceStyle": "light",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.festivaltogether.app",
+      "buildNumber": "1.0.0"
     },
     "android": {
+      "package": "com.festivaltogether.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#fff4e6"
       }
+    },
+    "extra": {
+      "appEnv": "production"
     }
   }
 }

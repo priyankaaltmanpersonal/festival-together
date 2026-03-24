@@ -29,7 +29,29 @@ def _complete_founder_setup(group_id: str, session_token: str) -> None:
     import_resp = client.post(
         f"/v1/groups/{group_id}/canonical/import",
         headers={"x-session-token": session_token},
-        json={"screenshot_count": 2},
+        json={
+            "screenshot_count": 2,
+            "screenshots": [
+                {
+                    "raw_text": "\n".join(
+                        [
+                            "DAY 1",
+                            "Aurora Skyline | Main Stage | 12:00 PM - 12:45 PM",
+                            "Neon Valley | Sahara | 1:10 PM - 2:00 PM",
+                        ]
+                    ),
+                },
+                {
+                    "raw_text": "\n".join(
+                        [
+                            "DAY 1",
+                            "Desert Echo | Outdoor | 2:15 PM - 3:05 PM",
+                            "Solar Ritual | Mojave | 4:20 PM - 5:10 PM",
+                        ]
+                    ),
+                },
+            ],
+        },
     )
     assert import_resp.status_code == 200
 
@@ -61,7 +83,28 @@ def test_personal_import_and_setup_completion() -> None:
     import_resp = client.post(
         "/v1/members/me/personal/import",
         headers={"x-session-token": member_session},
-        json={"screenshot_count": 3},
+        json={
+            "screenshot_count": 3,
+            "screenshots": [
+                {
+                    "raw_text": "\n".join(
+                        [
+                            "DAY 1",
+                            "Aurora Skyline | Main Stage | 12:00 PM - 12:45 PM",
+                            "Solar Ritual | Mojave | 4:20 PM - 5:10 PM",
+                        ]
+                    ),
+                },
+                {
+                    "raw_text": "\n".join(
+                        [
+                            "DAY 1",
+                            "Neon Valley @ Sahara 1:10 PM - 2:00 PM",
+                        ]
+                    ),
+                },
+            ],
+        },
     )
     assert import_resp.status_code == 200
     assert import_resp.json()["parsed_count"] >= 1
@@ -98,6 +141,7 @@ def test_personal_import_and_setup_completion() -> None:
     assert home_payload["group"]["name"] == "Crew"
     assert home_payload["me"]["setup_status"] == "complete"
     assert home_payload["my_sets"]["total"] >= 1
+    assert any(item["source_confidence"] >= 0.7 for item in review_payload["sets"])
 
 
 def test_setup_complete_requires_at_least_one_set() -> None:

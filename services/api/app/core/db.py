@@ -90,6 +90,7 @@ def init_db() -> None:
               end_time_pt TEXT NOT NULL,
               day_index INTEGER NOT NULL,
               status TEXT NOT NULL,
+              source_confidence REAL NOT NULL DEFAULT 0.0,
               created_at TEXT NOT NULL,
               FOREIGN KEY(group_id) REFERENCES groups(id)
             )
@@ -156,6 +157,9 @@ def init_db() -> None:
         member_cols = [row[1] for row in conn.execute("PRAGMA table_info(members)").fetchall()]
         if "chip_color" not in member_cols:
             conn.execute("ALTER TABLE members ADD COLUMN chip_color TEXT")
+        canonical_cols = [row[1] for row in conn.execute("PRAGMA table_info(canonical_sets)").fetchall()]
+        if "source_confidence" not in canonical_cols:
+            conn.execute("ALTER TABLE canonical_sets ADD COLUMN source_confidence REAL NOT NULL DEFAULT 0.0")
         conn.commit()
 
 

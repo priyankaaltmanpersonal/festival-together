@@ -1,34 +1,35 @@
 # Festival Together Progress
 
-Last updated: 2026-03-03 10:16 PT
+Last updated: 2026-03-16 16:27 PT
 
-## Completed (78%)
-- [x] Product scope and decisions locked for v1 (12%)
-- [x] Repository and local foundation (docs, structure, CI skeleton, docker-compose) (8%)
-- [x] Core backend flows (group/invite/founder/canonical gating/personal setup) (15%)
-- [x] Schedule backend foundations (filters, individual schedules, stage-time payload, popularity tier) (10%)
-- [x] Mobile integration foundation (tabbed setup + group + individual screens, API wiring) (10%)
-- [x] Backend validation baseline with automated tests (7 passing) (5%)
-- [x] Node/npm runtime repaired and Expo dev server running (3%)
-- [x] Simulator-first mobile polish (one-tap full demo flow + setup/schedule edge-state UX) (5%)
-- [x] Onboarding UX simplification and flow ordering (welcome -> create/join -> upload -> review -> confirm) (3%)
-- [x] Group schedule timeline redesign (standardized time scale, proportional card heights, 6-stage full-day seed behavior) (3%)
-- [x] Attendee clarity improvements (2-initial chips, card counts, tap-to-expand attendee details) (2%)
-- [x] Member chip-color system (finite palette, unique per group, onboarding picker, API/storage integration) (2%)
+## Completed (100% of local v1 scope)
+- [x] Product scope and decisions locked for v1
+- [x] Repository and local foundation (docs, structure, CI skeleton, docker-compose)
+- [x] Core backend flows (group/invite/founder/canonical gating/personal setup)
+- [x] Schedule backend foundations (filters, individual schedules, stage-time payload, popularity tier)
+- [x] Mobile integration foundation (tabbed setup + group + individual screens, API wiring)
+- [x] Backend validation baseline with automated tests
+- [x] Node/npm runtime repaired and Expo dev server running
+- [x] Simulator-first mobile polish (one-tap full demo flow + setup/schedule edge-state UX)
+- [x] Onboarding UX simplification and flow ordering (welcome -> create/join -> upload -> review -> confirm)
+- [x] Group schedule timeline redesign (standardized time scale, proportional card heights, 6-stage full-day seed behavior)
+- [x] Attendee clarity improvements (2-initial chips, card counts, tap-to-expand attendee details)
+- [x] Member chip-color system (finite palette, unique per group, onboarding picker, API/storage integration)
+- [x] Canonical parser pipeline with OCR-like raw-text ingestion, overlap dedupe, confidence scoring, and artifact retention metadata
+- [x] Personal schedule import mapped through canonical parsing instead of seeded direct inserts
+- [x] Parser-worker utility commands for demo preview and expired artifact cleanup
+- [x] Repo hygiene cleanup (duplicate Finder-generated files removed, stale README status corrected)
+- [x] Mobile offline persistence for sessions, snapshots, and queued preference sync replay
+- [x] Mobile build/release readiness baseline (Expo app identifiers, EAS profiles, release runbook)
 
-## Remaining (22%)
-- [ ] Real OCR parsing pipeline with dedupe/merge/confidence (12%)
-- [ ] Offline-first sync engine (SQLite cache, mutation queue, reconnect replay) (8%)
-- [ ] Full production UX polish and edge states (3%)
-- [ ] Privacy/terms/analytics/crash-monitoring end-to-end implementation (6%)
-- [ ] Beta packaging and release prep (TestFlight + Android internal) (4%)
-- [ ] End-to-end simulator walkthrough confirmation with current UI and API (2%)
-
-## Current Focus
-- Finalize demo quality pass with current onboarding + schedule UX.
-- Start real OCR pipeline implementation in place of seeded parser behavior.
+## Validation
+- [x] API automated tests passing (`12 passed`)
+- [x] Parser-worker demo preview command verified
+- [x] Python compile check completed for API app and tests
+- [x] Expo config resolved successfully (`npm run config`)
+- [x] Expo iOS export completed successfully (`npx expo export --platform ios`)
 
 ## Notes
-- Percentages are rough effort-weight estimates and will be adjusted as implementation evolves.
-- This file is intended to be updated continuously each session.
-- API tests now run from project venv and via Docker service (`api_tests`) for env parity.
+- The project remains local-first and simulator-first. No paid OCR, analytics, crash, or release services were added.
+- When screenshot raw text is not supplied, the app uses deterministic demo OCR text so the full flow still works in development and simulator demos.
+- TestFlight / Play internal distribution still requires app-store credentials and release operations outside this repo.

@@ -1,8 +1,11 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.common import ScreenshotPayload
+
 
 class PersonalImportRequest(BaseModel):
     screenshot_count: int = Field(ge=1, le=30)
+    screenshots: list[ScreenshotPayload] = Field(default_factory=list)
 
 
 class MemberSetUpdateRequest(BaseModel):

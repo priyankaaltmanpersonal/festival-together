@@ -55,7 +55,9 @@ export function SetupScreen({
       {onboardingStep === 'profile_create' ? (
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Create Group</Text>
+          <Text style={styles.inputLabel}>Your name</Text>
           <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" />
+          <Text style={styles.inputLabel}>Group name</Text>
           <TextInput value={groupName} onChangeText={setGroupName} style={styles.input} placeholder="Group name" />
           <ColorPicker
             options={chipColorOptions}
@@ -69,7 +71,9 @@ export function SetupScreen({
       {onboardingStep === 'profile_join' ? (
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Join Group</Text>
+          <Text style={styles.inputLabel}>Your name</Text>
           <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" />
+          <Text style={styles.inputLabel}>Invite code</Text>
           <TextInput
             value={inviteCodeInput}
             onChangeText={setInviteCodeInput}
@@ -90,8 +94,10 @@ export function SetupScreen({
       {onboardingStep === 'founder_setup' ? (
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Founder Setup</Text>
-          <Text style={styles.helper}>Import and confirm the canonical schedule for your group.</Text>
-          <ActionButton label="Upload Schedule Screenshots" onPress={onCompleteFounderSetup} primary disabled={loading} />
+          <Text style={styles.helper}>
+            Current mobile flow loads demo parsed schedule data. Screenshot picking and OCR are not wired in yet.
+          </Text>
+          <ActionButton label="Load Demo Schedule" onPress={onCompleteFounderSetup} primary disabled={loading} />
           {inviteCode ? <Text style={styles.helper}>Invite code: {inviteCode}</Text> : null}
         </View>
       ) : null}
@@ -242,6 +248,7 @@ const styles = StyleSheet.create({
   h1: { color: '#1f3024', fontSize: 21, fontWeight: '800', lineHeight: 26 },
   label: { color: '#303030', fontWeight: '700' },
   stepTitle: { color: '#2f302f', fontWeight: '700', fontSize: 16 },
+  inputLabel: { color: '#5a4d3b', fontSize: 12, fontWeight: '700', marginTop: 2 },
   helper: { color: '#666', fontSize: 12 },
   input: {
     borderWidth: 1,

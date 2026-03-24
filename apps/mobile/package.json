@@ -1,14 +1,21 @@
 {
-  "name": "coachella-mobile",
-  "version": "0.1.0",
+  "name": "festival-together-mobile",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "start": "expo start",
+    "start:clear": "expo start --clear",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "lint": "echo 'Add eslint config in M1'"
+    "config": "expo config --json",
+    "export": "expo export --platform ios,android --output-dir dist-export",
+    "lint": "echo 'ESLint not configured yet'",
+    "release:preview": "eas build --platform all --profile preview",
+    "release:production": "eas build --platform all --profile production"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.0.1",
+    "@react-native-community/netinfo": "^12.0.1",
     "expo": "^54.0.33",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
