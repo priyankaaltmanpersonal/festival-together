@@ -9,6 +9,7 @@ import { GroupScheduleScreen } from './src/screens/GroupScheduleScreen';
 import { IndividualSchedulesScreen } from './src/screens/IndividualSchedulesScreen';
 import { SetupScreen } from './src/screens/SetupScreen';
 import { clearOfflineState, loadAppState, loadMutationQueue, saveAppState, saveMutationQueue } from './src/state/offlineStore';
+import { pickImages, uploadImages } from './src/services/uploadImages';
 
 const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 const CHIP_COLOR_OPTIONS = [
@@ -66,6 +67,8 @@ export default function App() {
   const [individualSnapshot, setIndividualSnapshot] = useState(null);
 
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState('');
+  const [uploadFailedCount, setUploadFailedCount] = useState(0);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
@@ -882,6 +885,117 @@ export default function App() {
     setLog(['Reset: onboarding restarted']);
   };
 
+  const chooseFounderScreenshots = () =>
+    run('upload group schedule', async () => {
+      if (!founderSession || !groupId) throw new Error('Start founder onboarding first');
+      if (!isOnline) throw new Error('Upload requires a connection');
+
+      setUploadProgress('');
+      setUploadFailedCount(0);
+
+      const uris = await pickImages();
+      if (!uris) return;
+
+      const result = await uploadImages(
+        apiUrl,
+        `/v1/groups/${groupId}/canonical/upload`,
+        founderSession,
+        uris,
+        (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
+      );
+
+      setUploadProgress('');
+      if (result.failed_count > 0) {
+        setUploadFailedCount(result.failed_count);
+        appendLog(`WARN: ${result.failed_count} screenshot(s) could not be read`);
+      }
+      if (!result.parsed_count) {
+        throw new Error('No sets could be parsed from your screenshots. Please try clearer images.');
+      }
+
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: `/v1/groups/${groupId}/canonical/confirm`,
+        method: 'POST',
+        sessionToken: founderSession
+      });
+
+      setLastSyncAt(new Date().toISOString());
+      setOnboardingStep('choose_library');
+    });
+
+  const chooseMemberScreenshots = () =>
+    run('upload my schedule', async () => {
+      if (!memberSession) throw new Error('Start onboarding first');
+      if (!isOnline) throw new Error('Upload requires a connection');
+
+      setUploadProgress('');
+      setUploadFailedCount(0);
+
+      const uris = await pickImages();
+      if (!uris) return;
+
+      const result = await uploadImages(
+        apiUrl,
+        '/v1/members/me/personal/upload',
+        memberSession,
+        uris,
+        (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
+      );
+
+      setUploadProgress('');
+      setUploadFailedCount(result.failed_count || 0);
+
+      const review = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/personal/review',
+        method: 'GET',
+        sessionToken: memberSession
+      });
+
+      setPersonalSets(review.sets || []);
+      setLastSyncAt(new Date().toISOString());
+      setOnboardingStep('review');
+    });
+
+  const retryUpload = () =>
+    run('upload more screenshots', async () => {
+      if (!memberSession) throw new Error('Start onboarding first');
+      if (!isOnline) throw new Error('Upload requires a connection');
+
+      setUploadProgress('');
+      setUploadFailedCount(0);
+
+      const uris = await pickImages();
+      if (!uris) return;
+
+      const result = await uploadImages(
+        apiUrl,
+        '/v1/members/me/personal/upload',
+        memberSession,
+        uris,
+        (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
+      );
+
+      setUploadProgress('');
+      setUploadFailedCount(result.failed_count || 0);
+
+      const review = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/personal/review',
+        method: 'GET',
+        sessionToken: memberSession
+      });
+
+      setPersonalSets(review.sets || []);
+      setLastSyncAt(new Date().toISOString());
+    });
+
+  const skipFailed = () => {
+    setUploadFailedCount(0);
+    setUploadProgress('');
+  };
+
   const canOpenMenu = onboardingStep === 'complete';
   const title = useMemo(() => {
     if (activeView === 'group') return 'Group Schedule';
@@ -930,9 +1044,15 @@ export default function App() {
           loading={loading}
           error={error}
           log={log}
+          uploadProgress={uploadProgress}
+          failedCount={uploadFailedCount}
           onBeginProfile={beginProfile}
           onCompleteFounderSetup={completeFounderSetup}
+          onChooseFounderScreenshots={chooseFounderScreenshots}
           onImportPersonal={importPersonal}
+          onChooseMemberScreenshots={chooseMemberScreenshots}
+          onRetryUpload={retryUpload}
+          onSkipFailed={skipFailed}
           onSetPreference={setPreference}
           onContinueFromReview={() => setOnboardingStep('confirm')}
           onFinishOnboarding={finishOnboarding}
