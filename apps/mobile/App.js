@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { apiRequest } from './src/api/client';
@@ -158,6 +158,21 @@ export default function App() {
       alive = false;
       unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        setDayUploadStatus((prev) => {
+          if (prev === 'uploading') {
+            setError('Upload may have been interrupted — tap to try again.');
+            return 'error';
+          }
+          return prev;
+        });
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
