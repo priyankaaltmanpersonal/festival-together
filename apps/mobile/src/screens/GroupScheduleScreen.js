@@ -25,7 +25,7 @@ export function GroupScheduleScreen({
   const sets = scheduleSnapshot?.sets || [];
   const stages = scheduleSnapshot?.stages || [];
 
-  const timeline = buildTimeline(sets);
+  const timeline = buildTimeline(sets, gridBodyHeight || 0);
   const stageColumns = stages.map((stage) => ({
     stage,
     sets: sets
@@ -126,11 +126,9 @@ export function GroupScheduleScreen({
                           >
                             <View style={styles.setMain}>
                               <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
-                              {!compact ? (
-                                <Text style={styles.timeRangeText} numberOfLines={1}>
-                                  {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
-                                </Text>
-                              ) : null}
+                              <Text style={styles.timeRangeText} numberOfLines={1}>
+                                {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
+                              </Text>
                               <View style={styles.attendeeRow}>
                                 {definite.slice(0, iconLimit).map((attendee) => (
                                   <View
@@ -401,20 +399,29 @@ function minuteToY(minute, startMinute) {
   return ((minute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT;
 }
 
-function buildTimeline(sets) {
+function buildTimeline(sets, minBodyHeight = 0) {
   if (!sets.length) return null;
 
   let minStart = Number.POSITIVE_INFINITY;
   let maxEnd = Number.NEGATIVE_INFINITY;
   for (const setItem of sets) {
     const start = timeToMinutes(setItem.start_time_pt);
-    const end = timeToMinutes(setItem.end_time_pt);
+    const rawEnd = timeToMinutes(setItem.end_time_pt);
+    const rawDuration = rawEnd - start;
+    // Use the same 90-min default as the card renderer so column height matches
+    const effectiveEnd = start + (rawDuration > 0 ? rawDuration : 90);
     minStart = Math.min(minStart, start);
-    maxEnd = Math.max(maxEnd, end);
+    maxEnd = Math.max(maxEnd, effectiveEnd);
   }
 
   const startMinute = Math.floor(minStart / SLOT_MINUTES) * SLOT_MINUTES;
-  const endMinute = Math.ceil(maxEnd / SLOT_MINUTES) * SLOT_MINUTES;
+  let endMinute = Math.ceil(maxEnd / SLOT_MINUTES) * SLOT_MINUTES;
+
+  // Extend row lines to fill the available screen height so the grid
+  // doesn't stop short when content is shorter than the visible area.
+  while (((endMinute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT < minBodyHeight) {
+    endMinute += SLOT_MINUTES;
+  }
 
   const labels = [];
   for (let minute = startMinute; minute <= endMinute; minute += SLOT_MINUTES) {
