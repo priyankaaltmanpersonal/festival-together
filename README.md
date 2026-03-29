@@ -1,64 +1,122 @@
 # Festival Together
 
-Offline-first group coordination app for Coachella friend groups.
+Group schedule coordination app for festival friend groups. Members upload screenshots of their personal schedules; the app builds a shared view of who wants to see what.
 
-## Monorepo Layout
-- `apps/mobile`: Expo React Native client (iOS + Android)
-- `services/api`: FastAPI backend
-- `services/parser-worker`: OCR and parse pipeline worker
-- `packages/shared-types`: shared contracts and schemas
-- `infra`: local infrastructure templates
-- `docs`: product and implementation docs
+Built for Coachella 2026 (April 11–13), private beta with ~12 friends.
 
-## Current Status
-- Product spec: `docs/v1-spec.md`
-- Implementation plan: `docs/implementation-plan.md`
-- Progress tracker: `docs/progress.md`
-- Feature ideas/enhancements: `docs/feature-ideas.md`
-- PR/review process: `docs/review-workflow.md`
-- Security guardrails: `docs/security-guardrails.md`
-- Local v1 scope: complete
-- Canonical and personal imports now run through a parser pipeline with OCR-like raw-text inputs, overlap dedupe, confidence scoring, and artifact cleanup hooks.
+## Repo Layout
 
-## Local Dev (Docker-First)
-1. See available shortcuts:
-   - `make help`
-2. Create local env files (do not commit real values):
-   - `cp infra/.env.example infra/.env`
-   - `cp services/api/.env.example services/api/.env`
-   - `cp apps/mobile/.env.example apps/mobile/.env`
-3. Start API + local infra containers:
-   - `make up`
-4. Build Docker images (optional if you already ran `make up`):
-   - `make build`
-5. Run API tests in Docker:
-   - `make tests`
-6. Run mobile:
-   - `make mobile`
-7. Optional if you specifically need tunnel mode:
-   - `make mobile-tunnel`
-8. Preview the parser worker on demo inputs:
-   - `cd services/parser-worker && ../../.venv/bin/python worker/main.py preview-demo --screenshots 4`
-9. Mark expired parse artifacts as deleted:
-   - `cd services/parser-worker && ../../.venv/bin/python worker/main.py cleanup-artifacts --db-path ../api/coachella.db`
+```
+apps/mobile/        Expo React Native client (iOS + Android)
+services/api/       FastAPI backend (Python)
+docs/               Product spec, progress tracker, release runbook
+infra/              Infrastructure config
+```
 
-## GitHub Workflow
-1. Create a feature branch:
-   - `git checkout -b codex/<short-topic>`
-2. Make changes and validate locally:
-   - `cd services/api && uv run pytest -q`
-3. Commit and push:
-   - `git add -A && git commit -m "<summary>"`
-   - `git push -u origin codex/<short-topic>`
-4. Open a PR to `main` and request review.
-5. Merge only after CI passes and at least one review is approved.
+## Stack
 
-## Notes
-- No paid services required during initial local development.
-- Before using any paid vendor or plan upgrade, explicitly confirm with project owner.
-- Current backend milestone uses SQLite for fast iteration; Postgres integration is planned next.
-- The mobile app stays simulator-friendly by generating demo OCR text when no raw screenshot text is provided.
-- The mobile client now caches sessions and schedule snapshots locally, and replays queued preference updates after reconnecting.
-- Expo build profiles and release identifiers are configured in `apps/mobile/eas.json` and `apps/mobile/app.json`.
-- Keep secrets in local `.env` files only. `.env*` is gitignored except `*.env.example`.
-- `apps/mobile/.env` must only contain `EXPO_PUBLIC_*` values that are safe to expose in the client bundle.
+| Layer | Technology |
+|---|---|
+| Mobile | Expo SDK 54 / React Native |
+| API | FastAPI + Python 3.11 |
+| Database | Neon (Postgres) in production, SQLite locally |
+| Migrations | Alembic |
+| OCR | Google Cloud Vision API |
+| Schedule parsing | Claude Haiku (LLM-based, format-agnostic) |
+| Hosting | Render |
+| Distribution | TestFlight (iOS), Google Play internal (Android) |
+
+## Local Development
+
+### API
+
+```bash
+cd services/api
+pip install -e .
+cp .env.example .env   # fill in GOOGLE_VISION_API_KEY and ANTHROPIC_API_KEY
+uvicorn app.main:app --reload
+```
+
+The API runs at `http://127.0.0.1:8000`. It uses SQLite locally (`festival.db`). Alembic migrations run automatically on startup.
+
+### Mobile
+
+```bash
+cd apps/mobile
+npm install
+npx expo start
+```
+
+Scan the QR code with Expo Go on your phone. The app points to the Render API by default (`EXPO_PUBLIC_API_BASE_URL` in `apps/mobile/.env`).
+
+To point at your local API instead, change `apps/mobile/.env`:
+```
+EXPO_PUBLIC_API_BASE_URL=http://<your-mac-local-ip>:8000
+```
+
+### Tests
+
+```bash
+cd services/api
+pip install pytest pytest-mock
+pytest tests/
+```
+
+All external API calls (Google Vision, Anthropic) are mocked in tests — no real credentials needed and no charges incurred.
+
+## Adding a Database Migration
+
+When you add or remove a column:
+
+```bash
+cd services/api
+# create a new migration file
+cp alembic/versions/002_add_festival_days.py alembic/versions/003_your_change.py
+# edit it, then test locally
+python -m alembic upgrade head
+```
+
+Migrations run automatically on Render deploy via `alembic upgrade head` in the app lifespan.
+
+## Deployment
+
+The API deploys automatically to Render on every push to `main`.
+
+Required environment variables on Render (all already configured):
+- `DATABASE_URL` — Neon Postgres connection string
+- `GOOGLE_VISION_API_KEY` — Google Cloud Vision
+- `ANTHROPIC_API_KEY` — Claude Haiku for schedule parsing
+- `APP_ENV=production`
+- `PYTHON_VERSION=3.11.0`
+
+## Building the Mobile App
+
+Requires EAS CLI and an active Apple Developer / Google Play account.
+
+```bash
+cd apps/mobile
+npm install -g eas-cli
+eas login
+
+# iOS TestFlight build
+eas build --platform ios --profile preview
+
+# Android internal testing build
+eas build --platform android --profile preview
+```
+
+See `docs/release-runbook.md` for the full distribution checklist.
+
+## Secrets
+
+- Keep secrets in local `.env` files only — never commit them
+- `.env` and `.env.*` are gitignored (except `*.env.example`)
+- `apps/mobile/.env` may only contain `EXPO_PUBLIC_*` values (they are bundled into the client)
+- Production secrets are set directly in the Render dashboard
+
+## Docs
+
+- `docs/progress.md` — what's done and what's pending
+- `docs/v1-spec.md` — product spec
+- `docs/release-runbook.md` — step-by-step distribution guide
+- `docs/feature-ideas.md` — future ideas
