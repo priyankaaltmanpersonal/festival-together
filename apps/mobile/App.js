@@ -1223,8 +1223,6 @@ export default function App() {
           log={log}
           onBeginProfile={beginProfile}
           onCompleteFestivalSetup={completeFestivalSetup}
-          onChooseScreenshots={chooseScreenshots}
-          onSetPreference={setPreference}
           onRunSimulatorDemoFlow={runSimulatorDemoFlow}
           onResetFlow={resetFlow}
           onChoosePath={choosePath}

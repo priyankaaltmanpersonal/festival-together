@@ -23,8 +23,6 @@ export function SetupScreen({
   log,
   onBeginProfile,
   onCompleteFestivalSetup,
-  onChooseScreenshots,
-  onSetPreference,
   onResetFlow,
   onChoosePath,
   onChooseDayScreenshot,
@@ -192,28 +190,20 @@ export function SetupScreen({
               </>
             ) : null}
 
-            {dayUploadStatus === 'done' ? (
-              isLastDay ? (
-                <ActionButton
-                  label="Finish →"
-                  onPress={() => onFinishUploadFlow()}
-                  primary
-                  disabled={loading}
-                />
-              ) : (
-                <ActionButton
-                  label="Next Day →"
-                  onPress={() => onAdvanceDay(true)}
-                  primary
-                  disabled={loading}
-                />
-              )
-            ) : isLastDay && canFinish ? (
+            {/* Action button: Next Day, Finish, or nothing */}
+            {isLastDay ? (
               <ActionButton
                 label="Finish →"
                 onPress={() => onFinishUploadFlow()}
                 primary
-                disabled={loading || dayUploadStatus === 'uploading'}
+                disabled={loading || dayUploadStatus === 'uploading' || !canFinish}
+              />
+            ) : dayUploadStatus === 'done' ? (
+              <ActionButton
+                label="Next Day →"
+                onPress={() => onAdvanceDay(true)}
+                primary
+                disabled={loading}
               />
             ) : null}
           </View>
@@ -222,7 +212,7 @@ export function SetupScreen({
 
 
       {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error && onboardingStep !== 'upload_day' ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>
   );
 }
