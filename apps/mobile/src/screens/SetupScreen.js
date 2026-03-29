@@ -62,9 +62,9 @@ export function SetupScreen({
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Create Group</Text>
           <Text style={styles.inputLabel}>Your name</Text>
-          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" />
+          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" maxLength={60} />
           <Text style={styles.inputLabel}>Group name</Text>
-          <TextInput value={groupName} onChangeText={setGroupName} style={styles.input} placeholder="Group name" />
+          <TextInput value={groupName} onChangeText={setGroupName} style={styles.input} placeholder="Group name" maxLength={100} />
           <ColorPicker
             options={chipColorOptions}
             selected={selectedChipColor}
@@ -78,7 +78,7 @@ export function SetupScreen({
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Join Group</Text>
           <Text style={styles.inputLabel}>Your name</Text>
-          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" />
+          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" maxLength={60} />
           <Text style={styles.inputLabel}>Invite code</Text>
           <TextInput
             value={inviteCodeInput}

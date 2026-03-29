@@ -75,8 +75,6 @@ export default function App() {
   const [individualSnapshot, setIndividualSnapshot] = useState(null);
 
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
-  const [uploadProgress, setUploadProgress] = useState('');
-  const [uploadFailedCount, setUploadFailedCount] = useState(0);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [festivalDays, setFestivalDays] = useState([{ dayIndex: 1, label: '' }]);
 
@@ -191,7 +189,9 @@ export default function App() {
       uploadDayIndex,
       successfulUploadCount,
       skippedDayIndices: Array.from(skippedDayIndices),
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn('saveAppState failed:', err);
+    });
   }, [
     activeView,
     userRole,
@@ -832,42 +832,6 @@ export default function App() {
       setMenuOpen(false);
     });
 
-  const finishOnboarding = () =>
-    run('confirm setup and open schedule', async () => {
-      if (!memberSession) throw new Error('Need member session first');
-      if (!isOnline) throw new Error('Finish setup requires a connection');
-
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/members/me/setup/complete',
-        method: 'POST',
-        sessionToken: memberSession,
-        body: { confirm: true }
-      });
-
-      const homePayload = await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/members/me/home',
-        method: 'GET',
-        sessionToken: memberSession
-      });
-
-      const nextGroupId = homePayload.group.id;
-      setHomeSnapshot(homePayload);
-      setGroupId(nextGroupId);
-
-      const schedulePayload = await fetchSchedule(memberSession, nextGroupId, {
-        memberIds: []
-      });
-
-      setSelectedMemberIds([]);
-      setScheduleSnapshot(schedulePayload);
-      setLastSyncAt(new Date().toISOString());
-      setOnboardingStep('complete');
-      setActiveView('group');
-      setMenuOpen(false);
-    });
-
   const openEditSchedule = () => {
     setActiveView('edit');
     setMenuOpen(false);
@@ -895,169 +859,6 @@ export default function App() {
         sessionToken: founderSession
       });
       setLastSyncAt(new Date().toISOString());
-    });
-
-  const runSimulatorDemoFlow = () =>
-    run('run simulator demo flow', async () => {
-      if (!isOnline) throw new Error('Demo flow requires a connection');
-      await clearSessionData();
-
-      const founderPayload = await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/groups',
-        method: 'POST',
-        body: {
-          group_name: groupName.trim(),
-          display_name: 'Priyanka',
-          chip_color: CHIP_COLOR_OPTIONS[0],
-          festival_days: [{ day_index: 1, label: 'Friday' }, { day_index: 2, label: 'Saturday' }, { day_index: 3, label: 'Sunday' }]
-        }
-      });
-
-      const nextFounderSession = founderPayload.session.token;
-      const nextInviteCode = founderPayload.group.invite_code;
-      const nextGroupId = founderPayload.group.id;
-
-      // Seed canonical via legacy import endpoint (demo only), then founder imports
-      // personal data and completes setup to open the group for members to join.
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/groups/${nextGroupId}/canonical/import`,
-        method: 'POST',
-        sessionToken: nextFounderSession,
-        body: { screenshot_count: 4 }
-      });
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/groups/${nextGroupId}/canonical/confirm`,
-        method: 'POST',
-        sessionToken: nextFounderSession
-      });
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/members/me/personal/import',
-        method: 'POST',
-        sessionToken: nextFounderSession,
-        body: { screenshot_count: 3 }
-      });
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/members/me/setup/complete',
-        method: 'POST',
-        sessionToken: nextFounderSession,
-        body: { confirm: true }
-      });
-
-      const memberNames = [
-        displayName.trim() || 'Alex',
-        'Maya',
-        'Jordan',
-        'Chris',
-        'Riley',
-        'Noah',
-        'Zoe',
-        'Leo',
-        'Ava',
-        'Milo',
-        'Nina'
-      ];
-      const importedMemberCount = 10;
-      const createdMembers = [];
-
-      for (const name of memberNames) {
-        const memberSessionToken = await createAnonymousSession();
-        await apiRequest({
-          baseUrl: apiUrl,
-          path: `/v1/invites/${nextInviteCode}/join`,
-          method: 'POST',
-          sessionToken: memberSessionToken,
-          body: {
-            display_name: name,
-            leave_current_group: true,
-            chip_color: CHIP_COLOR_OPTIONS[(createdMembers.length + 1) % CHIP_COLOR_OPTIONS.length]
-          }
-        });
-        createdMembers.push({ name, sessionToken: memberSessionToken });
-      }
-
-      const count = Number.parseInt(screenshotCount, 10);
-      if (!Number.isFinite(count) || count < 1 || count > 30) {
-        throw new Error('Screenshot count must be between 1 and 30');
-      }
-
-      let primaryReview = { sets: [] };
-      const nextMemberSession = createdMembers[0].sessionToken;
-      for (let idx = 0; idx < createdMembers.length; idx += 1) {
-        const member = createdMembers[idx];
-        if (idx >= importedMemberCount) continue;
-
-        await apiRequest({
-          baseUrl: apiUrl,
-          path: '/v1/members/me/personal/import',
-          method: 'POST',
-          sessionToken: member.sessionToken,
-          body: { screenshot_count: Math.min(30, count + (idx % 3)) }
-        });
-
-        const review = await apiRequest({
-          baseUrl: apiUrl,
-          path: '/v1/members/me/personal/review',
-          method: 'GET',
-          sessionToken: member.sessionToken
-        });
-
-        for (const setItem of (review.sets || []).slice(0, 3 + (idx % 2))) {
-          await apiRequest({
-            baseUrl: apiUrl,
-            path: `/v1/members/me/sets/${setItem.canonical_set_id}`,
-            method: 'PATCH',
-            sessionToken: member.sessionToken,
-            body: { preference: 'must_see' }
-          });
-        }
-
-        await apiRequest({
-          baseUrl: apiUrl,
-          path: '/v1/members/me/setup/complete',
-          method: 'POST',
-          sessionToken: member.sessionToken,
-          body: { confirm: true }
-        });
-
-        if (idx === 0) {
-          primaryReview = await apiRequest({
-            baseUrl: apiUrl,
-            path: '/v1/members/me/personal/review',
-            method: 'GET',
-            sessionToken: member.sessionToken
-          });
-        }
-      }
-
-      const homePayload = await apiRequest({
-        baseUrl: apiUrl,
-        path: '/v1/members/me/home',
-        method: 'GET',
-        sessionToken: nextMemberSession
-      });
-
-      const schedulePayload = await fetchSchedule(nextMemberSession, nextGroupId, {
-        memberIds: []
-      });
-
-      setFounderSession(nextFounderSession);
-      setMemberSession(nextMemberSession);
-      setGroupId(nextGroupId);
-      setInviteCode(nextInviteCode);
-      setIsFounder(false);
-      setHomeSnapshot(homePayload);
-      setPersonalSets(primaryReview.sets || []);
-      setSelectedMemberIds([]);
-      setScheduleSnapshot(schedulePayload);
-      setLastSyncAt(new Date().toISOString());
-      setOnboardingStep('complete');
-      setActiveView('group');
-      setMenuOpen(false);
     });
 
   const resetFlow = async () => {
@@ -1103,62 +904,6 @@ export default function App() {
         },
       ]
     );
-  };
-
-  // Shared core: pick images, upload to `endpoint`, fetch personal review, update state.
-  // `advanceStep` is called only when the upload produces at least one parsed set.
-  const pickAndUploadPersonal = async (endpoint, advanceStep) => {
-    if (!memberSession) throw new Error('Start onboarding first');
-    if (!isOnline) throw new Error('Upload requires a connection');
-
-    setUploadProgress('');
-    setUploadFailedCount(0);
-
-    const uris = await pickImages();
-    if (!uris) return;
-
-    const result = await uploadImages(
-      apiUrl,
-      endpoint,
-      sessionRef.current,
-      uris,
-      (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
-    );
-
-    setUploadProgress('');
-    setUploadFailedCount(result.failed_count || 0);
-
-    if (!result.parsed_count && result.failed_count > 0) {
-      // All images failed OCR — stay on current step so the warning is visible
-      // and the user can choose to retry or skip.
-      throw new Error(`None of the ${result.failed_count} screenshot(s) could be read. Please try clearer images.`);
-    }
-
-    const review = await apiRequest({
-      baseUrl: apiUrl,
-      path: '/v1/members/me/personal/review',
-      method: 'GET',
-      sessionToken: sessionRef.current
-    });
-
-    setPersonalSets(review.sets || []);
-    setLastSyncAt(new Date().toISOString());
-    if (advanceStep) advanceStep();
-  };
-
-  const chooseScreenshots = () =>
-    run('upload my schedule', () =>
-      pickAndUploadPersonal('/v1/members/me/personal/upload', () => setOnboardingStep('review'))
-    );
-
-  const retryUpload = () =>
-    run('upload more screenshots', () =>
-      pickAndUploadPersonal('/v1/members/me/personal/upload', null)
-    );
-
-  const skipFailed = () => {
-    setUploadFailedCount(0);
-    setUploadProgress('');
   };
 
   const canOpenMenu = onboardingStep === 'complete';
@@ -1223,7 +968,6 @@ export default function App() {
           log={log}
           onBeginProfile={beginProfile}
           onCompleteFestivalSetup={completeFestivalSetup}
-          onRunSimulatorDemoFlow={runSimulatorDemoFlow}
           onResetFlow={resetFlow}
           onChoosePath={choosePath}
           uploadDayIndex={uploadDayIndex}
