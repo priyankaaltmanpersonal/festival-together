@@ -76,6 +76,7 @@ export function SetupScreen({
 
       {onboardingStep === 'profile_join' ? (
         <View style={styles.stepCard}>
+          <ActionButton label="← Back" onPress={() => onChoosePath('welcome')} disabled={loading} />
           <Text style={styles.stepTitle}>Join Group</Text>
           <Text style={styles.inputLabel}>Your name</Text>
           <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" maxLength={60} />

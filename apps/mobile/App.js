@@ -379,6 +379,10 @@ export default function App() {
 
   const choosePath = (role) => {
     setError('');
+    if (role === 'welcome') {
+      setOnboardingStep('welcome');
+      return;
+    }
     setUserRole(role);
     if (role === 'member') {
       setAvailableJoinColors([]);
