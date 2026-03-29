@@ -21,8 +21,7 @@ infra/              Infrastructure config
 | API | FastAPI + Python 3.11 |
 | Database | Neon (Postgres) in production, SQLite locally |
 | Migrations | Alembic |
-| OCR | Google Cloud Vision API |
-| Schedule parsing | Claude Haiku (LLM-based, format-agnostic) |
+| Schedule parsing | Claude Sonnet 4.6 vision (direct image → structured JSON) |
 | Hosting | Render |
 | Distribution | TestFlight (iOS), Google Play internal (Android) |
 
@@ -33,11 +32,11 @@ infra/              Infrastructure config
 ```bash
 cd services/api
 pip install -e .
-cp .env.example .env   # fill in GOOGLE_VISION_API_KEY and ANTHROPIC_API_KEY
+cp .env.example .env   # fill in ANTHROPIC_API_KEY
 uvicorn app.main:app --reload
 ```
 
-The API runs at `http://127.0.0.1:8000`. It uses SQLite locally (`festival.db`). Alembic migrations run automatically on startup.
+The API runs at `http://127.0.0.1:8000`. It uses SQLite locally. Alembic migrations run automatically on startup.
 
 ### Mobile
 
@@ -54,6 +53,8 @@ To point at your local API instead, change `apps/mobile/.env`:
 EXPO_PUBLIC_API_BASE_URL=http://<your-mac-local-ip>:8000
 ```
 
+**Note:** Use `npx expo install` (not `npm install`) when adding native packages — it pins to the version compatible with your Expo SDK. For example, `@react-native-async-storage/async-storage` must stay at v2.2.0; v3.x breaks Expo Go on SDK 54.
+
 ### Tests
 
 ```bash
@@ -62,7 +63,7 @@ pip install pytest pytest-mock
 pytest tests/
 ```
 
-All external API calls (Google Vision, Anthropic) are mocked in tests — no real credentials needed and no charges incurred.
+All external API calls (Anthropic) are mocked in tests — no real credentials needed and no charges incurred.
 
 ## Adding a Database Migration
 
@@ -70,7 +71,7 @@ When you add or remove a column:
 
 ```bash
 cd services/api
-# create a new migration file
+# create a new migration file based on the latest
 cp alembic/versions/002_add_festival_days.py alembic/versions/003_your_change.py
 # edit it, then test locally
 python -m alembic upgrade head
@@ -84,8 +85,7 @@ The API deploys automatically to Render on every push to `main`.
 
 Required environment variables on Render (all already configured):
 - `DATABASE_URL` — Neon Postgres connection string
-- `GOOGLE_VISION_API_KEY` — Google Cloud Vision
-- `ANTHROPIC_API_KEY` — Claude Haiku for schedule parsing
+- `ANTHROPIC_API_KEY` — Claude for schedule parsing
 - `APP_ENV=production`
 - `PYTHON_VERSION=3.11.0`
 
@@ -99,10 +99,10 @@ npm install -g eas-cli
 eas login
 
 # iOS TestFlight build
-eas build --platform ios --profile preview
+eas build --platform ios --profile production
 
 # Android internal testing build
-eas build --platform android --profile preview
+eas build --platform android --profile production
 ```
 
 See `docs/release-runbook.md` for the full distribution checklist.

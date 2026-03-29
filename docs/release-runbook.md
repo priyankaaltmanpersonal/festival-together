@@ -1,28 +1,25 @@
 # Festival Together — Release Runbook
 
 This document walks through every account setup, secret, and build step needed to get
-Festival Together running in production and distributed to your group for Coachella 2025.
+Festival Together running in production and distributed to your group for Coachella 2026.
 
 ---
 
-## 1. Accounts you need to create (one-time)
+## 1. Accounts you need (one-time setup)
 
-### Google Cloud (for OCR)
-1. Go to console.cloud.google.com and create a new project (e.g. "festival-together").
-2. Enable **Cloud Vision API**: search "Cloud Vision API" → Enable.
-3. Go to **APIs & Services → Credentials → Create Credentials → API Key**.
-4. Restrict the key: under "API restrictions" select "Cloud Vision API" only.
-5. Copy the key — you'll need it for Render and local dev.
-6. **Cost ceiling**: go to **Billing → Budgets & alerts** → create a budget of $20/month
-   with email alert at 90%. Vision API costs ~$1.50 per 1,000 images; 12 members
-   uploading 30 screenshots each = 360 images total — well under $1.
+### Anthropic (for schedule parsing)
+1. Go to console.anthropic.com → create an account.
+2. Go to **API Keys** → create a key.
+3. Copy the key — you'll need it for Render and local dev.
+4. **Cost**: Claude Sonnet 4.6 vision is ~$3/MTok input, ~$15/MTok output. Parsing one
+   screenshot (compressed JPEG) uses ~1,000–2,000 input tokens + ~200 output tokens.
+   12 members × 3 days × 1–2 uploads = ~100 calls total → well under $1.
 
 ### Neon (Postgres database)
 1. Go to neon.tech → sign up (free tier, no credit card required).
 2. Create a project named "festival-together".
 3. Create a database named "festival_together".
-4. Copy the **connection string** from the dashboard (looks like
-   `postgresql://user:password@ep-xxx.us-east-2.aws.neon.tech/festival_together?sslmode=require`).
+4. Copy the **connection string** from the dashboard.
 5. Free tier limit: 0.5 GB storage, 1 compute unit. More than enough for 12 people.
 
 ### Render (API hosting)
@@ -33,12 +30,12 @@ Festival Together running in production and distributed to your group for Coache
    - **Build command**: `pip install -e .`
    - **Start command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
    - **Plan**: Starter ($7/month) — no cold starts
-4. In **Environment**, add these secrets (click "Add Secret File" or "Add Env Var"):
+4. In **Environment**, add these secrets:
    - `DATABASE_URL` → your Neon connection string
-   - `GOOGLE_VISION_API_KEY` → your Google Cloud Vision API key
+   - `ANTHROPIC_API_KEY` → your Anthropic API key
    - `APP_ENV` → `production`
 5. Click **Create Web Service**. First deploy takes ~3 minutes.
-6. Your API URL will be: `https://festival-together-api.onrender.com` (or similar).
+6. Your API URL will be: `https://festival-together-api.onrender.com`
 7. **Cost ceiling**: Render Starter is flat $7/month. No surprises.
 
 ### Apple Developer Program (iOS TestFlight)
@@ -47,20 +44,16 @@ Festival Together running in production and distributed to your group for Coache
 2. Once approved, go to appstoreconnect.apple.com:
    - **Apps → + New App**
    - Platform: iOS, Name: "Festival Together", Bundle ID: `com.festivaltogether.app`
-   - SKU: `festival-together-2025`
+   - SKU: `festival-together-2026`
 3. Note your **Apple ID email**, **App Store Connect App ID** (10-digit number in the URL),
    and **Team ID** (from Membership page in developer.apple.com).
 4. Update `apps/mobile/eas.json` → replace the three `REPLACE_WITH_*` placeholders.
 
-### Google Play (Android — optional for now)
+### Google Play (Android — optional)
 1. Go to play.google.com/console → pay the $25 one-time registration fee.
 2. Create a new app: "Festival Together", default language English.
 3. For distributing to your group without Play Store review, use **Internal testing track**
    — add testers by email directly, no review needed.
-4. For the service account key (for automated submission):
-   - **Setup → API access → Link to Google Cloud project**
-   - Create a service account → download JSON key
-   - Place the key at `google-play-key.json` in the repo root (gitignored)
 
 ---
 
@@ -69,13 +62,13 @@ Festival Together running in production and distributed to your group for Coache
 ```bash
 # Install API dependencies
 cd services/api
-uv sync
+pip install -e .
 
 # Set environment variables (copy and fill in values)
 cp .env.example .env
 # Edit .env:
 #   DATABASE_URL=         # leave blank to use SQLite locally
-#   GOOGLE_VISION_API_KEY=your-key-here
+#   ANTHROPIC_API_KEY=your-key-here
 
 # Run the API
 uvicorn app.main:app --reload
@@ -94,10 +87,10 @@ The mobile app defaults to `http://127.0.0.1:8000` when `EXPO_PUBLIC_API_BASE_UR
 
 ```bash
 cd services/api
-.venv/bin/pytest -v
+pytest tests/ -v
 ```
 
-All tests use SQLite and mock Google Vision — no real API keys needed.
+All tests mock the Anthropic API — no real credentials needed and no charges incurred.
 
 ---
 
@@ -123,7 +116,7 @@ eas build --platform ios --profile production
 # After build completes (~10-15 min), submit to TestFlight:
 eas submit --platform ios --profile production --latest
 
-# In App Store Connect → TestFlight → add your 12 testers by email.
+# In App Store Connect → TestFlight → add your testers by email.
 # They get an email invite and install via the TestFlight app.
 ```
 
@@ -169,11 +162,12 @@ If your Render service URL is different, update it in `apps/mobile/eas.json` und
 ## 6. Checklist before distributing to your group
 
 - [ ] Render service is live and healthy (visit `https://your-render-url.onrender.com/health`)
-- [ ] Neon database is connected (check Render logs for "Database ready")
-- [ ] Google Vision API key is active (test: upload a screenshot in the app)
-- [ ] iOS TestFlight build is approved by Apple (usually <24h for internal builds)
-- [ ] All 12 testers have accepted TestFlight invites
-- [ ] Founder has completed group setup (canonical schedule uploaded + confirmed)
+- [ ] Neon database is connected (check Render logs for startup success)
+- [ ] `ANTHROPIC_API_KEY` is active (test: upload a screenshot in the app and confirm parse works)
+- [ ] `GOOGLE_VISION_API_KEY` removed from Render env (no longer used — leftover from old pipeline)
+- [ ] iOS TestFlight build submitted and approved by Apple (usually <24h for internal builds)
+- [ ] All testers have accepted TestFlight invites
+- [ ] Founder has completed group setup (festival days set, at least one day uploaded)
 - [ ] Invite code shared with group members
 
 ---
@@ -182,7 +176,7 @@ If your Render service URL is different, update it in `apps/mobile/eas.json` und
 
 - **Render logs**: render.com → your service → Logs tab
 - **Neon usage**: neon.tech → your project → Monitoring
-- **Google Vision quota**: console.cloud.google.com → APIs & Services → Cloud Vision API → Quotas
+- **Anthropic usage**: console.anthropic.com → Usage
 - **EAS build history**: expo.dev → your project → Builds
 
 ---
@@ -193,9 +187,9 @@ If your Render service URL is different, update it in `apps/mobile/eas.json` und
 |---|---|
 | Render Starter | $7/month |
 | Neon free tier | $0 |
-| Google Vision (360 images) | ~$0.54 one-time |
+| Anthropic (Claude vision, ~100 calls) | <$1 one-time |
 | Apple Developer Program | $99/year |
-| Google Play | $25 one-time |
-| **Total for Coachella 2025** | **~$115 one-time + $7/month** |
+| Google Play (optional) | $25 one-time |
+| **Total for Coachella 2026** | **~$100 one-time + $7/month** |
 
 You can cancel Render after the festival to stop the $7/month charge.
