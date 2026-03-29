@@ -450,7 +450,13 @@ export default function App() {
       setDayUploadStatus('done');
     } catch (e) {
       setDayUploadStatus('error');
-      setError(e instanceof Error ? e.message : String(e));
+      const raw = e instanceof Error ? e.message : String(e);
+      const friendly = raw.includes('no_parsed_sets')
+        ? "We couldn't find any artists in that screenshot. Try a different one."
+        : raw.includes('all_images_failed')
+        ? "That image couldn't be read. Please try a clearer screenshot."
+        : raw;
+      setError(friendly);
     }
   };
 
