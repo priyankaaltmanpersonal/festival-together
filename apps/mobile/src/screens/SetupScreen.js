@@ -43,6 +43,7 @@ export function SetupScreen({
   onFinishUploadFlow,
   onSetDayPreference,
   onReuploadDay,
+  onGoBackDay,
   uploadDayIndex,
   dayUploadStatus,
   dayParsedSets,
@@ -73,6 +74,7 @@ export function SetupScreen({
 
       {onboardingStep === 'profile_create' ? (
         <View style={styles.stepCard}>
+          <ActionButton label="← Back" onPress={() => onChoosePath('welcome')} disabled={loading} />
           <Text style={styles.stepTitle}>Create Group</Text>
           <Text style={styles.inputLabel}>Your name</Text>
           <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" maxLength={60} />
@@ -152,6 +154,11 @@ export function SetupScreen({
         return (
           <View style={styles.stepCard}>
             <View style={styles.skipRow}>
+              {dayPosition > 1 || userRole === 'founder' ? (
+                <Pressable onPress={onGoBackDay}>
+                  <Text style={styles.skipLink}>← Back</Text>
+                </Pressable>
+              ) : <View />}
               <Pressable onPress={onSkipDay}>
                 <Text style={styles.skipLink}>Skip this day →</Text>
               </Pressable>
@@ -191,7 +198,11 @@ export function SetupScreen({
                 {(dayParsedSets || []).map((setItem) => (
                   <View key={setItem.canonical_set_id} style={styles.setRow}>
                     <Text style={styles.setTitle}>{setItem.artist_name}</Text>
-                    <Text style={styles.helper}>{setItem.stage_name} · {formatTime(setItem.start_time_pt)}–{formatTime(setItem.end_time_pt)}</Text>
+                    <Text style={styles.helper}>
+                      {setItem.stage_name} · {setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt
+                        ? `${formatTime(setItem.start_time_pt)}–${formatTime(setItem.end_time_pt)}`
+                        : formatTime(setItem.start_time_pt)}
+                    </Text>
                     <View style={styles.prefRow}>
                       <PrefButton
                         label="Must See"
@@ -394,7 +405,7 @@ const styles = StyleSheet.create({
   removeButtonText: { fontSize: 18, color: '#5a4d3b', fontWeight: '700', lineHeight: 20 },
   error: { color: '#b52424', fontWeight: '600' },
   logLine: { color: '#444', fontSize: 11 },
-  skipRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  skipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   parsedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   skipLink: { color: '#345a46', fontWeight: '600', fontSize: 13 },
   uploadingRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },

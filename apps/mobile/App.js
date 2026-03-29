@@ -383,6 +383,10 @@ export default function App() {
       setOnboardingStep('welcome');
       return;
     }
+    if (role === 'festival_setup') {
+      setOnboardingStep('festival_setup');
+      return;
+    }
     setUserRole(role);
     if (role === 'member') {
       setAvailableJoinColors([]);
@@ -518,6 +522,19 @@ export default function App() {
     setDayUploadStatus('idle');
     setDayParsedSets([]);
     setError('');
+  };
+
+  const goBackUploadDay = () => {
+    const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
+    if (currentIdx > 0) {
+      const prevDay = festivalDays[currentIdx - 1];
+      setUploadDayIndex(prevDay.dayIndex);
+      setDayUploadStatus('idle');
+      setDayParsedSets([]);
+      setError('');
+    } else {
+      choosePath('festival_setup');
+    }
   };
 
   const skipUploadDay = () => {
@@ -996,6 +1013,7 @@ export default function App() {
           onAdvanceDay={advanceUploadDay}
           onFinishUploadFlow={finishUploadFlow}
           onSetDayPreference={setDayPreference}
+          onGoBackDay={goBackUploadDay}
         />
       ) : null}
 
