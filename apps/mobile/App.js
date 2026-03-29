@@ -14,6 +14,33 @@ import { clearOfflineState, loadAppState, loadMutationQueue, saveAppState, saveM
 import { pickImages, uploadImages } from './src/services/uploadImages';
 
 const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
+const API_ERROR_MESSAGES = {
+  invalid_chip_color: 'That color isn\'t valid. Please choose a different color.',
+  chip_color_unavailable: 'That color was just taken. Please choose another.',
+  no_chip_colors_available: 'All colors are taken in this group. Ask someone to leave so a slot opens.',
+  session_rate_limited: 'Too many attempts. Please wait a moment and try again.',
+  invalid_session: 'Your session has expired. Please restart the app.',
+  missing_session: 'Your session has expired. Please restart the app.',
+  invite_not_found: 'That invite code wasn\'t found. Double-check the code and try again.',
+  setup_pending: 'This group\'s setup isn\'t complete yet. Ask the founder to finish setup.',
+  already_in_group: 'You\'re already in a group.',
+  founder_cannot_leave: 'The group founder can\'t leave — delete the group instead.',
+  group_not_found: 'Group not found.',
+  no_parsed_sets: 'No artists could be found in that screenshot. Try a clearer image.',
+  all_images_failed: 'That image couldn\'t be read. Please try a clearer screenshot.',
+  too_many_images: 'Too many images at once — please upload up to 5 at a time.',
+  canonical_not_ready: 'The group schedule isn\'t ready yet. Try again in a moment.',
+  canonical_not_imported: 'No schedule has been imported for this group yet.',
+  at_least_one_set_required: 'You need at least one artist saved before finishing.',
+  offline_unavailable: 'You appear to be offline. Please check your connection and try again.',
+  forbidden: 'You don\'t have permission to do that.',
+  founder_only: 'Only the group founder can do that.',
+};
+
+function friendlyError(msg) {
+  return API_ERROR_MESSAGES[msg] || msg;
+}
 const CHIP_COLOR_OPTIONS = [
   '#4D73FF',
   '#20A36B',
@@ -294,7 +321,7 @@ export default function App() {
       appendLog(`OK: ${label}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
+      setError(friendlyError(msg));
       appendLog(`ERR: ${label} -> ${msg}`);
     } finally {
       setLoading(false);
@@ -474,12 +501,7 @@ export default function App() {
     } catch (e) {
       setDayUploadStatus('error');
       const raw = e instanceof Error ? e.message : String(e);
-      const friendly = raw.includes('no_parsed_sets')
-        ? "We couldn't find any artists in that screenshot. Try a different one."
-        : raw.includes('all_images_failed')
-        ? "That image couldn't be read. Please try a clearer screenshot."
-        : raw;
-      setError(friendly);
+      setError(friendlyError(raw));
     }
   };
 

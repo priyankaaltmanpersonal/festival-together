@@ -11,6 +11,12 @@ CHIP_COLOR_PALETTE = [
     '#D18A1F',  # amber
     '#6D5A4C',  # stone
     '#9A4FB5',  # plum
+    '#E84F6B',  # rose
+    '#F0C040',  # gold
+    '#00B4D8',  # sky
+    '#FF6B35',  # coral
+    '#06A77D',  # mint
+    '#7B2D8B',  # purple
 ]
 
 
