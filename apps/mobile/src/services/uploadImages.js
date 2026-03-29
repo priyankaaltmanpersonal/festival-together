@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
  * Returns null if the user cancels or permission is denied.
  * Throws Error('permission_denied') if the user explicitly denies permission.
  */
-export async function pickImages() {
+export async function pickImages(selectionLimit = 30) {
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== 'granted') {
     throw new Error('permission_denied');
@@ -16,7 +16,7 @@ export async function pickImages() {
     mediaTypes: ['images'],
     allowsMultipleSelection: true,
     quality: 1,
-    selectionLimit: 30,
+    selectionLimit,
   });
 
   if (result.canceled) return null;
@@ -46,8 +46,12 @@ async function compressImage(uri) {
  * @param {function} [onProgress]- Called with (completedCount, totalCount) as each image is compressed
  * @returns {Promise<{parsed_count, failed_count, parse_job_id, unresolved_count?, ok}>}
  */
-export async function uploadImages(apiUrl, endpoint, sessionToken, imageUris, onProgress) {
+export async function uploadImages(apiUrl, endpoint, sessionToken, imageUris, onProgress, dayLabel) {
   const formData = new FormData();
+
+  if (dayLabel) {
+    formData.append('day_label', dayLabel);
+  }
 
   for (let i = 0; i < imageUris.length; i++) {
     const compressedUri = await compressImage(imageUris[i]);

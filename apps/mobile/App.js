@@ -80,6 +80,12 @@ export default function App() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [festivalDays, setFestivalDays] = useState([{ dayIndex: 1, label: '' }]);
 
+  const [uploadDayIndex, setUploadDayIndex] = useState(1);
+  const [dayUploadStatus, setDayUploadStatus] = useState('idle'); // 'idle'|'uploading'|'done'|'error'
+  const [dayParsedSets, setDayParsedSets] = useState([]);
+  const [skippedDayIndices, setSkippedDayIndices] = useState(new Set());
+  const [successfulUploadCount, setSuccessfulUploadCount] = useState(0);
+
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
   useEffect(() => {
@@ -129,6 +135,9 @@ export default function App() {
         setFestivalDays(storedState.festivalDays || [{ dayIndex: 1, label: '' }]);
         setLog(storedState.log || []);
         setLastSyncAt(storedState.lastSyncAt || '');
+        setUploadDayIndex(storedState.uploadDayIndex || 1);
+        setSuccessfulUploadCount(storedState.successfulUploadCount || 0);
+        setSkippedDayIndices(new Set(storedState.skippedDayIndices || []));
       })
       .finally(() => {
         if (alive) {
@@ -178,7 +187,10 @@ export default function App() {
       privacyAccepted,
       festivalDays,
       log,
-      lastSyncAt
+      lastSyncAt,
+      uploadDayIndex,
+      successfulUploadCount,
+      skippedDayIndices: Array.from(skippedDayIndices),
     }).catch(() => {});
   }, [
     activeView,
@@ -203,7 +215,10 @@ export default function App() {
     privacyAccepted,
     festivalDays,
     log,
-    lastSyncAt
+    lastSyncAt,
+    uploadDayIndex,
+    successfulUploadCount,
+    skippedDayIndices,
   ]);
 
   useEffect(() => {
@@ -397,6 +412,124 @@ export default function App() {
       const filtered = prev.filter((d) => d.dayIndex !== dayIndex);
       // Reassign sequential indices
       return filtered.map((d, i) => ({ ...d, dayIndex: i + 1 }));
+    });
+  };
+
+  const chooseAndUploadDayScreenshot = async () => {
+    if (!memberSession || !isOnline) {
+      setError(isOnline ? 'Start onboarding first' : 'Upload requires a connection');
+      return;
+    }
+    let uris;
+    try {
+      uris = await pickImages(1); // one screenshot per day
+    } catch (e) {
+      setError('Photo library permission denied');
+      return;
+    }
+    if (!uris || uris.length === 0) return;
+
+    const currentDay = festivalDays.find((d) => d.dayIndex === uploadDayIndex);
+    const dayLabel = currentDay?.label || '';
+
+    setDayUploadStatus('uploading');
+    setDayParsedSets([]);
+    setError('');
+
+    try {
+      const response = await uploadImages(
+        apiUrl,
+        '/v1/members/me/personal/upload',
+        memberSession,
+        uris,
+        null,
+        dayLabel
+      );
+      const sets = (response.sets || []).map((s) => ({ ...s, preference: 'flexible' }));
+      setDayParsedSets(sets);
+      setDayUploadStatus('done');
+    } catch (e) {
+      setDayUploadStatus('error');
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const finishUploadFlow = (lastDayWasSuccessful = false) => {
+    const totalCount = successfulUploadCount + (lastDayWasSuccessful ? 1 : 0);
+    if (totalCount < 1) {
+      setError("Upload at least one day's schedule to continue");
+      return;
+    }
+    run('finish setup', async () => {
+      if (!isOnline) throw new Error('Finish setup requires a connection');
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/setup/complete',
+        method: 'POST',
+        sessionToken: memberSession,
+        body: { confirm: true }
+      });
+      const homePayload = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/home',
+        method: 'GET',
+        sessionToken: memberSession
+      });
+      const nextGroupId = homePayload.group.id;
+      setHomeSnapshot(homePayload);
+      setGroupId(nextGroupId);
+      const schedulePayload = await fetchSchedule(memberSession, nextGroupId, { memberIds: [] });
+      setSelectedMemberIds([]);
+      setScheduleSnapshot(schedulePayload);
+      setLastSyncAt(new Date().toISOString());
+      setOnboardingStep('complete');
+      setActiveView('group');
+      setMenuOpen(false);
+    });
+  };
+
+  const advanceUploadDay = (wasSuccessful = false) => {
+    if (wasSuccessful) {
+      setSuccessfulUploadCount((prev) => prev + 1);
+    }
+    const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
+    const nextDay = festivalDays[currentIdx + 1];
+    if (nextDay) {
+      setUploadDayIndex(nextDay.dayIndex);
+      setDayUploadStatus('idle');
+      setDayParsedSets([]);
+      setError('');
+    } else {
+      finishUploadFlow(wasSuccessful);
+    }
+  };
+
+  const skipUploadDay = () => {
+    setSkippedDayIndices((prev) => new Set([...prev, uploadDayIndex]));
+    advanceUploadDay(false);
+  };
+
+  const setDayPreference = (canonicalSetId, preference) => {
+    // Optimistic local update to dayParsedSets
+    setDayParsedSets((prev) =>
+      prev.map((s) => s.canonical_set_id === canonicalSetId ? { ...s, preference } : s)
+    );
+    // Fire PATCH
+    if (!memberSession || !isOnline) return;
+    apiRequest({
+      baseUrl: apiUrl,
+      path: `/v1/members/me/sets/${canonicalSetId}`,
+      method: 'PATCH',
+      sessionToken: memberSession,
+      body: { preference }
+    }).catch(() => {
+      // Revert on error
+      setDayParsedSets((prev) =>
+        prev.map((s) => s.canonical_set_id === canonicalSetId
+          ? { ...s, preference: preference === 'must_see' ? 'flexible' : 'must_see' }
+          : s
+        )
+      );
     });
   };
 
