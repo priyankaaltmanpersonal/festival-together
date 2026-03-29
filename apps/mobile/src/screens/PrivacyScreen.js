@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
   wrap: { flexGrow: 1, gap: 12, paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 },
   h1: { color: '#1f3024', fontSize: 20, fontWeight: '800' },
   card: {
+    flex: 1,
     backgroundColor: '#fffefb',
     borderRadius: 12,
     borderWidth: 1,
