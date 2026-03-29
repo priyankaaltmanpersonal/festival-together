@@ -110,6 +110,9 @@ def parse_schedule_from_image(
                 }
             ],
         )
+        if not response.content:
+            logger.error("Vision API returned empty content")
+            return []
         text = response.content[0].text.strip()
         parsed = json.loads(text)
         if not isinstance(parsed, list):

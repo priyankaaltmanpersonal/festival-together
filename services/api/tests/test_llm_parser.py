@@ -59,3 +59,13 @@ def test_parse_schedule_from_image_no_api_key_returns_empty():
     with patch("app.core.llm_parser._get_client", return_value=None):
         result = parse_schedule_from_image(_make_test_image_bytes(), "Friday", FESTIVAL_DAYS)
     assert result == []
+
+
+def test_parse_schedule_from_image_handles_malformed_json():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = MagicMock(
+        content=[MagicMock(text="```json\n[{\"artist_name\": \"Lady Gaga\"}]\n```")]
+    )
+    with patch("app.core.llm_parser._get_client", return_value=mock_client):
+        result = parse_schedule_from_image(_make_test_image_bytes(), "Friday", FESTIVAL_DAYS)
+    assert result == []
