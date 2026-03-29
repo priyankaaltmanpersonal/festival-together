@@ -37,6 +37,10 @@ class LeaveGroupRequest(BaseModel):
     confirm: bool = False
 
 
+class DeleteMemberRequest(BaseModel):
+    confirm: bool = False
+
+
 class GroupSummary(BaseModel):
     id: str
     name: str

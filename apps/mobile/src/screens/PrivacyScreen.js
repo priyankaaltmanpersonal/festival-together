@@ -20,7 +20,7 @@ export function PrivacyScreen({ onAccept }) {
         </Text>
         <Text style={styles.row}>
           <Text style={styles.label}>Your rights: </Text>
-          <Text style={styles.body}>Use "Restart Onboarding" to delete your session and preferences from our servers.</Text>
+          <Text style={styles.body}>Use "Delete My Data" in the app menu to permanently remove your account and schedule preferences from our servers.</Text>
         </Text>
       </View>
 

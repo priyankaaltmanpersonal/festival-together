@@ -1,6 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { apiRequest } from './src/api/client';
@@ -912,6 +912,39 @@ export default function App() {
     setLog(['Reset: onboarding restarted']);
   };
 
+  const deleteMyData = () => {
+    Alert.alert(
+      'Delete My Data',
+      'This permanently removes your account and schedule preferences from our servers. If you are the only member in your group, the group will also be deleted. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () =>
+            run('delete my data', async () => {
+              if (!memberSession) throw new Error('No active session');
+              if (!isOnline) throw new Error('Deleting data requires a connection');
+              await apiRequest({
+                baseUrl: apiUrl,
+                path: '/v1/members/me',
+                method: 'DELETE',
+                sessionToken: memberSession,
+                body: { confirm: true }
+              });
+              await clearSessionData(true);
+              setUserRole('member');
+              setOnboardingStep('welcome');
+              setActiveView('onboarding');
+              setMenuOpen(false);
+              setSelectedChipColor(CHIP_COLOR_OPTIONS[0]);
+              setAvailableJoinColors([]);
+            }),
+        },
+      ]
+    );
+  };
+
   // Shared core: pick images, upload to `endpoint`, fetch personal review, update state.
   // `advanceStep` is called only when the upload produces at least one parsed set.
   const pickAndUploadPersonal = async (endpoint, advanceStep) => {
@@ -1101,6 +1134,7 @@ export default function App() {
               <MenuItem label="Founder Tools" onPress={() => { setActiveView('founder'); setMenuOpen(false); }} />
             ) : null}
             <MenuItem label="Restart Onboarding" onPress={resetFlow} />
+            <MenuItem label="Delete My Data" onPress={deleteMyData} destructive />
           </Pressable>
         </Pressable>
       ) : null}
@@ -1109,10 +1143,10 @@ export default function App() {
   );
 }
 
-function MenuItem({ label, onPress }) {
+function MenuItem({ label, onPress, destructive = false }) {
   return (
     <Pressable onPress={onPress} style={styles.menuItem}>
-      <Text style={styles.menuItemText}>{label}</Text>
+      <Text style={[styles.menuItemText, destructive && styles.menuItemTextDestructive]}>{label}</Text>
     </Pressable>
   );
 }
@@ -1213,5 +1247,8 @@ const styles = StyleSheet.create({
   menuItemText: {
     color: '#304036',
     fontWeight: '700'
+  },
+  menuItemTextDestructive: {
+    color: '#b52424'
   }
 });

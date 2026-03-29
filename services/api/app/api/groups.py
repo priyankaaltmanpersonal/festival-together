@@ -12,6 +12,7 @@ from app.core.auth import require_session
 from app.core.colors import CHIP_COLOR_PALETTE, normalize_chip_color, validate_chip_color
 from app.core.db import get_conn
 from app.schemas.groups import (
+    DeleteMemberRequest,
     FestivalDay,
     GroupCreateRequest,
     GroupCreateResponse,
@@ -427,3 +428,63 @@ def member_home(session=Depends(require_session)) -> dict:
             "not_going": pref_counts["not_going_sets"] if pref_counts and pref_counts["not_going_sets"] is not None else 0,
         },
     }
+
+
+@router.delete("/members/me")
+def delete_member_data(payload: DeleteMemberRequest, session=Depends(require_session)) -> dict:
+    """Permanently delete this member's data and session.
+
+    If the member is the founder and the only active member in the group,
+    the entire group is deleted as well.
+    """
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="confirmation_required")
+
+    with get_conn() as conn:
+        member = conn.execute(
+            "SELECT id, group_id, role FROM members WHERE id = ? AND active = 1",
+            (session["member_id"],),
+        ).fetchone()
+        if member is None:
+            raise HTTPException(status_code=401, detail="invalid_session")
+
+        group_id = member["group_id"]
+
+        # Check if this is the only active member in the group
+        other_active_count = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM members WHERE group_id = ? AND active = 1 AND id != ?",
+            (group_id, member["id"]),
+        ).fetchone()["cnt"]
+
+        if other_active_count == 0:
+            # Sole member — delete the whole group
+            conn.execute(
+                "DELETE FROM member_set_preferences WHERE member_id IN (SELECT id FROM members WHERE group_id = ?)",
+                (group_id,),
+            )
+            conn.execute(
+                "DELETE FROM member_parse_jobs WHERE member_id IN (SELECT id FROM members WHERE group_id = ?)",
+                (group_id,),
+            )
+            conn.execute(
+                "DELETE FROM sessions WHERE member_id IN (SELECT id FROM members WHERE group_id = ?)",
+                (group_id,),
+            )
+            conn.execute("DELETE FROM canonical_sets WHERE group_id = ?", (group_id,))
+            conn.execute("DELETE FROM members WHERE group_id = ?", (group_id,))
+            conn.execute("DELETE FROM groups WHERE id = ?", (group_id,))
+            return {"ok": True, "group_deleted": True}
+
+        # Other members remain — delete only this member's data
+        conn.execute(
+            "DELETE FROM member_set_preferences WHERE member_id = ?",
+            (member["id"],),
+        )
+        conn.execute(
+            "DELETE FROM member_parse_jobs WHERE member_id = ?",
+            (member["id"],),
+        )
+        conn.execute("DELETE FROM sessions WHERE token = ?", (session["token"],))
+        conn.execute("DELETE FROM members WHERE id = ?", (member["id"],))
+
+    return {"ok": True, "group_deleted": False}
