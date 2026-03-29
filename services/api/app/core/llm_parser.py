@@ -20,8 +20,8 @@ _VISION_PROMPT = """\
 You are extracting a user's selected festival performances from a mobile app screenshot.
 
 The screenshot is one of two types:
-1. PERSONAL LIST VIEW: Shows only the artists the user has saved/starred. All visible artists are the user's picks. Extract all of them.
-2. FULL GRID WITH HIGHLIGHTS: Shows the complete festival schedule across all stages with time columns. The user's selected artists appear in highlighted, darkened, or visually distinct cells (darker background, different color, bold). Extract ONLY the highlighted/selected artists — ignore all others.
+1. PERSONAL LIST VIEW: Shows only the artists the user has saved/starred — a clean list with artist names, times, and stage names. All visible artists are the user's picks. Extract all of them.
+2. FULL GRID WITH HIGHLIGHTS: Shows the complete festival schedule as a grid with stages as columns and times as rows. Most cells are light/peach/beige (not selected). The user's picks are visually distinct — they appear as DARK cells (black, dark brown, or dark green background with light text). Scan every cell in every column systematically from top to bottom. Extract ALL dark-background cells — do not stop early.
 
 For each selected artist, extract:
 - artist_name: performer name (string)
@@ -34,6 +34,7 @@ Festival days for this group: {festival_days_json}
 This screenshot is for day: {day_label}
 
 Rules:
+- For grid screenshots: scan ALL columns completely before returning — missing any dark cell is an error
 - Ignore UI chrome, headers, footers, branding, download prompts
 - Ignore "Surprise", "TBA", or placeholder entries
 - If the same artist appears more than once with identical time/stage, include only once

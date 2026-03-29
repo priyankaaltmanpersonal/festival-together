@@ -426,7 +426,7 @@ export default function App() {
     }
     let uris;
     try {
-      uris = await pickImages(1); // one screenshot per day
+      uris = await pickImages(5); // up to 5 screenshots per day (accumulates)
     } catch (e) {
       setError('Photo library permission denied');
       return;
@@ -512,6 +512,12 @@ export default function App() {
     } else {
       finishUploadFlow(wasSuccessful);
     }
+  };
+
+  const reuploadDay = () => {
+    setDayUploadStatus('idle');
+    setDayParsedSets([]);
+    setError('');
   };
 
   const skipUploadDay = () => {
@@ -985,6 +991,7 @@ export default function App() {
           dayParsedSets={dayParsedSets}
           successfulUploadCount={successfulUploadCount}
           onChooseDayScreenshot={chooseAndUploadDayScreenshot}
+          onReuploadDay={reuploadDay}
           onSkipDay={skipUploadDay}
           onAdvanceDay={advanceUploadDay}
           onFinishUploadFlow={finishUploadFlow}

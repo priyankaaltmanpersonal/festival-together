@@ -1,5 +1,17 @@
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+function formatTime(t) {
+  if (!t) return '';
+  const [hStr, mStr] = t.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr || '00';
+  // Extended hours (24-29) = next-day early morning
+  if (h >= 24) h -= 24;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m}${ampm}`;
+}
+
 export function SetupScreen({
   userRole,
   onboardingStep,
@@ -30,6 +42,7 @@ export function SetupScreen({
   onAdvanceDay,
   onFinishUploadFlow,
   onSetDayPreference,
+  onReuploadDay,
   uploadDayIndex,
   dayUploadStatus,
   dayParsedSets,
@@ -169,11 +182,16 @@ export function SetupScreen({
 
             {dayUploadStatus === 'done' ? (
               <>
-                <Text style={styles.parsedCount}>✓ {dayParsedSets.length} artists found</Text>
+                <View style={styles.parsedHeader}>
+                  <Text style={styles.parsedCount}>✓ {dayParsedSets.length} artists found</Text>
+                  <Pressable onPress={onReuploadDay}>
+                    <Text style={styles.skipLink}>Re-upload ↺</Text>
+                  </Pressable>
+                </View>
                 {(dayParsedSets || []).map((setItem) => (
                   <View key={setItem.canonical_set_id} style={styles.setRow}>
                     <Text style={styles.setTitle}>{setItem.artist_name}</Text>
-                    <Text style={styles.helper}>{setItem.stage_name} · {setItem.start_time_pt}–{setItem.end_time_pt}</Text>
+                    <Text style={styles.helper}>{setItem.stage_name} · {formatTime(setItem.start_time_pt)}–{formatTime(setItem.end_time_pt)}</Text>
                     <View style={styles.prefRow}>
                       <PrefButton
                         label="Must See"
@@ -377,6 +395,7 @@ const styles = StyleSheet.create({
   error: { color: '#b52424', fontWeight: '600' },
   logLine: { color: '#444', fontSize: 11 },
   skipRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  parsedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   skipLink: { color: '#345a46', fontWeight: '600', fontSize: 13 },
   uploadingRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   parsedCount: { color: '#2d6a4a', fontWeight: '700', fontSize: 14 },
