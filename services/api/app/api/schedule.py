@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.auth import require_session
 from app.core.db import get_conn
+from app.core.llm_parser import normalize_stage
 
 router = APIRouter(tags=["schedule"])
 
@@ -94,7 +95,7 @@ def group_schedule(
             {
                 "id": row["id"],
                 "artist_name": row["artist_name"],
-                "stage_name": row["stage_name"],
+                "stage_name": normalize_stage(row["stage_name"] or ""),
                 "start_time_pt": row["start_time_pt"],
                 "end_time_pt": row["end_time_pt"],
                 "day_index": row["day_index"],

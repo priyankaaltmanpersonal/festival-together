@@ -177,9 +177,12 @@ export function SetupScreen({
             ) : null}
 
             {dayUploadStatus === 'uploading' ? (
-              <View style={styles.uploadingRow}>
-                <ActivityIndicator color="#183a27" />
-                <Text style={styles.helper}>Processing…</Text>
+              <View style={styles.uploadingBlock}>
+                <View style={styles.uploadingRow}>
+                  <ActivityIndicator color="#183a27" />
+                  <Text style={styles.helper}>Processing…</Text>
+                </View>
+                <Text style={styles.uploadingHint}>Analyzing your schedule, usually takes 5–10 seconds…</Text>
               </View>
             ) : null}
 
@@ -408,6 +411,8 @@ const styles = StyleSheet.create({
   skipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   parsedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   skipLink: { color: '#345a46', fontWeight: '600', fontSize: 13 },
+  uploadingBlock: { gap: 4 },
   uploadingRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  uploadingHint: { color: '#666', fontSize: 11, fontStyle: 'italic' },
   parsedCount: { color: '#2d6a4a', fontWeight: '700', fontSize: 14 },
 });

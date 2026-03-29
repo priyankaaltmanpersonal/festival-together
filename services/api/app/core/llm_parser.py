@@ -16,6 +16,36 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Maps lowercase stage name variants to canonical Coachella stage names.
+_STAGE_ALIASES: dict[str, str] = {
+    "main": "Coachella Stage",
+    "main stage": "Coachella Stage",
+    "coachella": "Coachella Stage",
+    "the coachella stage": "Coachella Stage",
+    "coachella stage": "Coachella Stage",
+    "outdoor": "Outdoor Theatre",
+    "outdoor theater": "Outdoor Theatre",
+    "outdoor theatre": "Outdoor Theatre",
+    "the outdoor theatre": "Outdoor Theatre",
+    "sahara stage": "Sahara",
+    "sahara tent": "Sahara",
+    "gobi tent": "Gobi",
+    "gobi stage": "Gobi",
+    "mojave tent": "Mojave",
+    "mojave stage": "Mojave",
+    "sonora stage": "Sonora",
+    "yuma stage": "Yuma",
+}
+
+
+def normalize_stage(name: str) -> str:
+    """Return the canonical stage name for known aliases, or the stripped input."""
+    if not name:
+        return name
+    stripped = name.strip()
+    return _STAGE_ALIASES.get(stripped.lower(), stripped)
+
+
 _VISION_PROMPT = """\
 You are extracting a user's selected festival performances from a mobile app screenshot.
 
@@ -143,7 +173,7 @@ def parse_schedule_from_image(
         if not isinstance(entry, dict):
             continue
         artist = (entry.get("artist_name") or "").strip()
-        stage = (entry.get("stage_name") or "").strip()
+        stage = normalize_stage((entry.get("stage_name") or ""))
         start = (entry.get("start_time") or "").strip()
         end = entry.get("end_time")
         if end:
