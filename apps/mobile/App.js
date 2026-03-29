@@ -934,11 +934,21 @@ export default function App() {
   const resetFlow = async () => {
     await clearSessionData(true);
     setUserRole('member');
+    setDisplayName('');
+    setGroupName('');
+    setInviteCodeInput('');
+    setScreenshotCount('3');
     setOnboardingStep('welcome');
     setActiveView('onboarding');
     setMenuOpen(false);
     setSelectedChipColor(CHIP_COLOR_OPTIONS[0]);
     setAvailableJoinColors([]);
+    setFestivalDays([{ dayIndex: 1, label: '' }]);
+    setUploadDayIndex(1);
+    setSuccessfulUploadCount(0);
+    setSkippedDayIndices(new Set());
+    setDayUploadStatus('idle');
+    setDayParsedSets([]);
     setError('');
     setLog(['Reset: onboarding restarted']);
   };
