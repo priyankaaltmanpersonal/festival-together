@@ -18,25 +18,25 @@ export function SetupScreen({
   setFestivalDayLabel,
   onAddFestivalDay,
   onRemoveFestivalDay,
-  personalSets,
   loading,
   error,
   log,
-  uploadProgress,
-  failedCount,
   onBeginProfile,
   onCompleteFestivalSetup,
-  onImportPersonal,
   onChooseScreenshots,
-  onRetryUpload,
-  onSkipFailed,
   onSetPreference,
-  onContinueFromReview,
-  onFinishOnboarding,
   onResetFlow,
-  onChoosePath
+  onChoosePath,
+  onChooseDayScreenshot,
+  onSkipDay,
+  onAdvanceDay,
+  onFinishUploadFlow,
+  onSetDayPreference,
+  uploadDayIndex,
+  dayUploadStatus,
+  dayParsedSets,
+  successfulUploadCount,
 }) {
-  const reviewCount = (personalSets || []).length;
   const isWelcome = onboardingStep === 'welcome';
 
   return (
@@ -128,80 +128,97 @@ export function SetupScreen({
         </View>
       ) : null}
 
-      {onboardingStep === 'choose_library' ? (
-        <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Upload Your Schedule</Text>
-          <Text style={styles.helper}>
-            Take screenshots of your saved schedule from the festival app.
-            You can upload list-view or full grid screenshots — upload one per day.
-            You can upload more later to add artists.
-          </Text>
-          {uploadProgress ? <Text style={styles.helper}>{uploadProgress}</Text> : null}
-          {inviteCode ? <Text style={styles.helper}>Group invite code: {inviteCode}</Text> : null}
-          <ActionButton
-            label="Choose Screenshots from Library"
-            onPress={onChooseScreenshots}
-            primary
-            disabled={loading}
-          />
-        </View>
-      ) : null}
+      {onboardingStep === 'upload_day' ? (() => {
+        const totalDays = (festivalDays || []).length;
+        const dayPosition = (festivalDays || []).findIndex((d) => d.dayIndex === uploadDayIndex) + 1;
+        const currentDay = (festivalDays || []).find((d) => d.dayIndex === uploadDayIndex);
+        const dayLabel = currentDay?.label || `Day ${uploadDayIndex}`;
+        const truncatedLabel = dayLabel.length > 15 ? dayLabel.slice(0, 15) + '…' : dayLabel;
+        const isLastDay = dayPosition === totalDays;
+        const canFinish = successfulUploadCount >= 1 || dayUploadStatus === 'done';
 
-      {onboardingStep === 'review' ? (
-        <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Review and Confirm</Text>
-          {failedCount > 0 ? (
-            <View style={styles.warningBox}>
-              <Text style={styles.warningText}>
-                {failedCount} screenshot{failedCount > 1 ? 's' : ''} could not be read.
-              </Text>
-              <View style={styles.retryRow}>
-                <ActionButton label="Upload More" onPress={onRetryUpload} disabled={loading} />
-                <ActionButton label="Skip & Continue" onPress={onSkipFailed} disabled={loading} />
+        return (
+          <View style={styles.stepCard}>
+            <View style={styles.skipRow}>
+              <Pressable onPress={onSkipDay}>
+                <Text style={styles.skipLink}>Skip this day →</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.stepTitle}>Upload {truncatedLabel} schedule</Text>
+            <Text style={styles.helper}>Day {dayPosition} of {totalDays}</Text>
+
+            {dayUploadStatus === 'idle' || dayUploadStatus === 'error' ? (
+              <ActionButton
+                label="Choose Screenshot"
+                onPress={onChooseDayScreenshot}
+                primary
+                disabled={loading}
+              />
+            ) : null}
+
+            {dayUploadStatus === 'uploading' ? (
+              <View style={styles.uploadingRow}>
+                <ActivityIndicator color="#183a27" />
+                <Text style={styles.helper}>Processing…</Text>
               </View>
-            </View>
-          ) : null}
-          {reviewCount ? (
-            <View style={{ gap: 8 }}>
-              {(personalSets || []).slice(0, 8).map((setItem) => (
-                <View key={setItem.canonical_set_id} style={styles.setRow}>
-                  <Text style={styles.setTitle}>{setItem.artist_name}</Text>
-                  <Text style={styles.helper}>{setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT</Text>
-                  <View style={styles.prefRow}>
-                    <PrefButton
-                      label="Must See"
-                      selected={setItem.preference === 'must_see'}
-                      onPress={() => onSetPreference(setItem.canonical_set_id, 'must_see')}
-                    />
-                    <PrefButton
-                      label="Maybe"
-                      selected={setItem.preference !== 'must_see'}
-                      onPress={() => onSetPreference(setItem.canonical_set_id, 'flexible')}
-                    />
-                  </View>
-                </View>
-              ))}
-              {reviewCount > 8 ? <Text style={styles.helper}>+{reviewCount - 8} more sets</Text> : null}
-            </View>
-          ) : (
-            <Text style={styles.helper}>No parsed sets yet.</Text>
-          )}
-          <ActionButton
-            label={reviewCount ? `Looks Good, Continue (${reviewCount} sets)` : 'Looks Good, Continue'}
-            onPress={onContinueFromReview}
-            primary
-            disabled={loading || !reviewCount}
-          />
-        </View>
-      ) : null}
+            ) : null}
 
-      {onboardingStep === 'confirm' ? (
-        <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Enter Group Schedule</Text>
-          <Text style={styles.helper}>Finish setup and open the full schedule grid.</Text>
-          <ActionButton label="Finish Setup" onPress={onFinishOnboarding} primary disabled={loading} />
-        </View>
-      ) : null}
+            {dayUploadStatus === 'error' ? (
+              <Text style={styles.error}>{error}</Text>
+            ) : null}
+
+            {dayUploadStatus === 'done' ? (
+              <>
+                <Text style={styles.parsedCount}>✓ {dayParsedSets.length} artists found</Text>
+                {(dayParsedSets || []).map((setItem) => (
+                  <View key={setItem.canonical_set_id} style={styles.setRow}>
+                    <Text style={styles.setTitle}>{setItem.artist_name}</Text>
+                    <Text style={styles.helper}>{setItem.stage_name} · {setItem.start_time_pt}–{setItem.end_time_pt}</Text>
+                    <View style={styles.prefRow}>
+                      <PrefButton
+                        label="Must See"
+                        selected={setItem.preference === 'must_see'}
+                        onPress={() => onSetDayPreference(setItem.canonical_set_id, 'must_see')}
+                      />
+                      <PrefButton
+                        label="Maybe"
+                        selected={setItem.preference !== 'must_see'}
+                        onPress={() => onSetDayPreference(setItem.canonical_set_id, 'flexible')}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </>
+            ) : null}
+
+            {dayUploadStatus === 'done' ? (
+              isLastDay ? (
+                <ActionButton
+                  label="Finish →"
+                  onPress={() => onFinishUploadFlow()}
+                  primary
+                  disabled={loading}
+                />
+              ) : (
+                <ActionButton
+                  label="Next Day →"
+                  onPress={() => onAdvanceDay(true)}
+                  primary
+                  disabled={loading}
+                />
+              )
+            ) : isLastDay && canFinish ? (
+              <ActionButton
+                label="Finish →"
+                onPress={() => onFinishUploadFlow()}
+                primary
+                disabled={loading || dayUploadStatus === 'uploading'}
+              />
+            ) : null}
+          </View>
+        );
+      })() : null}
 
 
       {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
@@ -368,19 +385,8 @@ const styles = StyleSheet.create({
   removeButtonText: { fontSize: 18, color: '#5a4d3b', fontWeight: '700', lineHeight: 20 },
   error: { color: '#b52424', fontWeight: '600' },
   logLine: { color: '#444', fontSize: 11 },
-  warningBox: {
-    backgroundColor: '#FFF3CD',
-    borderRadius: 8,
-    padding: 12,
-    gap: 8,
-  },
-  warningText: {
-    fontSize: 13,
-    color: '#7B5E00',
-    fontWeight: '600',
-  },
-  retryRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  skipRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  skipLink: { color: '#345a46', fontWeight: '600', fontSize: 13 },
+  uploadingRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  parsedCount: { color: '#2d6a4a', fontWeight: '700', fontSize: 14 },
 });

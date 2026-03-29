@@ -594,7 +594,12 @@ export default function App() {
       setGroupId(homePayload.group.id);
       setInviteCode(inviteCodeInput.trim().toUpperCase());
       setLastSyncAt(new Date().toISOString());
-      setOnboardingStep('choose_library');
+      setFestivalDays((homePayload.festival_days || []).map((d) => ({ dayIndex: d.day_index, label: d.label })));
+      setUploadDayIndex((homePayload.festival_days || [{ day_index: 1 }])[0].day_index);
+      setDayUploadStatus('idle');
+      setSuccessfulUploadCount(0);
+      setSkippedDayIndices(new Set());
+      setOnboardingStep('upload_day');
     });
 
   const completeFestivalSetup = () =>
@@ -618,7 +623,11 @@ export default function App() {
       setInviteCode(payload.group.invite_code);
       setIsFounder(true);
       setLastSyncAt(new Date().toISOString());
-      setOnboardingStep('choose_library');
+      setUploadDayIndex(festivalDays[0]?.dayIndex || 1);
+      setDayUploadStatus('idle');
+      setSuccessfulUploadCount(0);
+      setSkippedDayIndices(new Set());
+      setOnboardingStep('upload_day');
     });
 
   const importPersonal = () =>
@@ -1209,24 +1218,25 @@ export default function App() {
           setFestivalDayLabel={setFestivalDayLabel}
           onAddFestivalDay={addFestivalDay}
           onRemoveFestivalDay={removeFestivalDay}
-          personalSets={personalSets}
           loading={loading}
           error={error}
           log={log}
-          uploadProgress={uploadProgress}
-          failedCount={uploadFailedCount}
           onBeginProfile={beginProfile}
           onCompleteFestivalSetup={completeFestivalSetup}
-          onImportPersonal={importPersonal}
           onChooseScreenshots={chooseScreenshots}
-          onRetryUpload={retryUpload}
-          onSkipFailed={skipFailed}
           onSetPreference={setPreference}
-          onContinueFromReview={() => setOnboardingStep('confirm')}
-          onFinishOnboarding={finishOnboarding}
           onRunSimulatorDemoFlow={runSimulatorDemoFlow}
           onResetFlow={resetFlow}
           onChoosePath={choosePath}
+          uploadDayIndex={uploadDayIndex}
+          dayUploadStatus={dayUploadStatus}
+          dayParsedSets={dayParsedSets}
+          successfulUploadCount={successfulUploadCount}
+          onChooseDayScreenshot={chooseAndUploadDayScreenshot}
+          onSkipDay={skipUploadDay}
+          onAdvanceDay={advanceUploadDay}
+          onFinishUploadFlow={finishUploadFlow}
+          onSetDayPreference={setDayPreference}
         />
       ) : null}
 
