@@ -28,3 +28,4 @@ apps/mobile/dist-export/
 # Google Play service account key (never commit)
 google-play-key.json
 .superpowers/
+.worktrees/
