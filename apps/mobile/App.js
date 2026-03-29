@@ -1,7 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { apiRequest } from './src/api/client';
 import { EditMyScheduleScreen } from './src/screens/EditMyScheduleScreen';
@@ -980,6 +980,7 @@ export default function App() {
   const statusText = `${isOnline ? 'Online' : 'Offline'}${pendingMutations.length ? ` • ${pendingMutations.length} pending sync` : ''}${lastSyncAt ? ` • synced ${new Date(lastSyncAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`;
 
   return (
+    <SafeAreaProvider>
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View>
@@ -1089,8 +1090,6 @@ export default function App() {
         />
       ) : null}
 
-      {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
-
       {menuOpen ? (
         <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
           <Pressable style={styles.menuCard} onPress={() => {}}>
@@ -1106,6 +1105,7 @@ export default function App() {
         </Pressable>
       ) : null}
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 

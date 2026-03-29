@@ -13,7 +13,7 @@ export async function pickImages() {
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaType.Images,
+    mediaTypes: ['images'],
     allowsMultipleSelection: true,
     quality: 1,
     selectionLimit: 30,

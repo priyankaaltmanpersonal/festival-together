@@ -100,6 +100,7 @@ export function SetupScreen({
 
       {onboardingStep === 'festival_setup' ? (
         <View style={styles.stepCard}>
+          <ActionButton label="← Back" onPress={() => onChoosePath('founder')} disabled={loading} />
           <Text style={styles.stepTitle}>Festival Days</Text>
           <Text style={styles.helper}>
             Enter the day names for your festival. Members will see these when viewing the schedule.
