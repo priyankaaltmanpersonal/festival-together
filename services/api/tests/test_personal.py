@@ -205,7 +205,11 @@ def test_personal_upload_with_vision_mock() -> None:
     )
     member_token = anon_token  # promoted on join
 
-    with patch("app.api.personal.extract_text_from_image", return_value=vision_text):
+    fake_sets = [
+        {"artist_name": "Test Artist", "stage_name": "Main Stage", "start_time": "20:00", "end_time": "21:00", "day_index": 1}
+    ]
+    with patch("app.api.personal.extract_text_from_image", return_value=vision_text), \
+         patch("app.api.personal.parse_schedule_with_llm", return_value=fake_sets):
         response = client.post(
             "/v1/members/me/personal/upload",
             headers={"x-session-token": member_token},

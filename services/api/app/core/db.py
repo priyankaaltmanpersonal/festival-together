@@ -152,19 +152,10 @@ def init_db() -> None:
                 conn.execute(stmt)
 
     if not settings.database_url:
-        # SQLite only: add columns that may be missing from older databases and
-        # create partial unique index for chip color uniqueness per active member.
+        # SQLite only: create partial unique index for chip color uniqueness per active member.
+        # Column additions are handled by Alembic migrations.
         raw = sqlite3.connect(Path(settings.sqlite_path).resolve())
         try:
-            member_cols = [row[1] for row in raw.execute("PRAGMA table_info(members)").fetchall()]
-            if "chip_color" not in member_cols:
-                raw.execute("ALTER TABLE members ADD COLUMN chip_color TEXT")
-            canonical_cols = [row[1] for row in raw.execute("PRAGMA table_info(canonical_sets)").fetchall()]
-            if "source_confidence" not in canonical_cols:
-                raw.execute("ALTER TABLE canonical_sets ADD COLUMN source_confidence REAL NOT NULL DEFAULT 0.0")
-            group_cols = [row[1] for row in raw.execute("PRAGMA table_info(groups)").fetchall()]
-            if "festival_days" not in group_cols:
-                raw.execute("ALTER TABLE groups ADD COLUMN festival_days TEXT")
             raw.execute(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_members_active_group_color

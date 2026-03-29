@@ -1,5 +1,8 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -10,6 +13,15 @@ from app.api.personal import router as personal_router
 from app.api.schedule import router as schedule_router
 from app.core.config import settings
 from app.core.db import init_db
+
+
+def run_migrations() -> None:
+    alembic_cfg = Config(Path(__file__).parent.parent.parent / "alembic.ini")
+    alembic_cfg.set_main_option(
+        "script_location",
+        str(Path(__file__).parent.parent.parent / "alembic"),
+    )
+    command.upgrade(alembic_cfg, "head")
 
 
 @asynccontextmanager
@@ -26,6 +38,7 @@ async def lifespan(_: FastAPI):
                 "Add your Google Cloud Vision API key in the Render environment settings."
             )
     init_db()
+    run_migrations()
     yield
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
