@@ -30,10 +30,10 @@ async def lifespan(_: FastAPI):
                 "DATABASE_URL must be set in production. "
                 "Add your Neon Postgres connection string in the Render environment settings."
             )
-        if not settings.google_vision_api_key:
+        if not settings.anthropic_api_key:
             raise RuntimeError(
-                "GOOGLE_VISION_API_KEY must be set in production. "
-                "Add your Google Cloud Vision API key in the Render environment settings."
+                "ANTHROPIC_API_KEY must be set in production. "
+                "Add your Anthropic API key in the Render environment settings."
             )
     init_db()
     run_migrations()
