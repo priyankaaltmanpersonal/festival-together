@@ -31,7 +31,6 @@ export function SetupScreen({
   onSetPreference,
   onContinueFromReview,
   onFinishOnboarding,
-  onRunSimulatorDemoFlow,
   onResetFlow,
   onChoosePath
 }) {
@@ -137,7 +136,6 @@ export function SetupScreen({
             primary
             disabled={loading}
           />
-          <ActionButton label="Use Demo Data (Simulator)" onPress={onImportPersonal} disabled={loading} />
         </View>
       ) : null}
 
@@ -197,15 +195,6 @@ export function SetupScreen({
         </View>
       ) : null}
 
-      {onboardingStep !== 'welcome' ? (
-        <View style={styles.card}>
-          <Text style={styles.label}>Developer Tools</Text>
-          <ActionButton label="Run Full Simulator Demo Flow" onPress={onRunSimulatorDemoFlow} disabled={loading} />
-          <ActionButton label="Restart Onboarding" onPress={onResetFlow} />
-          {(log || []).length ?
-            (log || []).slice(0, 4).map((entry, idx) => <Text key={`${entry}-${idx}`} style={styles.logLine}>{entry}</Text>) : null}
-        </View>
-      ) : null}
 
       {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -238,27 +227,31 @@ function PrefButton({ label, selected, onPress }) {
 }
 
 function ColorPicker({ options, selected, onSelect, availableSet = null }) {
+  const all = options || [];
+  const rows = [all.slice(0, 9), all.slice(9, 18)];
   return (
     <View style={styles.colorBlock}>
       <Text style={styles.label}>Pick your color</Text>
-      <View style={styles.colorRow}>
-        {(options || []).map((color) => {
-          const enabled = !availableSet || availableSet.size === 0 || availableSet.has(color);
-          return (
-            <Pressable
-              key={color}
-              disabled={!enabled}
-              onPress={() => onSelect(color)}
-              style={[
-                styles.colorSwatch,
-                { backgroundColor: color, borderColor: selected === color ? '#1f3024' : '#d2c5b3' },
-                selected === color && styles.colorSwatchSelected,
-                !enabled && styles.colorSwatchDisabled
-              ]}
-            />
-          );
-        })}
-      </View>
+      {rows.map((row, rowIdx) => (
+        <View key={rowIdx} style={styles.colorRow}>
+          {row.map((color) => {
+            const enabled = !availableSet || availableSet.size === 0 || availableSet.has(color);
+            return (
+              <Pressable
+                key={color}
+                disabled={!enabled}
+                onPress={() => onSelect(color)}
+                style={[
+                  styles.colorSwatch,
+                  { backgroundColor: color, borderColor: selected === color ? '#1f3024' : '#d2c5b3' },
+                  selected === color && styles.colorSwatchSelected,
+                  !enabled && styles.colorSwatchDisabled
+                ]}
+              />
+            );
+          })}
+        </View>
+      ))}
       {availableSet && availableSet.size > 0 ? (
         <Text style={styles.helper}>Unavailable colors are dimmed if already taken in that group.</Text>
       ) : null}
@@ -269,8 +262,8 @@ function ColorPicker({ options, selected, onSelect, availableSet = null }) {
 const styles = StyleSheet.create({
   wrap: { flexGrow: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 24 },
   wrapWelcome: { paddingTop: 20 },
-  welcomeScreen: { flex: 1, justifyContent: 'space-between' },
-  welcomeActions: { gap: 12, paddingBottom: 24 },
+  welcomeScreen: { gap: 20 },
+  welcomeActions: { gap: 12 },
   card: {
     backgroundColor: '#fffdf8',
     borderRadius: 14,
@@ -345,8 +338,8 @@ const styles = StyleSheet.create({
   prefButtonSelected: { borderColor: '#2f6244', backgroundColor: '#e6f2e8' },
   prefButtonText: { color: '#4e4e4e', fontSize: 12, fontWeight: '700' },
   prefButtonTextSelected: { color: '#214731' },
-  colorBlock: { gap: 6, marginTop: 2 },
-  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  colorBlock: { gap: 8, marginTop: 2 },
+  colorRow: { flexDirection: 'row', justifyContent: 'space-between' },
   colorSwatch: {
     width: 28,
     height: 28,

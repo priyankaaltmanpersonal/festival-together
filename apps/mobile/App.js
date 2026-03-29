@@ -31,7 +31,13 @@ const CHIP_COLOR_OPTIONS = [
   '#3578C4',
   '#D18A1F',
   '#6D5A4C',
-  '#9A4FB5'
+  '#9A4FB5',
+  '#E84F6B',
+  '#F0C040',
+  '#00B4D8',
+  '#FF6B35',
+  '#06A77D',
+  '#7B2D8B'
 ];
 
 export default function App() {
@@ -54,8 +60,8 @@ export default function App() {
   const [pendingMutations, setPendingMutations] = useState([]);
 
   const [userRole, setUserRole] = useState('member');
-  const [displayName, setDisplayName] = useState('Alex');
-  const [groupName, setGroupName] = useState('Festival Together Crew');
+  const [displayName, setDisplayName] = useState('');
+  const [groupName, setGroupName] = useState('');
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [screenshotCount, setScreenshotCount] = useState('3');
   const [onboardingStep, setOnboardingStep] = useState('welcome');
@@ -107,8 +113,8 @@ export default function App() {
         setActiveView(storedState.activeView || 'onboarding');
         setMenuOpen(false);
         setUserRole(storedState.userRole || 'member');
-        setDisplayName(storedState.displayName || 'Alex');
-        setGroupName(storedState.groupName || 'Festival Together Crew');
+        setDisplayName(storedState.displayName || '');
+        setGroupName(storedState.groupName || '');
         setInviteCodeInput(storedState.inviteCodeInput || '');
         setScreenshotCount(storedState.screenshotCount || '3');
         setOnboardingStep(storedState.onboardingStep || 'welcome');
