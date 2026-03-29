@@ -16,11 +16,9 @@ from app.core.db import init_db
 
 
 def run_migrations() -> None:
-    alembic_cfg = Config(Path(__file__).parent.parent.parent / "alembic.ini")
-    alembic_cfg.set_main_option(
-        "script_location",
-        str(Path(__file__).parent.parent.parent / "alembic"),
-    )
+    api_root = Path(__file__).parent.parent  # services/api/
+    alembic_cfg = Config(api_root / "alembic.ini")
+    alembic_cfg.set_main_option("script_location", str(api_root / "alembic"))
     command.upgrade(alembic_cfg, "head")
 
 
