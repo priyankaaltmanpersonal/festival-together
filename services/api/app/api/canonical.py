@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from app.core.auth import require_session
 from app.core.db import get_conn
 from app.core.image_utils import ImageValidationError, validate_and_compress
-from app.core.parser import ScreenshotInput, build_demo_canonical_screenshots, parse_canonical_screenshots
+from app.core.parser import ScreenshotInput, parse_canonical_screenshots
 from app.schemas.canonical import CanonicalImportRequest, CanonicalReviewResponse, CanonicalSet
 
 router = APIRouter(tags=["canonical"])
@@ -20,15 +20,15 @@ def _now() -> datetime:
 
 
 def _coerce_screenshots(payload: CanonicalImportRequest) -> list[ScreenshotInput]:
-    if payload.screenshots:
-        return [
-            ScreenshotInput(
-                source_id=item.source_id or f"canonical-upload-{index + 1}",
-                raw_text=item.raw_text,
-            )
-            for index, item in enumerate(payload.screenshots)
-        ]
-    return build_demo_canonical_screenshots(payload.screenshot_count)
+    if not payload.screenshots:
+        raise HTTPException(status_code=400, detail="screenshots_required")
+    return [
+        ScreenshotInput(
+            source_id=item.source_id or f"canonical-upload-{index + 1}",
+            raw_text=item.raw_text,
+        )
+        for index, item in enumerate(payload.screenshots)
+    ]
 
 
 @router.post("/groups/{group_id}/canonical/import")

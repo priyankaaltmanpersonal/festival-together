@@ -119,7 +119,7 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
         conn.execute(
             """
             INSERT INTO members (id, group_id, display_name, chip_color, avatar_photo_url, role, setup_status, active, created_at)
-            VALUES (?, ?, ?, ?, NULL, 'founder', 'complete', 1, ?)
+            VALUES (?, ?, ?, ?, NULL, 'founder', 'incomplete', 1, ?)
             """,
             (member_id, group_id, payload.display_name.strip(), founder_color, now),
         )
@@ -146,7 +146,7 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
             display_name=payload.display_name.strip(),
             chip_color=founder_color,
             role="founder",
-            setup_status="complete",
+            setup_status="incomplete",
         ),
         session=SessionSummary(token=session_token),
     )

@@ -175,7 +175,15 @@ def test_canonical_upload_rejects_non_founder() -> None:
     client.post(
         f"/v1/groups/{group_id}/canonical/import",
         headers={"x-session-token": founder_token},
-        json={"screenshot_count": 1},
+        json={
+            "screenshot_count": 1,
+            "screenshots": [
+                {
+                    "source_id": "shot-1",
+                    "raw_text": "DAY 1\nAurora Skyline | Main Stage | 12:00 PM - 12:45 PM",
+                },
+            ],
+        },
     )
     client.post(
         f"/v1/groups/{group_id}/canonical/confirm",

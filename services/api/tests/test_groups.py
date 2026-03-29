@@ -29,7 +29,15 @@ def _complete_founder_setup(group_id: str, session_token: str) -> None:
     import_resp = client.post(
         f"/v1/groups/{group_id}/canonical/import",
         headers={"x-session-token": session_token},
-        json={"screenshot_count": 2},
+        json={
+            "screenshot_count": 1,
+            "screenshots": [
+                {
+                    "source_id": "shot-1",
+                    "raw_text": "DAY 1\nAurora Skyline | Main Stage | 12:00 PM - 12:45 PM",
+                },
+            ],
+        },
     )
     assert import_resp.status_code == 200
 
@@ -155,6 +163,17 @@ def test_join_rejects_taken_chip_color() -> None:
     )
     assert second_join.status_code == 409
     assert second_join.json()["detail"] == "chip_color_unavailable"
+
+
+def test_founder_created_with_incomplete_setup_status() -> None:
+    """Founders must start as 'incomplete' so the upload flow is required."""
+    resp = client.post(
+        "/v1/groups",
+        json={"group_name": "TestGroup", "display_name": "Alice"},
+    )
+    assert resp.status_code == 200
+    member = resp.json()["member"]
+    assert member["setup_status"] == "incomplete"
 
 
 def test_founder_cannot_leave_but_can_delete_group() -> None:
