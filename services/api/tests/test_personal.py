@@ -257,7 +257,10 @@ def test_upload_accepts_day_label_param() -> None:
     img_bytes = _make_test_image()
 
     with patch("app.api.personal.parse_schedule_from_image") as mock_parse:
-        mock_parse.return_value = []
+        mock_parse.return_value = [
+            {"artist_name": "Test Artist", "stage_name": "Main Stage",
+             "start_time": "20:00", "end_time": "21:00", "day_index": 1}
+        ]
         resp = client.post(
             "/v1/members/me/personal/upload",
             headers={"x-session-token": session_token},
@@ -267,3 +270,4 @@ def test_upload_accepts_day_label_param() -> None:
         call_args = mock_parse.call_args
         # second positional arg is day_label
         assert call_args.args[1] == "Saturday" or call_args.kwargs.get("day_label") == "Saturday"
+        assert resp.status_code == 200

@@ -276,6 +276,7 @@ def upload_personal_images(
     effective_day_label = day_label or (festival_days[0]["label"] if festival_days else "")
 
     for idx, upload in enumerate(images):
+        upload.file.seek(0)
         raw = upload.file.read()
         try:
             compressed = validate_and_compress(raw)
