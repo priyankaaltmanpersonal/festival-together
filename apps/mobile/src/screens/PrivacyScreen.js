@@ -40,10 +40,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e0d2bb',
-    padding: 12,
-    gap: 10
+    padding: 16,
+    justifyContent: 'space-evenly',
   },
-  row: { fontSize: 13, lineHeight: 19, color: '#555' },
+  row: { fontSize: 16, lineHeight: 24, color: '#555' },
   label: { fontWeight: '700', color: '#2f302f' },
   body: { fontWeight: '400' },
   button: {
