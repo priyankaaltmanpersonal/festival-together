@@ -3,9 +3,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 export function PrivacyScreen({ onAccept }) {
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
-      <Text style={styles.h1}>Privacy & Terms</Text>
-
       <View style={styles.card}>
+        <Text style={styles.cardTitle}>Privacy & Terms</Text>
+        <View style={styles.divider} />
+
         <Text style={styles.row}>
           <Text style={styles.label}>What we collect: </Text>
           <Text style={styles.body}>Your display name, color, and festival schedule screenshots. Screenshots are sent to Google Cloud Vision for text extraction and are not stored.</Text>
@@ -33,17 +34,18 @@ export function PrivacyScreen({ onAccept }) {
 
 const styles = StyleSheet.create({
   wrap: { flexGrow: 1, gap: 12, paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 },
-  h1: { color: '#1f3024', fontSize: 20, fontWeight: '800' },
   card: {
     flex: 1,
     backgroundColor: '#fffefb',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e0d2bb',
-    padding: 16,
-    justifyContent: 'space-evenly',
+    padding: 20,
+    gap: 16,
   },
-  row: { fontSize: 16, lineHeight: 24, color: '#555' },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: '#1f3024' },
+  divider: { height: 1, backgroundColor: '#e0d2bb' },
+  row: { fontSize: 15, lineHeight: 23, color: '#555' },
   label: { fontWeight: '700', color: '#2f302f' },
   body: { fontWeight: '400' },
   button: {
