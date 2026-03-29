@@ -23,6 +23,7 @@ _SCHEMA_SQL = [
       invite_code TEXT NOT NULL UNIQUE,
       founder_member_id TEXT,
       setup_complete INTEGER NOT NULL DEFAULT 0,
+      festival_days TEXT,
       created_at TEXT NOT NULL
     )
     """,
@@ -161,6 +162,9 @@ def init_db() -> None:
             canonical_cols = [row[1] for row in raw.execute("PRAGMA table_info(canonical_sets)").fetchall()]
             if "source_confidence" not in canonical_cols:
                 raw.execute("ALTER TABLE canonical_sets ADD COLUMN source_confidence REAL NOT NULL DEFAULT 0.0")
+            group_cols = [row[1] for row in raw.execute("PRAGMA table_info(groups)").fetchall()]
+            if "festival_days" not in group_cols:
+                raw.execute("ALTER TABLE groups ADD COLUMN festival_days TEXT")
             raw.execute(
                 """
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_members_active_group_color

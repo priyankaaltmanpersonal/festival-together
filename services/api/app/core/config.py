@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     sqlite_path: str = "./coachella.db"
     database_url: str = ""
     google_vision_api_key: str = ""
+    anthropic_api_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -1,10 +1,25 @@
+from typing import List
 from pydantic import BaseModel, Field
+
+
+class FestivalDay(BaseModel):
+    day_index: int
+    label: str = Field(min_length=1, max_length=20)
+    date: str | None = None  # e.g. "4/11"
+
+
+_DEFAULT_FESTIVAL_DAYS = [
+    FestivalDay(day_index=1, label="Friday"),
+    FestivalDay(day_index=2, label="Saturday"),
+    FestivalDay(day_index=3, label="Sunday"),
+]
 
 
 class GroupCreateRequest(BaseModel):
     group_name: str = Field(min_length=1, max_length=100)
     display_name: str = Field(min_length=1, max_length=60)
     chip_color: str | None = None
+    festival_days: list[FestivalDay] | None = None  # defaults to Fri/Sat/Sun if omitted
 
 
 class GroupUpdateRequest(BaseModel):
@@ -28,6 +43,7 @@ class GroupSummary(BaseModel):
     icon_url: str | None = None
     invite_code: str
     founder_member_id: str
+    festival_days: List[FestivalDay] = []
 
 
 class MemberSummary(BaseModel):

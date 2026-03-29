@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+import json
+import logging
 from typing import List
 from uuid import uuid4
 
@@ -7,8 +9,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from app.core.auth import require_session
 from app.core.db import get_conn
 from app.core.image_utils import ImageValidationError, validate_and_compress
+from app.core.llm_parser import parse_schedule_with_llm
 from app.core.parser import ScreenshotInput, build_demo_personal_screenshots, parse_personal_screenshots
 from app.core.vision_client import extract_text_from_image
+
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_IMAGES = 30
 from app.schemas.personal import (
@@ -202,6 +207,13 @@ def complete_setup(payload: CompleteSetupRequest, session=Depends(require_sessio
         raise HTTPException(status_code=400, detail="confirmation_required")
 
     with get_conn() as conn:
+        member = conn.execute(
+            "SELECT id, group_id, role FROM members WHERE id = ? AND active = 1",
+            (session["member_id"],),
+        ).fetchone()
+        if member is None:
+            raise HTTPException(status_code=401, detail="invalid_session")
+
         pref_count = conn.execute(
             "SELECT COUNT(*) AS cnt FROM member_set_preferences WHERE member_id = ?",
             (session["member_id"],),
@@ -214,6 +226,13 @@ def complete_setup(payload: CompleteSetupRequest, session=Depends(require_sessio
             (session["member_id"],),
         )
 
+        # Founder completing setup opens the group for members to join
+        if member["role"] == "founder":
+            conn.execute(
+                "UPDATE groups SET setup_complete = 1 WHERE id = ?",
+                (member["group_id"],),
+            )
+
     return {"ok": True}
 
 
@@ -222,39 +241,39 @@ def upload_personal_images(
     images: List[UploadFile] = File(...),
     session=Depends(require_session),
 ) -> dict:
-    """Accept personal schedule screenshot uploads, run OCR, map to canonical sets.
+    """Accept schedule screenshot uploads (list view or grid/column view).
 
-    Accepts up to 30 JPEG/PNG images as multipart/form-data.
-    Each image is validated, compressed, sent to Google Cloud Vision,
-    and the extracted text is mapped through the existing personal parser.
+    Uses Claude Haiku to interpret OCR text from any screenshot format.
+    Parsed sets are upserted into the group's canonical schedule (union approach)
+    and saved as this member's preferences. Re-uploading merges — it never
+    deletes sets or preferences from previous uploads.
     """
     if len(images) > MAX_UPLOAD_IMAGES:
         raise HTTPException(status_code=400, detail="too_many_images")
 
-    # ── Phase 1: read member + canonical sets (short DB transaction) ──────────
+    # ── Phase 1: read member + group festival config ──────────────────────────
     with get_conn() as conn:
         member = conn.execute(
-            "SELECT id, group_id, active FROM members WHERE id = ?",
+            """
+            SELECT m.id, m.group_id, m.active, g.festival_days
+            FROM members m JOIN groups g ON g.id = m.group_id
+            WHERE m.id = ? AND m.active = 1
+            """,
             (session["member_id"],),
         ).fetchone()
         if member is None or member["active"] != 1:
             raise HTTPException(status_code=401, detail="invalid_session")
 
-        canonical_rows = conn.execute(
-            """
-            SELECT id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status
-            FROM canonical_sets
-            WHERE group_id = ? AND status = 'resolved'
-            ORDER BY day_index, start_time_pt
-            """,
-            (member["group_id"],),
-        ).fetchall()
-        if len(canonical_rows) == 0:
-            raise HTTPException(status_code=409, detail="canonical_not_ready")
+        festival_days = json.loads(member["festival_days"]) if member["festival_days"] else [
+            {"day_index": 1, "label": "Friday"},
+            {"day_index": 2, "label": "Saturday"},
+            {"day_index": 3, "label": "Sunday"},
+        ]
 
-    # ── Phase 2: OCR (outside transaction — may take up to 30s × 30 images) ──
+    # ── Phase 2: OCR + LLM parse (outside DB transaction) ────────────────────
     failed_count = 0
-    screenshots: list[ScreenshotInput] = []
+    all_parsed: list[dict] = []
+
     for idx, upload in enumerate(images):
         raw = upload.file.read()
         try:
@@ -262,54 +281,126 @@ def upload_personal_images(
         except ImageValidationError:
             failed_count += 1
             continue
+
         text = extract_text_from_image(compressed)
         if text is None:
             failed_count += 1
             continue
-        screenshots.append(
-            ScreenshotInput(
-                source_id=upload.filename or f"personal-upload-{idx + 1}",
-                raw_text=text,
-            )
-        )
 
-    if not screenshots:
-        raise HTTPException(status_code=400, detail="no_parsed_sets")
+        logger.info(f"OCR text for image {idx + 1} ({len(text)} chars): {text[:200]!r}")
+        parsed = parse_schedule_with_llm(text, festival_days)
+        logger.info(f"LLM parsed {len(parsed)} sets from image {idx + 1}")
+        all_parsed.extend(parsed)
 
-    mapped_rows = parse_personal_screenshots(screenshots, canonical_rows)
-    if len(mapped_rows) == 0:
+    if not all_parsed and failed_count == len(images):
+        raise HTTPException(status_code=400, detail="all_images_failed")
+
+    if not all_parsed:
         raise HTTPException(status_code=400, detail="no_parsed_sets")
 
     now = _now_iso()
     parse_job_id = str(uuid4())
 
-    # ── Phase 3: write results (short DB transaction) ─────────────────────────
+    # ── Phase 3: upsert canonical + member preferences ────────────────────────
     with get_conn() as conn:
-        conn.execute("DELETE FROM member_parse_jobs WHERE member_id = ?", (session["member_id"],))
-        conn.execute("DELETE FROM member_set_preferences WHERE member_id = ?", (session["member_id"],))
+        group_id = member["group_id"]
 
-        for row in mapped_rows:
-            conn.execute(
-                """
-                INSERT INTO member_set_preferences
-                (id, member_id, canonical_set_id, preference, attendance, source_confidence, created_at, updated_at)
-                VALUES (?, ?, ?, 'flexible', 'going', ?, ?, ?)
-                """,
-                (str(uuid4()), session["member_id"], row.canonical_set_id, row.source_confidence, now, now),
+        # Ensure canonical set exists for each parsed entry (union approach).
+        # Match on artist+stage+start_time+day_index; insert if new.
+        canonical_id_map: dict[tuple, str] = {}
+        for entry in all_parsed:
+            key = (
+                entry["artist_name"].lower().strip(),
+                entry["stage_name"].lower().strip(),
+                entry["start_time"],
+                entry["day_index"],
             )
+            existing = conn.execute(
+                """
+                SELECT id FROM canonical_sets
+                WHERE group_id = ?
+                  AND LOWER(TRIM(artist_name)) = ?
+                  AND LOWER(TRIM(stage_name)) = ?
+                  AND start_time_pt = ?
+                  AND day_index = ?
+                """,
+                (group_id, key[0], key[1], key[2], key[3]),
+            ).fetchone()
+
+            if existing:
+                canonical_id_map[key] = existing["id"]
+            else:
+                new_id = str(uuid4())
+                conn.execute(
+                    """
+                    INSERT INTO canonical_sets
+                    (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                     day_index, status, source_confidence, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 0.85, ?)
+                    """,
+                    (
+                        new_id,
+                        group_id,
+                        entry["artist_name"],
+                        entry["stage_name"],
+                        entry["start_time"],
+                        entry["end_time"] or entry["start_time"],
+                        entry["day_index"],
+                        now,
+                    ),
+                )
+                canonical_id_map[key] = new_id
+
+        # Upsert member preferences — don't delete existing ones
+        added = 0
+        for entry in all_parsed:
+            key = (
+                entry["artist_name"].lower().strip(),
+                entry["stage_name"].lower().strip(),
+                entry["start_time"],
+                entry["day_index"],
+            )
+            canonical_set_id = canonical_id_map.get(key)
+            if not canonical_set_id:
+                continue
+
+            existing_pref = conn.execute(
+                "SELECT id FROM member_set_preferences WHERE member_id = ? AND canonical_set_id = ?",
+                (session["member_id"], canonical_set_id),
+            ).fetchone()
+
+            if not existing_pref:
+                conn.execute(
+                    """
+                    INSERT INTO member_set_preferences
+                    (id, member_id, canonical_set_id, preference, attendance,
+                     source_confidence, created_at, updated_at)
+                    VALUES (?, ?, ?, 'flexible', 'going', 0.85, ?, ?)
+                    """,
+                    (str(uuid4()), session["member_id"], canonical_set_id, now, now),
+                )
+                added += 1
 
         conn.execute(
             """
-            INSERT INTO member_parse_jobs (id, member_id, status, screenshot_count, parsed_count, failed_count, created_at, completed_at)
+            INSERT INTO member_parse_jobs
+            (id, member_id, status, screenshot_count, parsed_count, failed_count, created_at, completed_at)
             VALUES (?, ?, 'completed', ?, ?, ?, ?, ?)
             """,
-            (parse_job_id, session["member_id"], len(screenshots) + failed_count, len(mapped_rows), failed_count, now, now),
+            (
+                parse_job_id, session["member_id"],
+                len(images), len(all_parsed), failed_count, now, now,
+            ),
         )
-        conn.execute("UPDATE members SET setup_status = 'incomplete' WHERE id = ?", (session["member_id"],))
+        conn.execute(
+            "UPDATE members SET setup_status = 'incomplete' WHERE id = ?",
+            (session["member_id"],),
+        )
 
     return {
         "ok": True,
         "parse_job_id": parse_job_id,
-        "parsed_count": len(mapped_rows),
+        "parsed_count": len(all_parsed),
+        "new_canonical_count": len([k for k in canonical_id_map]),
         "failed_count": failed_count,
     }

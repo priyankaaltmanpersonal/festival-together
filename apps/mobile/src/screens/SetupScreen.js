@@ -14,6 +14,8 @@ export function SetupScreen({
   setSelectedChipColor,
   chipColorOptions,
   availableJoinColors,
+  festivalDays,
+  setFestivalDayLabel,
   personalSets,
   loading,
   error,
@@ -21,10 +23,9 @@ export function SetupScreen({
   uploadProgress,
   failedCount,
   onBeginProfile,
-  onCompleteFounderSetup,
-  onChooseFounderScreenshots,
+  onCompleteFestivalSetup,
   onImportPersonal,
-  onChooseMemberScreenshots,
+  onChooseScreenshots,
   onRetryUpload,
   onSkipFailed,
   onSetPreference,
@@ -97,22 +98,25 @@ export function SetupScreen({
         </View>
       ) : null}
 
-      {onboardingStep === 'founder_setup' ? (
+      {onboardingStep === 'festival_setup' ? (
         <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Upload Festival Schedule</Text>
+          <Text style={styles.stepTitle}>Festival Days</Text>
           <Text style={styles.helper}>
-            Take screenshots of the official Coachella schedule (from the app or website) and select them here.
-            You can select up to 30 screenshots.
+            Enter the day names for your festival. Members will see these when viewing the schedule.
           </Text>
-          {uploadProgress ? <Text style={styles.helper}>{uploadProgress}</Text> : null}
-          <ActionButton
-            label="Choose Screenshots from Library"
-            onPress={onChooseFounderScreenshots}
-            primary
-            disabled={loading}
-          />
-          <ActionButton label="Use Demo Schedule (Simulator)" onPress={onCompleteFounderSetup} disabled={loading} />
+          {(festivalDays || []).map((day) => (
+            <View key={day.dayIndex} style={styles.dayRow}>
+              <Text style={styles.dayIndexLabel}>Day {day.dayIndex}</Text>
+              <TextInput
+                value={day.label}
+                onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
+                style={[styles.input, styles.dayInput]}
+                placeholder={day.dayIndex === 1 ? 'Friday' : day.dayIndex === 2 ? 'Saturday' : 'Sunday'}
+              />
+            </View>
+          ))}
           {inviteCode ? <Text style={styles.helper}>Invite code: {inviteCode}</Text> : null}
+          <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading} />
         </View>
       ) : null}
 
@@ -120,12 +124,15 @@ export function SetupScreen({
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Upload Your Schedule</Text>
           <Text style={styles.helper}>
-            Select screenshots of your personal Coachella schedule. Select up to 30 images.
+            Take screenshots of your saved schedule from the festival app.
+            You can upload list-view or full grid screenshots — upload one per day.
+            You can upload more later to add artists.
           </Text>
           {uploadProgress ? <Text style={styles.helper}>{uploadProgress}</Text> : null}
+          {inviteCode ? <Text style={styles.helper}>Group invite code: {inviteCode}</Text> : null}
           <ActionButton
             label="Choose Screenshots from Library"
-            onPress={onChooseMemberScreenshots}
+            onPress={onChooseScreenshots}
             primary
             disabled={loading}
           />
@@ -293,6 +300,9 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     backgroundColor: '#fff'
   },
+  dayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  dayIndexLabel: { color: '#5a4d3b', fontSize: 12, fontWeight: '700', width: 40 },
+  dayInput: { flex: 1 },
   buttonPrimary: {
     backgroundColor: '#183a27',
     borderRadius: 10,

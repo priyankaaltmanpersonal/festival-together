@@ -13,6 +13,11 @@ import { clearOfflineState, loadAppState, loadMutationQueue, saveAppState, saveM
 import { pickImages, uploadImages } from './src/services/uploadImages';
 
 const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+const DEFAULT_FESTIVAL_DAYS = [
+  { dayIndex: 1, label: 'Friday' },
+  { dayIndex: 2, label: 'Saturday' },
+  { dayIndex: 3, label: 'Sunday' },
+];
 const CHIP_COLOR_OPTIONS = [
   '#4D73FF',
   '#20A36B',
@@ -71,6 +76,7 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadFailedCount, setUploadFailedCount] = useState(0);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [festivalDays, setFestivalDays] = useState(DEFAULT_FESTIVAL_DAYS);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
@@ -118,6 +124,7 @@ export default function App() {
         setIndividualSnapshot(storedState.individualSnapshot || null);
         setSelectedMemberIds(storedState.selectedMemberIds || []);
         setPrivacyAccepted(Boolean(storedState.privacyAccepted));
+        setFestivalDays(storedState.festivalDays || DEFAULT_FESTIVAL_DAYS);
         setLog(storedState.log || []);
         setLastSyncAt(storedState.lastSyncAt || '');
       })
@@ -167,6 +174,7 @@ export default function App() {
       individualSnapshot,
       selectedMemberIds,
       privacyAccepted,
+      festivalDays,
       log,
       lastSyncAt
     }).catch(() => {});
@@ -191,6 +199,7 @@ export default function App() {
     individualSnapshot,
     selectedMemberIds,
     privacyAccepted,
+    festivalDays,
     log,
     lastSyncAt
   ]);
@@ -369,35 +378,24 @@ export default function App() {
     return payload.token;
   };
 
+  const setFestivalDayLabel = (dayIndex, text) => {
+    setFestivalDays((prev) => prev.map((d) => d.dayIndex === dayIndex ? { ...d, label: text } : d));
+  };
+
   const beginProfile = () =>
     run('start onboarding', async () => {
       if (!displayName.trim()) throw new Error('Enter your name first');
       if (userRole !== 'founder' && userRole !== 'member') throw new Error('Choose create or join first');
       if (!selectedChipColor) throw new Error('Choose your color first');
-      if (!isOnline) throw new Error('You need a connection to start onboarding');
       await clearSessionData();
 
       if (userRole === 'founder') {
         if (!groupName.trim()) throw new Error('Enter group name');
-
-        const founderPayload = await apiRequest({
-          baseUrl: apiUrl,
-          path: '/v1/groups',
-          method: 'POST',
-          body: { group_name: groupName.trim(), display_name: displayName.trim(), chip_color: selectedChipColor }
-        });
-
-        const nextFounderSession = founderPayload.session.token;
-        const nextGroupId = founderPayload.group.id;
-
-        setFounderSession(nextFounderSession);
-        setMemberSession(nextFounderSession);
-        setGroupId(nextGroupId);
-        setInviteCode(founderPayload.group.invite_code);
-        setIsFounder(true);
-        setOnboardingStep('founder_setup');
+        setOnboardingStep('festival_setup');
         return;
       }
+
+      if (!isOnline) throw new Error('You need a connection to start onboarding');
 
       if (!inviteCodeInput.trim()) throw new Error('Enter invite code');
 
@@ -448,23 +446,25 @@ export default function App() {
       setOnboardingStep('choose_library');
     });
 
-  const completeFounderSetup = () =>
-    run('run founder setup', async () => {
-      if (!founderSession || !groupId) throw new Error('Start founder onboarding first');
-      if (!isOnline) throw new Error('Founder setup requires a connection');
-      await apiRequest({
+  const completeFestivalSetup = () =>
+    run('create group', async () => {
+      if (!isOnline) throw new Error('Creating the group requires a connection');
+      const payload = await apiRequest({
         baseUrl: apiUrl,
-        path: `/v1/groups/${groupId}/canonical/import`,
+        path: '/v1/groups',
         method: 'POST',
-        sessionToken: founderSession,
-        body: { screenshot_count: 4 }
+        body: {
+          group_name: groupName.trim(),
+          display_name: displayName.trim(),
+          chip_color: selectedChipColor,
+          festival_days: festivalDays.map((d) => ({ day_index: d.dayIndex, label: d.label }))
+        }
       });
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/groups/${groupId}/canonical/confirm`,
-        method: 'POST',
-        sessionToken: founderSession
-      });
+      setFounderSession(payload.session.token);
+      setMemberSession(payload.session.token);
+      setGroupId(payload.group.id);
+      setInviteCode(payload.group.invite_code);
+      setIsFounder(true);
       setLastSyncAt(new Date().toISOString());
       setOnboardingStep('choose_library');
     });
@@ -745,13 +745,20 @@ export default function App() {
         baseUrl: apiUrl,
         path: '/v1/groups',
         method: 'POST',
-        body: { group_name: groupName.trim(), display_name: 'Priyanka', chip_color: CHIP_COLOR_OPTIONS[0] }
+        body: {
+          group_name: groupName.trim(),
+          display_name: 'Priyanka',
+          chip_color: CHIP_COLOR_OPTIONS[0],
+          festival_days: DEFAULT_FESTIVAL_DAYS.map((d) => ({ day_index: d.dayIndex, label: d.label }))
+        }
       });
 
       const nextFounderSession = founderPayload.session.token;
       const nextInviteCode = founderPayload.group.invite_code;
       const nextGroupId = founderPayload.group.id;
 
+      // Seed canonical via legacy import endpoint (demo only), then founder imports
+      // personal data and completes setup to open the group for members to join.
       await apiRequest({
         baseUrl: apiUrl,
         path: `/v1/groups/${nextGroupId}/canonical/import`,
@@ -764,6 +771,20 @@ export default function App() {
         path: `/v1/groups/${nextGroupId}/canonical/confirm`,
         method: 'POST',
         sessionToken: nextFounderSession
+      });
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/personal/import',
+        method: 'POST',
+        sessionToken: nextFounderSession,
+        body: { screenshot_count: 3 }
+      });
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/setup/complete',
+        method: 'POST',
+        sessionToken: nextFounderSession,
+        body: { confirm: true }
       });
 
       const memberNames = [
@@ -931,48 +952,7 @@ export default function App() {
     if (advanceStep) advanceStep();
   };
 
-  const chooseFounderScreenshots = () =>
-    run('upload group schedule', async () => {
-      if (!founderSession || !groupId) throw new Error('Start founder onboarding first');
-      if (!isOnline) throw new Error('Upload requires a connection');
-
-      setUploadProgress('');
-      setUploadFailedCount(0);
-
-      const uris = await pickImages();
-      if (!uris) return;
-
-      // Use ref to avoid stale closure on groupId/founderSession
-      const currentGroupId = groupIdRef.current;
-      const result = await uploadImages(
-        apiUrl,
-        `/v1/groups/${currentGroupId}/canonical/upload`,
-        founderSession,
-        uris,
-        (done, total) => setUploadProgress(`Compressing screenshot ${done}/${total}...`)
-      );
-
-      setUploadProgress('');
-      if (result.failed_count > 0) {
-        setUploadFailedCount(result.failed_count);
-        appendLog(`WARN: ${result.failed_count} screenshot(s) could not be read`);
-      }
-      if (!result.parsed_count) {
-        throw new Error('No sets could be parsed from your screenshots. Please try clearer images.');
-      }
-
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/groups/${currentGroupId}/canonical/confirm`,
-        method: 'POST',
-        sessionToken: founderSession
-      });
-
-      setLastSyncAt(new Date().toISOString());
-      setOnboardingStep('choose_library');
-    });
-
-  const chooseMemberScreenshots = () =>
+  const chooseScreenshots = () =>
     run('upload my schedule', () =>
       pickAndUploadPersonal('/v1/members/me/personal/upload', () => setOnboardingStep('review'))
     );
@@ -1039,6 +1019,8 @@ export default function App() {
           setSelectedChipColor={setSelectedChipColor}
           chipColorOptions={CHIP_COLOR_OPTIONS}
           availableJoinColors={availableJoinColors}
+          festivalDays={festivalDays}
+          setFestivalDayLabel={setFestivalDayLabel}
           personalSets={personalSets}
           loading={loading}
           error={error}
@@ -1046,10 +1028,9 @@ export default function App() {
           uploadProgress={uploadProgress}
           failedCount={uploadFailedCount}
           onBeginProfile={beginProfile}
-          onCompleteFounderSetup={completeFounderSetup}
-          onChooseFounderScreenshots={chooseFounderScreenshots}
+          onCompleteFestivalSetup={completeFestivalSetup}
           onImportPersonal={importPersonal}
-          onChooseMemberScreenshots={chooseMemberScreenshots}
+          onChooseScreenshots={chooseScreenshots}
           onRetryUpload={retryUpload}
           onSkipFailed={skipFailed}
           onSetPreference={setPreference}

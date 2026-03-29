@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 import sqlite3
 from secrets import token_urlsafe
 from uuid import uuid4
@@ -11,6 +12,7 @@ from app.core.auth import require_session
 from app.core.colors import CHIP_COLOR_PALETTE, normalize_chip_color, validate_chip_color
 from app.core.db import get_conn
 from app.schemas.groups import (
+    FestivalDay,
     GroupCreateRequest,
     GroupCreateResponse,
     GroupSummary,
@@ -20,6 +22,7 @@ from app.schemas.groups import (
     LeaveGroupRequest,
     MemberSummary,
     SessionSummary,
+    _DEFAULT_FESTIVAL_DAYS,
 )
 
 router = APIRouter(tags=["groups"])
@@ -99,16 +102,18 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
     member_id = str(uuid4())
     invite_code = token_urlsafe(8)
     now = _now_iso()
+    festival_days = payload.festival_days or _DEFAULT_FESTIVAL_DAYS
+    festival_days_json = json.dumps([d.model_dump() for d in festival_days])
 
     with get_conn() as conn:
         session_token = _create_session_token(conn)
         founder_color = _reserve_member_color(conn, group_id, payload.chip_color)
         conn.execute(
             """
-            INSERT INTO groups (id, name, icon_url, invite_code, founder_member_id, setup_complete, created_at)
-            VALUES (?, ?, NULL, ?, ?, 0, ?)
+            INSERT INTO groups (id, name, icon_url, invite_code, founder_member_id, setup_complete, festival_days, created_at)
+            VALUES (?, ?, NULL, ?, ?, 0, ?, ?)
             """,
-            (group_id, payload.group_name.strip(), invite_code, member_id, now),
+            (group_id, payload.group_name.strip(), invite_code, member_id, festival_days_json, now),
         )
         conn.execute(
             """
@@ -132,6 +137,7 @@ def create_group(payload: GroupCreateRequest) -> GroupCreateResponse:
             icon_url=None,
             invite_code=invite_code,
             founder_member_id=member_id,
+            festival_days=festival_days,
         ),
         member=MemberSummary(
             id=member_id,
@@ -353,7 +359,8 @@ def member_home(session=Depends(require_session)) -> dict:
     with get_conn() as conn:
         member = conn.execute(
             """
-            SELECT m.id, m.group_id, m.display_name, m.chip_color, m.role, m.setup_status, g.name AS group_name, g.icon_url
+            SELECT m.id, m.group_id, m.display_name, m.chip_color, m.role, m.setup_status,
+                   g.name AS group_name, g.icon_url, g.festival_days
             FROM members m
             JOIN groups g ON g.id = m.group_id
             WHERE m.id = ? AND m.active = 1
@@ -397,6 +404,11 @@ def member_home(session=Depends(require_session)) -> dict:
             "id": member["group_id"],
             "name": member["group_name"],
             "icon_url": member["icon_url"],
+            "festival_days": json.loads(member["festival_days"]) if member["festival_days"] else [
+                {"day_index": 1, "label": "Friday"},
+                {"day_index": 2, "label": "Saturday"},
+                {"day_index": 3, "label": "Sunday"},
+            ],
         },
         "members": [
             {
