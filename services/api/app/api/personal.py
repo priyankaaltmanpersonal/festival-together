@@ -4,11 +4,12 @@ import logging
 from typing import List
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.core.auth import require_session
 from app.core.db import get_conn
 from app.core.image_utils import ImageValidationError, validate_and_compress
+from app.core.llm_parser import parse_schedule_from_image
 from app.core.parser import ScreenshotInput, build_demo_personal_screenshots, parse_personal_screenshots
 
 logger = logging.getLogger(__name__)
@@ -237,6 +238,7 @@ def complete_setup(payload: CompleteSetupRequest, session=Depends(require_sessio
 @router.post("/members/me/personal/upload")
 def upload_personal_images(
     images: List[UploadFile] = File(...),
+    day_label: str = Form(None),
     session=Depends(require_session),
 ) -> dict:
     """Accept schedule screenshot uploads (list view or grid/column view).
@@ -268,9 +270,10 @@ def upload_personal_images(
             {"day_index": 3, "label": "Sunday"},
         ]
 
-    # ── Phase 2: OCR + LLM parse (outside DB transaction) ────────────────────
+    # ── Phase 2: Claude vision parse (outside DB transaction) ────────────────
     failed_count = 0
     all_parsed: list[dict] = []
+    effective_day_label = day_label or (festival_days[0]["label"] if festival_days else "")
 
     for idx, upload in enumerate(images):
         raw = upload.file.read()
@@ -280,8 +283,9 @@ def upload_personal_images(
             failed_count += 1
             continue
 
-        # TODO(Task 2): replace with parse_schedule_from_image vision call
-        raise HTTPException(status_code=501, detail="upload_not_implemented")
+        parsed = parse_schedule_from_image(compressed, effective_day_label, festival_days)
+        logger.info(f"Vision parse for image {idx + 1}: {len(parsed)} sets")
+        all_parsed.extend(parsed)
 
     if not all_parsed and failed_count == len(images):
         raise HTTPException(status_code=400, detail="all_images_failed")
@@ -388,10 +392,30 @@ def upload_personal_images(
             (session["member_id"],),
         )
 
+    # Build sets response from all_parsed + canonical_id_map
+    sets_response = [
+        {
+            "canonical_set_id": canonical_id_map[(
+                e["artist_name"].lower().strip(),
+                e["stage_name"].lower().strip(),
+                e["start_time"],
+                e["day_index"],
+            )],
+            "artist_name": e["artist_name"],
+            "stage_name": e["stage_name"],
+            "start_time_pt": e["start_time"],
+            "end_time_pt": e["end_time"] or e["start_time"],
+            "day_index": e["day_index"],
+        }
+        for e in all_parsed
+        if (e["artist_name"].lower().strip(), e["stage_name"].lower().strip(), e["start_time"], e["day_index"]) in canonical_id_map
+    ]
+
     return {
         "ok": True,
         "parse_job_id": parse_job_id,
         "parsed_count": len(all_parsed),
-        "new_canonical_count": len([k for k in canonical_id_map]),
+        "new_canonical_count": len(canonical_id_map),
         "failed_count": failed_count,
+        "sets": sets_response,
     }

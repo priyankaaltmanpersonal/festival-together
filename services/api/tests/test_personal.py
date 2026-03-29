@@ -186,9 +186,14 @@ def _get_canonical_ocr_text(group_id: str) -> str:
     return "\n".join(lines)
 
 
+def _make_test_image() -> bytes:
+    img = Image.new("RGB", (100, 100), color=(200, 200, 200))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 def test_personal_upload_with_vision_mock() -> None:
-    # TODO(Task 2): update this test after the personal upload endpoint is rewritten
-    # to use parse_schedule_from_image. For now the endpoint returns 501.
     founder = _create_group("Upload Personal Crew", "Founder")
     group_id = founder["group"]["id"]
     founder_token = founder["session"]["token"]
@@ -206,9 +211,59 @@ def test_personal_upload_with_vision_mock() -> None:
     )
     member_token = anon_token  # promoted on join
 
-    response = client.post(
-        "/v1/members/me/personal/upload",
-        headers={"x-session-token": member_token},
-        files=[("images", ("mine.jpg", _make_jpeg_bytes(), "image/jpeg"))],
-    )
-    assert response.status_code == 501
+    with patch("app.api.personal.parse_schedule_from_image") as mock_parse:
+        mock_parse.return_value = [
+            {"artist_name": "Test Artist", "stage_name": "Main Stage",
+             "start_time": "12:00", "end_time": "13:00", "day_index": 1}
+        ]
+        response = client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": member_token},
+            files=[("images", ("mine.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+        )
+    assert response.status_code == 200
+
+
+def test_upload_returns_sets_array() -> None:
+    """Upload endpoint must return a 'sets' array in the response."""
+    founder = _create_group("UploadTest", "Founder")
+    session_token = founder["session"]["token"]
+
+    img_bytes = _make_test_image()
+
+    with patch("app.api.personal.parse_schedule_from_image") as mock_parse:
+        mock_parse.return_value = [
+            {"artist_name": "Lady Gaga", "stage_name": "Main Stage",
+             "start_time": "23:10", "end_time": "24:10", "day_index": 1}
+        ]
+        resp = client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": session_token},
+            files={"images": ("img.jpg", img_bytes, "image/jpeg")},
+            data={"day_label": "Friday"},
+        )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "sets" in body
+    assert len(body["sets"]) >= 1
+    assert "canonical_set_id" in body["sets"][0]
+    assert "artist_name" in body["sets"][0]
+
+
+def test_upload_accepts_day_label_param() -> None:
+    """Upload endpoint must accept day_label as a form field."""
+    founder = _create_group("DayLabelTest", "Founder2")
+    session_token = founder["session"]["token"]
+    img_bytes = _make_test_image()
+
+    with patch("app.api.personal.parse_schedule_from_image") as mock_parse:
+        mock_parse.return_value = []
+        resp = client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": session_token},
+            files={"images": ("img.jpg", img_bytes, "image/jpeg")},
+            data={"day_label": "Saturday"},
+        )
+        call_args = mock_parse.call_args
+        # second positional arg is day_label
+        assert call_args.args[1] == "Saturday" or call_args.kwargs.get("day_label") == "Saturday"
