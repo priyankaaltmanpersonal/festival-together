@@ -126,8 +126,10 @@ export function GroupScheduleScreen({
                           >
                             <View style={styles.setMain}>
                               <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
-                              {!compact && setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? (
-                                <Text style={styles.timeRangeText} numberOfLines={1}>{setItem.start_time_pt}–{setItem.end_time_pt}</Text>
+                              {!compact ? (
+                                <Text style={styles.timeRangeText} numberOfLines={1}>
+                                  {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
+                                </Text>
                               ) : null}
                               <View style={styles.attendeeRow}>
                                 {definite.slice(0, iconLimit).map((attendee) => (
