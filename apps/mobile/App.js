@@ -983,19 +983,19 @@ export default function App() {
     <SafeAreaProvider>
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>Coachella coordination app demo</Text>
+          {!isOnline ? (
+            <View style={styles.offlineDot} />
+          ) : pendingMutations.length > 0 ? (
+            <View style={styles.pendingDot} />
+          ) : null}
         </View>
         {canOpenMenu ? (
           <Pressable onPress={() => setMenuOpen((prev) => !prev)} style={styles.menuButton}>
             <Text style={styles.menuButtonText}>☰</Text>
           </Pressable>
         ) : null}
-      </View>
-
-      <View style={[styles.statusBar, isOnline ? styles.statusOnline : styles.statusOffline]}>
-        <Text style={styles.statusText}>{statusText}</Text>
       </View>
 
       {/* Privacy screen shown once per install. Intentionally outside the onboardingStep
@@ -1124,43 +1124,30 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingTop: 8,
+    paddingBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center'
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     color: '#1f2c23'
   },
-  subtitle: {
-    marginTop: 2,
-    color: '#4b5a4f',
-    fontSize: 12
+  offlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#e0963a',
+    marginTop: 2
   },
-  statusBar: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8
-  },
-  statusOnline: {
-    backgroundColor: '#eef6ef',
-    borderWidth: 1,
-    borderColor: '#c4ddc6'
-  },
-  statusOffline: {
-    backgroundColor: '#fff1df',
-    borderWidth: 1,
-    borderColor: '#e1b882'
-  },
-  statusText: {
-    color: '#304036',
-    fontWeight: '700',
-    fontSize: 12
+  pendingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#a0b8a4',
+    marginTop: 2
   },
   menuButton: {
     width: 40,
