@@ -16,6 +16,8 @@ export function SetupScreen({
   availableJoinColors,
   festivalDays,
   setFestivalDayLabel,
+  onAddFestivalDay,
+  onRemoveFestivalDay,
   personalSets,
   loading,
   error,
@@ -101,21 +103,27 @@ export function SetupScreen({
         <View style={styles.stepCard}>
           <ActionButton label="← Back" onPress={() => onChoosePath('founder')} disabled={loading} />
           <Text style={styles.stepTitle}>Festival Days</Text>
-          <Text style={styles.helper}>
-            Enter the day names for your festival. Members will see these when viewing the schedule.
-          </Text>
-          {(festivalDays || []).map((day) => (
+          <Text style={styles.helper}>Add each day of the festival you're attending.</Text>
+          {(festivalDays || []).map((day, index) => (
             <View key={day.dayIndex} style={styles.dayRow}>
-              <Text style={styles.dayIndexLabel}>Day {day.dayIndex}</Text>
+              <Text style={styles.dayIndexLabel}>Day {index + 1}</Text>
               <TextInput
                 value={day.label}
                 onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
                 style={[styles.input, styles.dayInput]}
-                placeholder={day.dayIndex === 1 ? 'Friday' : day.dayIndex === 2 ? 'Saturday' : 'Sunday'}
+                placeholder={index === 0 ? 'e.g. Friday' : index === 1 ? 'e.g. Saturday' : 'e.g. Sunday'}
+                maxLength={20}
               />
+              <Pressable
+                onPress={() => onRemoveFestivalDay(day.dayIndex)}
+                disabled={(festivalDays || []).length <= 1}
+                style={[styles.removeButton, (festivalDays || []).length <= 1 && styles.removeButtonDisabled]}
+              >
+                <Text style={styles.removeButtonText}>×</Text>
+              </Pressable>
             </View>
           ))}
-          {inviteCode ? <Text style={styles.helper}>Invite code: {inviteCode}</Text> : null}
+          <ActionButton label="＋ Add Day" onPress={onAddFestivalDay} disabled={loading} />
           <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading} />
         </View>
       ) : null}
@@ -352,6 +360,12 @@ const styles = StyleSheet.create({
   colorSwatchDisabled: {
     opacity: 0.25
   },
+  removeButton: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: '#e8ddd0', alignItems: 'center', justifyContent: 'center'
+  },
+  removeButtonDisabled: { opacity: 0.3 },
+  removeButtonText: { fontSize: 18, color: '#5a4d3b', fontWeight: '700', lineHeight: 20 },
   error: { color: '#b52424', fontWeight: '600' },
   logLine: { color: '#444', fontSize: 11 },
   warningBox: {

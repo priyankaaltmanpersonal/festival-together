@@ -14,11 +14,6 @@ import { clearOfflineState, loadAppState, loadMutationQueue, saveAppState, saveM
 import { pickImages, uploadImages } from './src/services/uploadImages';
 
 const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-const DEFAULT_FESTIVAL_DAYS = [
-  { dayIndex: 1, label: 'Friday' },
-  { dayIndex: 2, label: 'Saturday' },
-  { dayIndex: 3, label: 'Sunday' },
-];
 const CHIP_COLOR_OPTIONS = [
   '#4D73FF',
   '#20A36B',
@@ -83,7 +78,7 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState('');
   const [uploadFailedCount, setUploadFailedCount] = useState(0);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [festivalDays, setFestivalDays] = useState(DEFAULT_FESTIVAL_DAYS);
+  const [festivalDays, setFestivalDays] = useState([{ dayIndex: 1, label: '' }]);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
@@ -131,7 +126,7 @@ export default function App() {
         setIndividualSnapshot(storedState.individualSnapshot || null);
         setSelectedMemberIds(storedState.selectedMemberIds || []);
         setPrivacyAccepted(Boolean(storedState.privacyAccepted));
-        setFestivalDays(storedState.festivalDays || DEFAULT_FESTIVAL_DAYS);
+        setFestivalDays(storedState.festivalDays || [{ dayIndex: 1, label: '' }]);
         setLog(storedState.log || []);
         setLastSyncAt(storedState.lastSyncAt || '');
       })
@@ -389,6 +384,22 @@ export default function App() {
     setFestivalDays((prev) => prev.map((d) => d.dayIndex === dayIndex ? { ...d, label: text } : d));
   };
 
+  const addFestivalDay = () => {
+    setFestivalDays((prev) => {
+      const nextIndex = prev.length + 1;
+      return [...prev, { dayIndex: nextIndex, label: '' }];
+    });
+  };
+
+  const removeFestivalDay = (dayIndex) => {
+    setFestivalDays((prev) => {
+      if (prev.length <= 1) return prev; // minimum 1
+      const filtered = prev.filter((d) => d.dayIndex !== dayIndex);
+      // Reassign sequential indices
+      return filtered.map((d, i) => ({ ...d, dayIndex: i + 1 }));
+    });
+  };
+
   const beginProfile = () =>
     run('start onboarding', async () => {
       if (!displayName.trim()) throw new Error('Enter your name first');
@@ -455,6 +466,7 @@ export default function App() {
 
   const completeFestivalSetup = () =>
     run('create group', async () => {
+      if (festivalDays.some((d) => !d.label.trim())) throw new Error('Enter a name for each day');
       if (!isOnline) throw new Error('Creating the group requires a connection');
       const payload = await apiRequest({
         baseUrl: apiUrl,
@@ -756,7 +768,7 @@ export default function App() {
           group_name: groupName.trim(),
           display_name: 'Priyanka',
           chip_color: CHIP_COLOR_OPTIONS[0],
-          festival_days: DEFAULT_FESTIVAL_DAYS.map((d) => ({ day_index: d.dayIndex, label: d.label }))
+          festival_days: [{ day_index: 1, label: 'Friday' }, { day_index: 2, label: 'Saturday' }, { day_index: 3, label: 'Sunday' }]
         }
       });
 
@@ -1062,6 +1074,8 @@ export default function App() {
           availableJoinColors={availableJoinColors}
           festivalDays={festivalDays}
           setFestivalDayLabel={setFestivalDayLabel}
+          onAddFestivalDay={addFestivalDay}
+          onRemoveFestivalDay={removeFestivalDay}
           personalSets={personalSets}
           loading={loading}
           error={error}
