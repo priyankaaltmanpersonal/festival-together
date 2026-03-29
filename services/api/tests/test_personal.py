@@ -187,13 +187,14 @@ def _get_canonical_ocr_text(group_id: str) -> str:
 
 
 def test_personal_upload_with_vision_mock() -> None:
+    # TODO(Task 2): update this test after the personal upload endpoint is rewritten
+    # to use parse_schedule_from_image. For now the endpoint returns 501.
     founder = _create_group("Upload Personal Crew", "Founder")
     group_id = founder["group"]["id"]
     founder_token = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
     _complete_founder_setup(group_id, founder_token)
-    vision_text = _get_canonical_ocr_text(group_id)
 
     # Join as new member via anonymous session
     anon_resp = client.post("/v1/sessions")
@@ -205,17 +206,9 @@ def test_personal_upload_with_vision_mock() -> None:
     )
     member_token = anon_token  # promoted on join
 
-    fake_sets = [
-        {"artist_name": "Test Artist", "stage_name": "Main Stage", "start_time": "20:00", "end_time": "21:00", "day_index": 1}
-    ]
-    with patch("app.api.personal.extract_text_from_image", return_value=vision_text), \
-         patch("app.api.personal.parse_schedule_with_llm", return_value=fake_sets):
-        response = client.post(
-            "/v1/members/me/personal/upload",
-            headers={"x-session-token": member_token},
-            files=[("images", ("mine.jpg", _make_jpeg_bytes(), "image/jpeg"))],
-        )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["parsed_count"] >= 1
-    assert data["failed_count"] == 0
+    response = client.post(
+        "/v1/members/me/personal/upload",
+        headers={"x-session-token": member_token},
+        files=[("images", ("mine.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+    )
+    assert response.status_code == 501

@@ -119,21 +119,18 @@ _TWO_SETS_OCR_TEXT = (
 
 
 def test_canonical_upload_with_vision_mock() -> None:
+    # TODO(Task 2): update this test after the canonical upload endpoint is rewritten
+    # to use parse_schedule_from_image. For now the endpoint returns 501.
     founder = _create_group("Upload Crew", "Founder")
     group_id = founder["group"]["id"]
     session_token = founder["session"]["token"]
 
-    with patch("app.api.canonical.extract_text_from_image", return_value=_TWO_SETS_OCR_TEXT):
-        response = client.post(
-            f"/v1/groups/{group_id}/canonical/upload",
-            headers={"x-session-token": session_token},
-            files=[("images", ("shot1.jpg", _make_jpeg_bytes(), "image/jpeg"))],
-        )
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["parsed_count"] >= 2
-    assert data["failed_count"] == 0
+    response = client.post(
+        f"/v1/groups/{group_id}/canonical/upload",
+        headers={"x-session-token": session_token},
+        files=[("images", ("shot1.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+    )
+    assert response.status_code == 501
 
 
 def test_canonical_upload_rejects_too_many_images() -> None:
@@ -152,29 +149,21 @@ def test_canonical_upload_rejects_too_many_images() -> None:
 
 
 def test_canonical_upload_counts_failed_images() -> None:
+    # TODO(Task 2): update this test after the canonical upload endpoint is rewritten
+    # to use parse_schedule_from_image. For now the endpoint returns 501.
     founder = _create_group("Upload Crew Fail", "Founder")
     group_id = founder["group"]["id"]
     session_token = founder["session"]["token"]
 
-    call_count = {"n": 0}
-
-    def _mock_vision(_image_bytes):
-        call_count["n"] += 1
-        return _TWO_SETS_OCR_TEXT if call_count["n"] == 1 else None
-
-    with patch("app.api.canonical.extract_text_from_image", side_effect=_mock_vision):
-        response = client.post(
-            f"/v1/groups/{group_id}/canonical/upload",
-            headers={"x-session-token": session_token},
-            files=[
-                ("images", ("good.jpg", _make_jpeg_bytes(), "image/jpeg")),
-                ("images", ("bad.jpg", _make_jpeg_bytes(), "image/jpeg")),
-            ],
-        )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["failed_count"] == 1
-    assert data["parsed_count"] >= 2
+    response = client.post(
+        f"/v1/groups/{group_id}/canonical/upload",
+        headers={"x-session-token": session_token},
+        files=[
+            ("images", ("good.jpg", _make_jpeg_bytes(), "image/jpeg")),
+            ("images", ("bad.jpg", _make_jpeg_bytes(), "image/jpeg")),
+        ],
+    )
+    assert response.status_code == 501
 
 
 def test_canonical_upload_rejects_non_founder() -> None:
@@ -206,10 +195,9 @@ def test_canonical_upload_rejects_non_founder() -> None:
     assert join_resp.status_code == 200
     member_token = anon_token  # anonymous token is promoted to member session on join
 
-    with patch("app.api.canonical.extract_text_from_image", return_value=_TWO_SETS_OCR_TEXT):
-        response = client.post(
-            f"/v1/groups/{group_id}/canonical/upload",
-            headers={"x-session-token": member_token},
-            files=[("images", ("shot1.jpg", _make_jpeg_bytes(), "image/jpeg"))],
-        )
+    response = client.post(
+        f"/v1/groups/{group_id}/canonical/upload",
+        headers={"x-session-token": member_token},
+        files=[("images", ("shot1.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+    )
     assert response.status_code == 403

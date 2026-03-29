@@ -1,11 +1,13 @@
-"""LLM-based schedule parser using Claude Haiku.
+"""Claude vision-based schedule parser.
 
-Replaces the brittle regex parser for real uploads. Handles any screenshot
-format — list view, grid/column view, or any future redesign — by asking
-the LLM to interpret the raw OCR text rather than pattern-matching it.
+Replaces the two-step Google Cloud Vision OCR + Claude text pipeline.
+Sends the image directly to Claude Haiku with vision to handle both
+list-view screenshots (all artists are user picks) and full grid screenshots
+(only highlighted/selected cells are user picks).
 """
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from typing import Any
@@ -14,38 +16,29 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """\
-You are extracting music festival performance data from OCR text that was scanned from a mobile app or website screenshot.
+_VISION_PROMPT = """\
+You are extracting a user's selected festival performances from a mobile app screenshot.
 
-The screenshot may be in one of several formats:
-1. LIST VIEW: Each performance appears as 2-3 consecutive lines:
-   Artist Name
-   Start Time [- End Time]  (e.g. "9:00PM - 9:55PM" or "11:10PM")
-   STAGE NAME
+The screenshot is one of two types:
+1. PERSONAL LIST VIEW: Shows only the artists the user has saved/starred. All visible artists are the user's picks. Extract all of them.
+2. FULL GRID WITH HIGHLIGHTS: Shows the complete festival schedule across all stages with time columns. The user's selected artists appear in highlighted, darkened, or visually distinct cells (darker background, different color, bold). Extract ONLY the highlighted/selected artists — ignore all others.
 
-2. GRID/COLUMN VIEW: Stage names appear as column headers across the top.
-   Artist names appear in cells with their time ranges below them.
-   OCR reads left-to-right across columns, so artists and stages may be
-   interleaved. Use context clues to match each artist to their stage column.
+For each selected artist, extract:
+- artist_name: performer name (string)
+- stage_name: stage or venue name (string)
+- start_time: 24-hour "HH:MM" format. Times from 12:00AM–5:59AM use "24:MM"–"29:MM" to preserve ordering after midnight (e.g. 1:00AM = "25:00")
+- end_time: same format, or null if not shown
+- day_index: integer matching the festival day (use the provided festival_days list to resolve day names)
 
-3. Any other format a festival app might use.
-
-Extract every distinct artist performance. For each one return:
-- artist_name: the performer name (string)
-- stage_name: the stage or venue name (string)
-- start_time: in "HH:MM" 24-hour format. Times from 12:00AM-5:59AM should
-  be represented as "24:MM" through "29:MM" to preserve correct ordering
-  after midnight (e.g. 1:00AM = "25:00", 2:30AM = "26:30")
-- end_time: in same format, or null if not shown
-- day_label: the day of week (e.g. "Friday", "Saturday", "Sunday") or null
+Festival days for this group: {festival_days_json}
+This screenshot is for day: {day_label}
 
 Rules:
-- Ignore UI chrome, app headers, footers, download prompts, and branding
-- Ignore "Surprise" or "TBA" placeholder entries
-- If the same artist appears more than once with the same time/stage, include only once
-- For grid views, carefully match each artist to the correct stage column header
-- Return ONLY a valid JSON array, no markdown fences, no explanation text
-- If no performances are found, return []
+- Ignore UI chrome, headers, footers, branding, download prompts
+- Ignore "Surprise", "TBA", or placeholder entries
+- If the same artist appears more than once with identical time/stage, include only once
+- Return ONLY a valid JSON array, no markdown fences, no explanation
+- If no selected performances found, return []
 """
 
 
@@ -60,73 +53,86 @@ def _get_client():
         return None
 
 
-def parse_schedule_with_llm(
-    raw_text: str,
-    festival_days: list[dict[str, Any]] | None = None,
+def parse_schedule_from_image(
+    image_bytes: bytes,
+    day_label: str,
+    festival_days: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Parse OCR text into structured schedule entries using Claude Haiku.
+    """Parse a festival schedule screenshot using Claude vision.
+
+    Handles both personal list-view screenshots and full grid screenshots
+    with visual highlighting. Returns only the user's selected artists.
 
     Args:
-        raw_text: Raw text extracted from a screenshot via Vision API.
-        festival_days: Optional list of {day_index, label} dicts from the group
-                       config, used to map day names to day_index integers.
+        image_bytes: Compressed JPEG bytes from validate_and_compress.
+        day_label: Which day this screenshot covers, e.g. "Friday".
+                   If empty, defaults to festival_days[0].label.
+        festival_days: List of {day_index, label} dicts from group config.
 
     Returns:
-        List of dicts with keys: artist_name, stage_name, start_time,
-        end_time (or None), day_index (int).
-        Empty list if parsing fails or key not configured.
+        List of dicts: {artist_name, stage_name, start_time, end_time, day_index}.
+        Empty list if parsing fails or API key not configured.
     """
     client = _get_client()
     if client is None:
-        logger.warning("ANTHROPIC_API_KEY not set — skipping LLM parse")
+        logger.warning("ANTHROPIC_API_KEY not set — skipping vision parse")
         return []
 
-    if not raw_text or not raw_text.strip():
-        return []
+    effective_day_label = day_label.strip() if day_label and day_label.strip() else (
+        festival_days[0]["label"] if festival_days else "Day 1"
+    )
+
+    prompt = _VISION_PROMPT.format(
+        festival_days_json=json.dumps(festival_days),
+        day_label=effective_day_label,
+    )
+
+    image_b64 = base64.standard_b64encode(image_bytes).decode()
 
     try:
         response = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=4096,
-            system=_SYSTEM_PROMPT,
             messages=[
                 {
                     "role": "user",
-                    "content": f"Extract all performances from this festival schedule text:\n\n{raw_text}",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": image_b64,
+                            },
+                        },
+                        {"type": "text", "text": prompt},
+                    ],
                 }
             ],
         )
         text = response.content[0].text.strip()
         parsed = json.loads(text)
         if not isinstance(parsed, list):
-            logger.error(f"LLM returned non-list: {type(parsed)}")
+            logger.error(f"Vision parser returned non-list: {type(parsed)}")
             return []
     except json.JSONDecodeError as e:
-        logger.error(f"LLM returned invalid JSON: {e}")
+        logger.error(f"Vision parser returned invalid JSON: {e}")
         return []
     except Exception as e:
-        logger.error(f"LLM parse failed: {e}")
+        logger.error(f"Vision parse failed: {e}")
         return []
 
-    # Build day label → day_index mapping from festival config
+    # Build day_label → day_index map
     day_map: dict[str, int] = {}
-    if festival_days:
-        for day in festival_days:
-            label = day.get("label", "")
-            idx = day.get("day_index", 1)
-            day_map[label.upper()] = idx
-            # Also map common abbreviations
-            if label.upper().startswith("FRI"):
-                day_map["FRI"] = idx
-                day_map["FRIDAY"] = idx
-            elif label.upper().startswith("SAT"):
-                day_map["SAT"] = idx
-                day_map["SATURDAY"] = idx
-            elif label.upper().startswith("SUN"):
-                day_map["SUN"] = idx
-                day_map["SUNDAY"] = idx
-    if not day_map:
-        day_map = {"FRIDAY": 1, "FRI": 1, "SATURDAY": 2, "SAT": 2, "SUNDAY": 3, "SUN": 3}
+    for day in festival_days:
+        label = day.get("label", "")
+        idx = day.get("day_index", 1)
+        day_map[label.upper()] = idx
+
+    default_day_index = (
+        day_map.get(effective_day_label.upper(), festival_days[0]["day_index"])
+        if festival_days else 1
+    )
 
     results = []
     for entry in parsed:
@@ -137,28 +143,19 @@ def parse_schedule_with_llm(
         start = (entry.get("start_time") or "").strip()
         end = entry.get("end_time")
         if end:
-            end = end.strip()
-
+            end = str(end).strip()
+        day_index = entry.get("day_index")
+        if not isinstance(day_index, int):
+            day_index = default_day_index
         if not artist or not stage or not start:
             continue
+        results.append({
+            "artist_name": artist,
+            "stage_name": stage,
+            "start_time": start,
+            "end_time": end,
+            "day_index": day_index,
+        })
 
-        # Resolve day_index from day_label
-        day_label = (entry.get("day_label") or "").strip().upper()
-        day_index = 1  # default
-        for key, idx in day_map.items():
-            if key in day_label or day_label in key:
-                day_index = idx
-                break
-
-        results.append(
-            {
-                "artist_name": artist,
-                "stage_name": stage,
-                "start_time": start,
-                "end_time": end,
-                "day_index": day_index,
-            }
-        )
-
-    logger.info(f"LLM parser extracted {len(results)} performances from {len(raw_text)} chars")
+    logger.info(f"parse_schedule_from_image returned {len(results)} sets")
     return results

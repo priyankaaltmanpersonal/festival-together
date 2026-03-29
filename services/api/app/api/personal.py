@@ -9,9 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from app.core.auth import require_session
 from app.core.db import get_conn
 from app.core.image_utils import ImageValidationError, validate_and_compress
-from app.core.llm_parser import parse_schedule_with_llm
 from app.core.parser import ScreenshotInput, build_demo_personal_screenshots, parse_personal_screenshots
-from app.core.vision_client import extract_text_from_image
 
 logger = logging.getLogger(__name__)
 
@@ -282,15 +280,8 @@ def upload_personal_images(
             failed_count += 1
             continue
 
-        text = extract_text_from_image(compressed)
-        if text is None:
-            failed_count += 1
-            continue
-
-        logger.info(f"OCR text for image {idx + 1} ({len(text)} chars): {text[:200]!r}")
-        parsed = parse_schedule_with_llm(text, festival_days)
-        logger.info(f"LLM parsed {len(parsed)} sets from image {idx + 1}")
-        all_parsed.extend(parsed)
+        # TODO(Task 2): replace with parse_schedule_from_image vision call
+        raise HTTPException(status_code=501, detail="upload_not_implemented")
 
     if not all_parsed and failed_count == len(images):
         raise HTTPException(status_code=400, detail="all_images_failed")

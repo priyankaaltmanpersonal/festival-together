@@ -8,7 +8,6 @@ from app.core.auth import require_session
 from app.core.db import get_conn
 from app.core.image_utils import ImageValidationError, validate_and_compress
 from app.core.parser import ScreenshotInput, build_demo_canonical_screenshots, parse_canonical_screenshots
-from app.core.vision_client import extract_text_from_image
 from app.schemas.canonical import CanonicalImportRequest, CanonicalReviewResponse, CanonicalSet
 
 router = APIRouter(tags=["canonical"])
@@ -208,10 +207,8 @@ def upload_canonical_images(
             failed_count += 1
             continue
 
-        text = extract_text_from_image(compressed)
-        if text is None:
-            failed_count += 1
-            continue
+        # TODO(Task 2): replace with parse_schedule_from_image vision call
+        raise HTTPException(status_code=501, detail="upload_not_implemented")
 
         screenshots.append(
             ScreenshotInput(
