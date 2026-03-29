@@ -183,7 +183,7 @@ export function SetupScreen({
               </View>
             ) : null}
 
-            {dayUploadStatus === 'error' ? (
+            {error ? (
               <Text style={styles.error}>{error}</Text>
             ) : null}
 
@@ -224,7 +224,7 @@ export function SetupScreen({
             {isLastDay ? (
               <ActionButton
                 label="Finish →"
-                onPress={() => onFinishUploadFlow()}
+                onPress={() => onFinishUploadFlow(dayUploadStatus === 'done')}
                 primary
                 disabled={loading || dayUploadStatus === 'uploading' || !canFinish}
               />
