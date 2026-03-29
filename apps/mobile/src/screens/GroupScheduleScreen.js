@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+const GRID_HEADER_HEIGHT = 33; // header row height (padding 6+6 + font ~12 + border 1)
+
 const SLOT_MINUTES = 30;
 const SLOT_HEIGHT = 28;
 
@@ -13,6 +15,11 @@ export function GroupScheduleScreen({
   onResetFilters
 }) {
   const [expandedSet, setExpandedSet] = useState(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+  const [filterHeight, setFilterHeight] = useState(0);
+  const gridBodyHeight = containerHeight > 0
+    ? Math.max(0, containerHeight - filterHeight - GRID_HEADER_HEIGHT)
+    : null;
   const members = homeSnapshot?.members || [];
   const hasActiveFilters = (selectedMemberIds || []).length > 0;
   const sets = scheduleSnapshot?.sets || [];
@@ -31,8 +38,8 @@ export function GroupScheduleScreen({
   );
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.filterSection}>
+    <View style={styles.wrap} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>
+      <View style={styles.filterSection} onLayout={(e) => setFilterHeight(e.nativeEvent.layout.height)}>
         <View style={styles.filterBar}>
           <View style={styles.topRow}>
             {hasActiveFilters ? (
@@ -76,7 +83,7 @@ export function GroupScheduleScreen({
               ))}
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.gridVScroll}>
+            <ScrollView showsVerticalScrollIndicator={false} style={gridBodyHeight ? { height: gridBodyHeight } : styles.gridVScroll}>
               <View style={styles.gridBody}>
                 <View style={[styles.timeCol, { height: timeline.totalHeight }]}>
                   {timeline.labels.map((minute) => {
@@ -119,8 +126,8 @@ export function GroupScheduleScreen({
                           >
                             <View style={styles.setMain}>
                               <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
-                              {!compact ? (
-                                <Text style={styles.timeRangeText} numberOfLines={1}>{setItem.start_time_pt}-{setItem.end_time_pt}</Text>
+                              {!compact && setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? (
+                                <Text style={styles.timeRangeText} numberOfLines={1}>{setItem.start_time_pt}–{setItem.end_time_pt}</Text>
                               ) : null}
                               <View style={styles.attendeeRow}>
                                 {definite.slice(0, iconLimit).map((attendee) => (
