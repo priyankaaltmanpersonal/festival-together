@@ -47,11 +47,11 @@ def normalize_stage(name: str) -> str:
 
 
 _VISION_PROMPT = """\
-You are extracting a user's selected festival performances from a mobile app screenshot.
+You are extracting a user's personally selected festival performances from a mobile app screenshot.
 
 The screenshot is one of two types:
 1. PERSONAL LIST VIEW: Shows only the artists the user has saved/starred — a clean list with artist names, times, and stage names. All visible artists are the user's picks. Extract all of them.
-2. FULL GRID WITH HIGHLIGHTS: Shows the complete festival schedule as a grid with stages as columns and times as rows. Most cells are light/peach/beige (not selected). The user's picks are visually distinct — they appear as DARK cells (black, dark brown, or dark green background with light text). Scan every cell in every column systematically from top to bottom. Extract ALL dark-background cells — do not stop early.
+2. FULL GRID WITH HIGHLIGHTS: Shows the complete festival schedule as a grid. The vast majority of artists are NOT selected. The user's picks are visually distinct from the rest — they appear in cells with a clearly darker background (dark green, black, or dark brown) with light-colored text, while unselected cells are light (peach, beige, white, or light gray). Extract ONLY the cells that are clearly and confidently darker than the surrounding cells. If you are not sure whether a cell is selected, do NOT include it.
 
 For each selected artist, extract:
 - artist_name: performer name (string)
@@ -64,7 +64,7 @@ Festival days for this group: {festival_days_json}
 This screenshot is for day: {day_label}
 
 Rules:
-- For grid screenshots: scan ALL columns completely before returning — missing any dark cell is an error
+- For grid screenshots: precision matters more than recall — a false positive (unselected artist included) is worse than a false negative (selected artist missed), since users can add missing artists manually
 - Ignore UI chrome, headers, footers, branding, download prompts
 - Ignore "Surprise", "TBA", or placeholder entries
 - If the same artist appears more than once with identical time/stage, include only once
