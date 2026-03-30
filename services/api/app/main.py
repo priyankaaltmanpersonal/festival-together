@@ -10,6 +10,7 @@ from app.api.groups import router as groups_router
 from app.api.meta import router as meta_router
 from app.api.personal import router as personal_router
 from app.api.schedule import router as schedule_router
+from app.api.sets import router as sets_router
 from app.core.config import settings
 from app.core.db import init_db
 
@@ -68,3 +69,4 @@ app.include_router(meta_router, prefix=settings.api_prefix)
 app.include_router(groups_router, prefix=settings.api_prefix)
 app.include_router(personal_router, prefix=settings.api_prefix)
 app.include_router(schedule_router, prefix=settings.api_prefix)
+app.include_router(sets_router, prefix=settings.api_prefix)
