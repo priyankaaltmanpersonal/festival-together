@@ -36,6 +36,8 @@ const API_ERROR_MESSAGES = {
   offline_unavailable: 'You appear to be offline. Please check your connection and try again.',
   forbidden: 'You don\'t have permission to do that.',
   founder_only: 'Only the group founder can do that.',
+  already_in_schedule: 'You already have this artist on your schedule.',
+  no_updates_provided: 'No changes were made.',
 };
 
 function friendlyError(msg) {
@@ -815,6 +817,107 @@ export default function App() {
       setPersonalSets((prev) => prev.map((setItem) => ({ ...setItem, preference: 'must_see' })));
       setLastSyncAt(new Date().toISOString());
     });
+
+  const deletePersonalSet = async (canonicalSetId) => {
+    // Optimistic: remove immediately from local state
+    const previous = personalSets;
+    setPersonalSets((prev) => prev.filter((s) => s.canonical_set_id !== canonicalSetId));
+    try {
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: `/v1/members/me/sets/${canonicalSetId}`,
+        method: 'DELETE',
+        sessionToken: memberSession,
+      });
+    } catch (err) {
+      // Rollback
+      setPersonalSets(previous);
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const deleteDayParsedSet = async (canonicalSetId) => {
+    // Optimistic remove from upload_day list
+    const previous = dayParsedSets;
+    setDayParsedSets((prev) => prev.filter((s) => s.canonical_set_id !== canonicalSetId));
+    try {
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: `/v1/members/me/sets/${canonicalSetId}`,
+        method: 'DELETE',
+        sessionToken: memberSession,
+      });
+    } catch (err) {
+      setDayParsedSets(previous);
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const addPersonalSet = async (fields) => {
+    // fields: { artist_name, stage_name, start_time_pt, end_time_pt, day_index }
+    const data = await apiRequest({
+      baseUrl: apiUrl,
+      path: '/v1/members/me/sets',
+      method: 'POST',
+      sessionToken: memberSession,
+      body: fields,
+    });
+    const newSet = {
+      canonical_set_id: data.canonical_set_id,
+      artist_name: fields.artist_name,
+      stage_name: fields.stage_name,
+      start_time_pt: fields.start_time_pt,
+      end_time_pt: fields.end_time_pt,
+      day_index: fields.day_index,
+      preference: 'flexible',
+      attendance: 'going',
+      source_confidence: 1.0,
+    };
+    setPersonalSets((prev) => [...prev, newSet]);
+  };
+
+  const addDayParsedSet = async (fields) => {
+    // Same as addPersonalSet but appends to dayParsedSets (upload_day context)
+    const data = await apiRequest({
+      baseUrl: apiUrl,
+      path: '/v1/members/me/sets',
+      method: 'POST',
+      sessionToken: memberSession,
+      body: fields,
+    });
+    const newSet = {
+      canonical_set_id: data.canonical_set_id,
+      artist_name: fields.artist_name,
+      stage_name: fields.stage_name,
+      start_time_pt: fields.start_time_pt,
+      end_time_pt: fields.end_time_pt,
+      day_index: fields.day_index,
+      preference: 'flexible',
+    };
+    setDayParsedSets((prev) => [...prev, newSet]);
+  };
+
+  const editCanonicalSet = async (canonicalSetId, fields) => {
+    // fields: { artist_name?, stage_name?, start_time_pt?, end_time_pt? }
+    await apiRequest({
+      baseUrl: apiUrl,
+      path: `/v1/canonical-sets/${canonicalSetId}`,
+      method: 'PATCH',
+      sessionToken: memberSession,
+      body: fields,
+    });
+    // Update both personalSets and dayParsedSets if present
+    setPersonalSets((prev) =>
+      prev.map((s) =>
+        s.canonical_set_id === canonicalSetId ? { ...s, ...fields } : s
+      )
+    );
+    setDayParsedSets((prev) =>
+      prev.map((s) =>
+        s.canonical_set_id === canonicalSetId ? { ...s, ...fields } : s
+      )
+    );
+  };
 
   const applyScheduleFilters = (nextSelectedMemberIds, options = {}) => {
     const { debounceMs = 0 } = options;
