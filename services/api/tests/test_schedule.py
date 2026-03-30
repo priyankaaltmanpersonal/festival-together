@@ -1,16 +1,13 @@
-import io
 import os
 import tempfile
-from datetime import datetime, timezone
 from unittest.mock import patch
-from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from PIL import Image
 
 from app.core.config import settings
 from app.core.db import get_conn, init_db
 from app.main import app
+from tests.conftest import make_jpeg_bytes, seed_canonical_sets
 
 client = TestClient(app)
 
@@ -30,29 +27,6 @@ def _create_group(group_name: str, display_name: str) -> dict:
     return response.json()
 
 
-def _seed_canonical_sets(group_id: str) -> None:
-    """Directly insert canonical sets + mark group setup_complete, bypassing the deleted canonical API."""
-    now = datetime.now(tz=timezone.utc).isoformat()
-    sets = [
-        ("Aurora Skyline", "Main Stage", "12:00", "12:45", 1),
-        ("Neon Valley", "Sahara", "13:10", "14:00", 1),
-        ("Desert Echo", "Outdoor", "14:15", "15:05", 1),
-        ("Solar Ritual", "Mojave", "16:20", "17:10", 1),
-    ]
-    with get_conn() as conn:
-        for artist, stage, start, end, day in sets:
-            conn.execute(
-                """
-                INSERT INTO canonical_sets
-                  (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
-                   day_index, status, source_confidence, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 0.9, ?)
-                """,
-                (str(uuid4()), group_id, artist, stage, start, end, day, now),
-            )
-        conn.execute("UPDATE groups SET setup_complete = 1 WHERE id = ?", (group_id,))
-
-
 def _join_group(invite_code: str, display_name: str) -> str:
     creator = _create_group(f"tmp-{display_name}", display_name)
     session_token = creator["session"]["token"]
@@ -63,12 +37,6 @@ def _join_group(invite_code: str, display_name: str) -> str:
     )
     assert resp.status_code == 200
     return session_token
-
-
-def _make_jpeg_bytes() -> bytes:
-    buf = io.BytesIO()
-    Image.new("RGB", (100, 100)).save(buf, format="JPEG")
-    return buf.getvalue()
 
 
 def _import_and_complete_member(session_token: str, must_see_first: bool) -> None:
@@ -82,7 +50,7 @@ def _import_and_complete_member(session_token: str, must_see_first: bool) -> Non
         upload_resp = client.post(
             "/v1/members/me/personal/upload",
             headers={"x-session-token": session_token},
-            files={"images": ("img.jpg", _make_jpeg_bytes(), "image/jpeg")},
+            files={"images": ("img.jpg", make_jpeg_bytes(), "image/jpeg")},
         )
     assert upload_resp.status_code == 200
     sets = upload_resp.json()["sets"]
@@ -110,7 +78,7 @@ def test_group_schedule_filters() -> None:
     group_id = founder["group"]["id"]
     invite_code = founder["group"]["invite_code"]
 
-    _seed_canonical_sets(group_id)
+    seed_canonical_sets(group_id)
     _import_and_complete_member(founder["session"]["token"], must_see_first=True)
 
     member_session = _join_group(invite_code, "Taylor")

@@ -1,9 +1,7 @@
 import io
 import os
 import tempfile
-from datetime import datetime, timezone
 from unittest.mock import patch
-from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -11,6 +9,7 @@ from PIL import Image
 from app.core.config import settings
 from app.core.db import get_conn, init_db
 from app.main import app
+from tests.conftest import make_jpeg_bytes, seed_canonical_sets
 
 client = TestClient(app)
 
@@ -30,36 +29,13 @@ def _create_group(group_name: str, display_name: str) -> dict:
     return response.json()
 
 
-def _seed_canonical_sets(group_id: str) -> None:
-    """Directly insert canonical sets + mark group setup_complete, bypassing the deleted canonical API."""
-    now = datetime.now(tz=timezone.utc).isoformat()
-    sets = [
-        ("Aurora Skyline", "Main Stage", "12:00", "12:45", 1),
-        ("Neon Valley", "Sahara", "13:10", "14:00", 1),
-        ("Desert Echo", "Outdoor", "14:15", "15:05", 1),
-        ("Solar Ritual", "Mojave", "16:20", "17:10", 1),
-    ]
-    with get_conn() as conn:
-        for artist, stage, start, end, day in sets:
-            conn.execute(
-                """
-                INSERT INTO canonical_sets
-                  (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
-                   day_index, status, source_confidence, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 0.9, ?)
-                """,
-                (str(uuid4()), group_id, artist, stage, start, end, day, now),
-            )
-        conn.execute("UPDATE groups SET setup_complete = 1 WHERE id = ?", (group_id,))
-
-
 def test_personal_import_and_setup_completion() -> None:
     founder = _create_group("Crew", "Founder")
     founder_group_id = founder["group"]["id"]
     founder_session = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
-    _seed_canonical_sets(founder_group_id)
+    seed_canonical_sets(founder_group_id)
 
     member_creator = _create_group("Other", "Taylor")
     member_session = member_creator["session"]["token"]
@@ -151,12 +127,6 @@ def test_setup_complete_requires_at_least_one_set() -> None:
 # ── Upload endpoint tests ────────────────────────────────────────────────────
 
 
-def _make_jpeg_bytes() -> bytes:
-    buf = io.BytesIO()
-    Image.new("RGB", (100, 100)).save(buf, format="JPEG")
-    return buf.getvalue()
-
-
 def _get_canonical_ocr_text(group_id: str) -> str:
     """Build OCR text that matches the first 2 canonical sets for this group."""
     from app.core.parser import _display_time
@@ -187,7 +157,7 @@ def test_personal_upload_with_vision_mock() -> None:
     founder_token = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
-    _seed_canonical_sets(group_id)
+    seed_canonical_sets(group_id)
 
     # Join as new member via anonymous session
     anon_resp = client.post("/v1/sessions")
@@ -207,7 +177,7 @@ def test_personal_upload_with_vision_mock() -> None:
         response = client.post(
             "/v1/members/me/personal/upload",
             headers={"x-session-token": member_token},
-            files=[("images", ("mine.jpg", _make_jpeg_bytes(), "image/jpeg"))],
+            files=[("images", ("mine.jpg", make_jpeg_bytes(), "image/jpeg"))],
         )
     assert response.status_code == 200
 

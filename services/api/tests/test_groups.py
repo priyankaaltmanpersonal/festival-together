@@ -1,13 +1,12 @@
 import os
 import tempfile
-from datetime import datetime, timezone
-from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.core.db import get_conn, init_db
 from app.main import app
+from tests.conftest import seed_canonical_sets
 
 client = TestClient(app)
 
@@ -27,29 +26,6 @@ def _create_group(group_name: str, display_name: str) -> dict:
     return response.json()
 
 
-def _seed_canonical_sets(group_id: str) -> None:
-    """Directly insert canonical sets + mark group setup_complete, bypassing the deleted canonical API."""
-    now = datetime.now(tz=timezone.utc).isoformat()
-    sets = [
-        ("Aurora Skyline", "Main Stage", "12:00", "12:45", 1),
-        ("Neon Valley", "Sahara", "13:10", "14:00", 1),
-        ("Desert Echo", "Outdoor", "14:15", "15:05", 1),
-        ("Solar Ritual", "Mojave", "16:20", "17:10", 1),
-    ]
-    with get_conn() as conn:
-        for artist, stage, start, end, day in sets:
-            conn.execute(
-                """
-                INSERT INTO canonical_sets
-                  (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
-                   day_index, status, source_confidence, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 0.9, ?)
-                """,
-                (str(uuid4()), group_id, artist, stage, start, end, day, now),
-            )
-        conn.execute("UPDATE groups SET setup_complete = 1 WHERE id = ?", (group_id,))
-
-
 def test_group_create_and_preview_and_join_blocking() -> None:
     founder = _create_group("Weekend Crew", "Priyanka")
     founder_group_id = founder["group"]["id"]
@@ -60,7 +36,7 @@ def test_group_create_and_preview_and_join_blocking() -> None:
     assert preview.status_code == 409
     assert preview.json()["detail"] == "setup_pending"
 
-    _seed_canonical_sets(founder_group_id)
+    seed_canonical_sets(founder_group_id)
 
     preview_after_setup = client.get(f"/v1/invites/{invite_code}/preview")
     assert preview_after_setup.status_code == 200
@@ -68,7 +44,7 @@ def test_group_create_and_preview_and_join_blocking() -> None:
 
     outsider = _create_group("Other Crew", "Alex")
     outsider_session = outsider["session"]["token"]
-    _seed_canonical_sets(outsider["group"]["id"])
+    seed_canonical_sets(outsider["group"]["id"])
 
     join_without_leave = client.post(
         f"/v1/invites/{invite_code}/join",
@@ -93,7 +69,7 @@ def test_join_with_anonymous_session_does_not_create_temp_group() -> None:
     founder_session = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
-    _seed_canonical_sets(founder_group_id)
+    seed_canonical_sets(founder_group_id)
 
     with get_conn() as conn:
         group_count_before = conn.execute("SELECT COUNT(*) AS cnt FROM groups").fetchone()["cnt"]
@@ -147,7 +123,7 @@ def test_join_rejects_taken_chip_color() -> None:
     founder_session = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
-    _seed_canonical_sets(founder_group_id)
+    seed_canonical_sets(founder_group_id)
 
     first_joiner_session = client.post("/v1/sessions").json()["token"]
     first_join = client.post(
@@ -182,7 +158,7 @@ def test_founder_cannot_leave_but_can_delete_group() -> None:
     founder = _create_group("Delete Me", "Founder")
     group_id = founder["group"]["id"]
     founder_session = founder["session"]["token"]
-    _seed_canonical_sets(group_id)
+    seed_canonical_sets(group_id)
 
     leave_resp = client.post(
         "/v1/members/me/leave",
