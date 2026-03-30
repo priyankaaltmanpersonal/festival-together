@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { EditableSetCard } from '../components/EditableSetCard';
 
 function formatTime(t) {
   if (!t) return '';
@@ -48,6 +50,16 @@ export function SetupScreen({
   dayUploadStatus,
   dayParsedSets,
   successfulUploadCount,
+  editingDaySetId,
+  onStartEditDaySet,
+  onCancelEditDaySet,
+  onEditDaySet,
+  onDeleteDaySet,
+  savingDaySetId,
+  isAddingDaySet,
+  onAddDaySet,
+  onStartAddDaySet,
+  onCancelAddDaySet,
 }) {
   const isWelcome = onboardingStep === 'welcome';
 
@@ -199,27 +211,29 @@ export function SetupScreen({
                   </Pressable>
                 </View>
                 {(dayParsedSets || []).map((setItem) => (
-                  <View key={setItem.canonical_set_id} style={styles.setRow}>
-                    <Text style={styles.setTitle}>{setItem.artist_name}</Text>
-                    <Text style={styles.helper}>
-                      {setItem.stage_name} · {setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt
-                        ? `${formatTime(setItem.start_time_pt)}–${formatTime(setItem.end_time_pt)}`
-                        : formatTime(setItem.start_time_pt)}
-                    </Text>
-                    <View style={styles.prefRow}>
-                      <PrefButton
-                        label="Must See"
-                        selected={setItem.preference === 'must_see'}
-                        onPress={() => onSetDayPreference(setItem.canonical_set_id, 'must_see')}
-                      />
-                      <PrefButton
-                        label="Maybe"
-                        selected={setItem.preference !== 'must_see'}
-                        onPress={() => onSetDayPreference(setItem.canonical_set_id, 'flexible')}
-                      />
-                    </View>
-                  </View>
+                  <EditableSetCard
+                    key={setItem.canonical_set_id}
+                    setItem={setItem}
+                    isEditing={editingDaySetId === setItem.canonical_set_id}
+                    onStartEdit={() => onStartEditDaySet(setItem.canonical_set_id)}
+                    onCancelEdit={onCancelEditDaySet}
+                    onSave={(fields) => onEditDaySet(setItem.canonical_set_id, fields)}
+                    onDelete={() => onDeleteDaySet(setItem.canonical_set_id)}
+                    onSetPreference={onSetDayPreference}
+                    saving={savingDaySetId === setItem.canonical_set_id}
+                  />
                 ))}
+                {isAddingDaySet ? (
+                  <AddArtistCard
+                    onAdd={onAddDaySet}
+                    onCancel={onCancelAddDaySet}
+                    defaultDayIndex={uploadDayIndex}
+                  />
+                ) : (
+                  <Pressable onPress={onStartAddDaySet} style={styles.addButton}>
+                    <Text style={styles.addButtonText}>+ Add Artist</Text>
+                  </Pressable>
+                )}
               </>
             ) : null}
 
@@ -249,6 +263,83 @@ export function SetupScreen({
     </ScrollView>
   );
 }
+
+function AddArtistCard({ onAdd, onCancel, defaultDayIndex }) {
+  const [name, setName] = useState('');
+  const [stage, setStage] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleAdd = async () => {
+    if (!name.trim() || !stage.trim() || !start.trim() || !end.trim()) {
+      setError('All fields are required.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await onAdd({
+        artist_name: name.trim(),
+        stage_name: stage.trim(),
+        start_time_pt: start.trim(),
+        end_time_pt: end.trim(),
+        day_index: defaultDayIndex || 1,
+      });
+      onCancel();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={setupAddCardStyles.addCard}>
+      <Text style={setupAddCardStyles.addCardLabel}>Add Artist</Text>
+      <Text style={setupAddCardStyles.fieldLabel}>Artist name</Text>
+      <TextInput value={name} onChangeText={setName} style={setupAddCardStyles.input} placeholder="e.g. Bad Bunny" />
+      <Text style={setupAddCardStyles.fieldLabel}>Stage</Text>
+      <TextInput value={stage} onChangeText={setStage} style={setupAddCardStyles.input} placeholder="e.g. Coachella Stage" />
+      <View style={setupAddCardStyles.timeRow}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={setupAddCardStyles.fieldLabel}>Start (HH:MM)</Text>
+          <TextInput value={start} onChangeText={setStart} style={setupAddCardStyles.input} placeholder="21:00" />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={setupAddCardStyles.fieldLabel}>End (HH:MM)</Text>
+          <TextInput value={end} onChangeText={setEnd} style={setupAddCardStyles.input} placeholder="23:00" />
+        </View>
+      </View>
+      <View style={setupAddCardStyles.saveRow}>
+        {saving ? <ActivityIndicator color="#183a27" /> : (
+          <Pressable onPress={handleAdd} style={setupAddCardStyles.saveBtn}>
+            <Text style={setupAddCardStyles.saveBtnText}>Add</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={onCancel} style={setupAddCardStyles.cancelBtn}>
+          <Text style={setupAddCardStyles.cancelBtnText}>Cancel</Text>
+        </Pressable>
+      </View>
+      {error ? <Text style={setupAddCardStyles.saveError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+const setupAddCardStyles = StyleSheet.create({
+  addCard: { borderWidth: 1, borderColor: '#6a9e73', borderRadius: 10, padding: 10, backgroundColor: '#f8fdf8', gap: 6 },
+  addCardLabel: { fontWeight: '700', color: '#2d6a4a', fontSize: 13 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#5a4d3b' },
+  input: { borderWidth: 1, borderColor: '#d8c8b2', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, fontSize: 13, backgroundColor: '#fff' },
+  timeRow: { flexDirection: 'row', gap: 8 },
+  saveRow: { flexDirection: 'row', gap: 8 },
+  saveBtn: { flex: 1, backgroundColor: '#183a27', borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  cancelBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8c8b2', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 16, alignItems: 'center' },
+  cancelBtnText: { color: '#666', fontWeight: '700', fontSize: 13 },
+  saveError: { color: '#b52424', fontWeight: '600', fontSize: 12 },
+});
 
 function ActionButton({ label, onPress, primary = false, disabled = false, large = false }) {
   return (
@@ -415,4 +506,14 @@ const styles = StyleSheet.create({
   uploadingRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   uploadingHint: { color: '#666', fontSize: 11, fontStyle: 'italic' },
   parsedCount: { color: '#2d6a4a', fontWeight: '700', fontSize: 14 },
+  addButton: {
+    borderWidth: 1,
+    borderColor: '#6a9e73',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#f0f7f3',
+  },
+  addButtonText: { color: '#345a46', fontWeight: '700', fontSize: 13 },
 });

@@ -109,6 +109,9 @@ export default function App() {
   const [uploadDayIndex, setUploadDayIndex] = useState(1);
   const [dayUploadStatus, setDayUploadStatus] = useState('idle'); // 'idle'|'uploading'|'done'|'error'
   const [dayParsedSets, setDayParsedSets] = useState([]);
+  const [editingDaySetId, setEditingDaySetId] = useState(null);
+  const [savingDaySetId, setSavingDaySetId] = useState(null);
+  const [isAddingDaySet, setIsAddingDaySet] = useState(false);
   const [skippedDayIndices, setSkippedDayIndices] = useState(new Set());
   const [successfulUploadCount, setSuccessfulUploadCount] = useState(0);
 
@@ -919,6 +922,16 @@ export default function App() {
     );
   };
 
+  const editDaySet = async (canonicalSetId, fields) => {
+    setSavingDaySetId(canonicalSetId);
+    try {
+      await editCanonicalSet(canonicalSetId, fields);
+      setEditingDaySetId(null);
+    } finally {
+      setSavingDaySetId(null);
+    }
+  };
+
   const applyScheduleFilters = (nextSelectedMemberIds, options = {}) => {
     const { debounceMs = 0 } = options;
 
@@ -1139,6 +1152,16 @@ export default function App() {
           onFinishUploadFlow={finishUploadFlow}
           onSetDayPreference={setDayPreference}
           onGoBackDay={goBackUploadDay}
+          editingDaySetId={editingDaySetId}
+          onStartEditDaySet={(id) => setEditingDaySetId(id)}
+          onCancelEditDaySet={() => setEditingDaySetId(null)}
+          onEditDaySet={editDaySet}
+          onDeleteDaySet={deleteDayParsedSet}
+          savingDaySetId={savingDaySetId}
+          isAddingDaySet={isAddingDaySet}
+          onAddDaySet={addDayParsedSet}
+          onStartAddDaySet={() => setIsAddingDaySet(true)}
+          onCancelAddDaySet={() => setIsAddingDaySet(false)}
         />
       ) : null}
 
