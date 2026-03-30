@@ -24,7 +24,6 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles }) {
         stage_name: stage.trim(),
         start_time_pt: start.trim(),
         end_time_pt: end.trim(),
-        day_index: dayIndex,
       });
       onCancel();
     } catch (err) {
@@ -73,8 +72,8 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles }) {
 }
 
 export function DayTabReview({
-  festivalDays,
-  dayStates,
+  festivalDays = [],
+  dayStates = {},
   onRetry,
   onDeleteSet,
   onAddSet,
@@ -100,6 +99,8 @@ export function DayTabReview({
     try {
       await onEditSet(canonicalSetId, fields);
       setEditingSetId(null);
+    } catch (err) {
+      throw err; // surfaced by EditableSetCard
     } finally {
       setSavingSetId(null);
     }
@@ -107,86 +108,6 @@ export function DayTabReview({
 
   const current = dayStates[activeDay] || { status: 'idle', sets: [], retryCount: 0 };
   const sets = current.sets || [];
-
-  const renderContent = () => {
-    if (current.status === 'uploading') {
-      return (
-        <View style={styles.loadingBlock}>
-          <ActivityIndicator color={C.primary} />
-          <Text style={styles.loadingText}>Analyzing your schedule…</Text>
-        </View>
-      );
-    }
-
-    if (current.status === 'failed') {
-      return (
-        <View style={styles.failedBlock}>
-          <Text style={styles.failedText}>
-            {current.retryCount >= 3
-              ? 'Could not parse this screenshot after 3 attempts.'
-              : 'Could not parse this screenshot.'}
-          </Text>
-          {current.retryCount < 3 ? (
-            <Pressable onPress={() => onRetry(activeDay)} style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>
-                Retry Upload ({3 - current.retryCount} attempt{3 - current.retryCount !== 1 ? 's' : ''} left)
-              </Text>
-            </Pressable>
-          ) : null}
-          {isAdding ? (
-            <AddArtistForm
-              dayIndex={activeDay}
-              onAdd={(fields) => onAddSet(fields, activeDay)}
-              onCancel={() => setIsAdding(false)}
-              C={C}
-              styles={styles}
-            />
-          ) : (
-            <Pressable onPress={() => setIsAdding(true)} style={styles.secondaryBtn}>
-              <Text style={styles.secondaryBtnText}>+ Add Manually</Text>
-            </Pressable>
-          )}
-        </View>
-      );
-    }
-
-    return (
-      <>
-        {current.status === 'idle' ? (
-          <Text style={styles.emptyText}>No screenshot uploaded for this day.</Text>
-        ) : sets.length === 0 ? (
-          <Text style={styles.emptyText}>No artists found — add manually below.</Text>
-        ) : null}
-        {sets.map((setItem) => (
-          <EditableSetCard
-            key={setItem.canonical_set_id}
-            setItem={setItem}
-            isEditing={editingSetId === setItem.canonical_set_id}
-            onStartEdit={() => setEditingSetId(setItem.canonical_set_id)}
-            onCancelEdit={() => setEditingSetId(null)}
-            onSave={(fields) => handleSave(setItem.canonical_set_id, fields)}
-            onDelete={() => onDeleteSet(setItem.canonical_set_id, activeDay)}
-            onSetPreference={(canonicalSetId, pref) => onSetPreference(canonicalSetId, pref, activeDay)}
-            saving={savingSetId === setItem.canonical_set_id}
-            deleting={false}
-          />
-        ))}
-        {isAdding ? (
-          <AddArtistForm
-            dayIndex={activeDay}
-            onAdd={(fields) => onAddSet(fields, activeDay)}
-            onCancel={() => setIsAdding(false)}
-            C={C}
-            styles={styles}
-          />
-        ) : (
-          <Pressable onPress={() => setIsAdding(true)} style={styles.secondaryBtn}>
-            <Text style={styles.secondaryBtnText}>+ Add Artist</Text>
-          </Pressable>
-        )}
-      </>
-    );
-  };
 
   return (
     <View>
@@ -217,7 +138,75 @@ export function DayTabReview({
         })}
       </View>
       <View style={styles.content}>
-        {renderContent()}
+        {current.status === 'uploading' ? (
+          <View style={styles.loadingBlock}>
+            <ActivityIndicator color={C.primary} />
+            <Text style={styles.loadingText}>Analyzing your schedule…</Text>
+          </View>
+        ) : current.status === 'failed' ? (
+          <View style={styles.failedBlock}>
+            <Text style={styles.failedText}>
+              {current.retryCount >= 3
+                ? 'Could not parse this screenshot after 3 attempts.'
+                : 'Could not parse this screenshot.'}
+            </Text>
+            {current.retryCount < 3 ? (
+              <Pressable onPress={() => onRetry(activeDay)} style={styles.primaryBtn}>
+                <Text style={styles.primaryBtnText}>
+                  Retry Upload ({3 - current.retryCount} attempt{3 - current.retryCount !== 1 ? 's' : ''} left)
+                </Text>
+              </Pressable>
+            ) : null}
+            {isAdding ? (
+              <AddArtistForm
+                dayIndex={activeDay}
+                onAdd={(fields) => onAddSet(fields, activeDay)}
+                onCancel={() => setIsAdding(false)}
+                C={C}
+                styles={styles}
+              />
+            ) : (
+              <Pressable onPress={() => setIsAdding(true)} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>+ Add Manually</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : (
+          <>
+            {current.status === 'idle' ? (
+              <Text style={styles.emptyText}>No screenshot uploaded for this day.</Text>
+            ) : sets.length === 0 ? (
+              <Text style={styles.emptyText}>No artists found — add manually below.</Text>
+            ) : null}
+            {sets.map((setItem) => (
+              <EditableSetCard
+                key={setItem.canonical_set_id}
+                setItem={setItem}
+                isEditing={editingSetId === setItem.canonical_set_id}
+                onStartEdit={() => setEditingSetId(setItem.canonical_set_id)}
+                onCancelEdit={() => setEditingSetId(null)}
+                onSave={(fields) => handleSave(setItem.canonical_set_id, fields)}
+                onDelete={() => onDeleteSet(setItem.canonical_set_id, activeDay)}
+                onSetPreference={(canonicalSetId, pref) => onSetPreference(canonicalSetId, pref, activeDay)}
+                saving={savingSetId === setItem.canonical_set_id}
+                deleting={false}
+              />
+            ))}
+            {isAdding ? (
+              <AddArtistForm
+                dayIndex={activeDay}
+                onAdd={(fields) => onAddSet(fields, activeDay)}
+                onCancel={() => setIsAdding(false)}
+                C={C}
+                styles={styles}
+              />
+            ) : (
+              <Pressable onPress={() => setIsAdding(true)} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>+ Add Artist</Text>
+              </Pressable>
+            )}
+          </>
+        )}
       </View>
     </View>
   );
