@@ -1,9 +1,12 @@
+import io
 import os
 import tempfile
 from datetime import datetime, timezone
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.core.config import settings
 from app.core.db import get_conn, init_db
@@ -62,20 +65,27 @@ def _join_group(invite_code: str, display_name: str) -> str:
     return session_token
 
 
-def _import_and_complete_member(session_token: str, must_see_first: bool) -> None:
-    import_resp = client.post(
-        "/v1/members/me/personal/import",
-        headers={"x-session-token": session_token},
-        json={"screenshot_count": 3},
-    )
-    assert import_resp.status_code == 200
+def _make_jpeg_bytes() -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (100, 100)).save(buf, format="JPEG")
+    return buf.getvalue()
 
-    review_resp = client.get(
-        "/v1/members/me/personal/review",
-        headers={"x-session-token": session_token},
-    )
-    assert review_resp.status_code == 200
-    sets = review_resp.json()["sets"]
+
+def _import_and_complete_member(session_token: str, must_see_first: bool) -> None:
+    with patch("app.api.personal.parse_schedule_from_image") as mock_parse:
+        mock_parse.return_value = [
+            {"artist_name": "Aurora Skyline", "stage_name": "Main Stage",
+             "start_time": "12:00", "end_time": "12:45", "day_index": 1},
+            {"artist_name": "Neon Valley", "stage_name": "Sahara",
+             "start_time": "13:10", "end_time": "14:00", "day_index": 1},
+        ]
+        upload_resp = client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": session_token},
+            files={"images": ("img.jpg", _make_jpeg_bytes(), "image/jpeg")},
+        )
+    assert upload_resp.status_code == 200
+    sets = upload_resp.json()["sets"]
     assert len(sets) >= 1
 
     if must_see_first:
