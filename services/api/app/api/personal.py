@@ -200,6 +200,18 @@ def update_member_set(canonical_set_id: str, payload: MemberSetUpdateRequest, se
     return {"ok": True}
 
 
+@router.delete("/members/me/sets/{canonical_set_id}")
+def delete_member_set(canonical_set_id: str, session=Depends(require_session)) -> dict:
+    with get_conn() as conn:
+        result = conn.execute(
+            "DELETE FROM member_set_preferences WHERE member_id = ? AND canonical_set_id = ?",
+            (session["member_id"], canonical_set_id),
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="set_not_found")
+    return {"ok": True}
+
+
 @router.post("/members/me/setup/complete")
 def complete_setup(payload: CompleteSetupRequest, session=Depends(require_session)) -> dict:
     if not payload.confirm:

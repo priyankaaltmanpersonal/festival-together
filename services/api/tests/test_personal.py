@@ -229,3 +229,51 @@ def test_upload_accepts_day_label_param() -> None:
         # second positional arg is day_label
         assert call_args.args[1] == "Saturday" or call_args.kwargs.get("day_label") == "Saturday"
         assert resp.status_code == 200
+
+
+def test_delete_member_set() -> None:
+    # Create a member with a set preference
+    founder = _create_group("DeleteTest", "Founder")
+    group_id = founder["group"]["id"]
+    session_token = founder["session"]["token"]
+    seed_canonical_sets(group_id)
+
+    with patch("app.api.personal.parse_schedule_from_image") as mock_parse:
+        mock_parse.return_value = [
+            {"artist_name": "Aurora Skyline", "stage_name": "Main Stage",
+             "start_time": "12:00", "end_time": "12:45", "day_index": 1}
+        ]
+        resp = client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": session_token},
+            files={"images": ("img.jpg", make_jpeg_bytes(), "image/jpeg")},
+        )
+    assert resp.status_code == 200
+    canonical_set_id = resp.json()["sets"][0]["canonical_set_id"]
+
+    # Delete it
+    del_resp = client.delete(
+        f"/v1/members/me/sets/{canonical_set_id}",
+        headers={"x-session-token": session_token},
+    )
+    assert del_resp.status_code == 200
+    assert del_resp.json()["ok"] is True
+
+    # Verify it's gone from the review
+    review = client.get(
+        "/v1/members/me/personal/review",
+        headers={"x-session-token": session_token},
+    )
+    ids = [s["canonical_set_id"] for s in review.json()["sets"]]
+    assert canonical_set_id not in ids
+
+
+def test_delete_member_set_not_found() -> None:
+    founder = _create_group("DeleteNotFound", "Founder")
+    session_token = founder["session"]["token"]
+
+    resp = client.delete(
+        "/v1/members/me/sets/nonexistent-id",
+        headers={"x-session-token": session_token},
+    )
+    assert resp.status_code == 404
