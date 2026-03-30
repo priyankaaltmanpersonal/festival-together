@@ -363,9 +363,13 @@ def upload_personal_images(
             failed_count += 1
             continue
 
-        parsed = parse_schedule_from_image(compressed, effective_day_label, festival_days)
-        logger.info(f"Vision parse for image {idx + 1}: {len(parsed)} sets")
-        all_parsed.extend(parsed)
+        try:
+            parsed = parse_schedule_from_image(compressed, effective_day_label, festival_days)
+            logger.info(f"Vision parse for image {idx + 1}: {len(parsed)} sets")
+            all_parsed.extend(parsed)
+        except Exception as e:
+            logger.error(f"Vision parse error for image {idx + 1}: {e}")
+            raise HTTPException(status_code=500, detail=f"Vision parse failed: {e}")
 
     if not all_parsed and failed_count == len(images):
         raise HTTPException(status_code=400, detail="all_images_failed")

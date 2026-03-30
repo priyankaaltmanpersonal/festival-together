@@ -122,8 +122,8 @@ def parse_schedule_from_image(
 
     try:
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1024,
+            model="claude-3-5-haiku-20241022",
+            max_tokens=4096,
             messages=[
                 {
                     "role": "user",
@@ -143,18 +143,25 @@ def parse_schedule_from_image(
         )
         if not response.content:
             logger.error("Vision API returned empty content")
-            return []
+            raise RuntimeError("Vision API returned empty content")
         text = response.content[0].text.strip()
+        # Strip markdown fences if model wrapped the JSON
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
         parsed = json.loads(text)
         if not isinstance(parsed, list):
-            logger.error(f"Vision parser returned non-list: {type(parsed)}")
-            return []
+            raise RuntimeError(f"Vision parser returned non-list: {type(parsed)}")
     except json.JSONDecodeError as e:
-        logger.error(f"Vision parser returned invalid JSON: {e}")
-        return []
+        logger.error(f"Vision parser returned invalid JSON: {e}\nRaw text: {text[:500]}")
+        raise RuntimeError(f"Vision parser returned invalid JSON: {e}") from e
+    except RuntimeError:
+        raise
     except Exception as e:
         logger.error(f"Vision parse failed: {e}")
-        return []
+        raise RuntimeError(f"Vision API call failed: {e}") from e
 
     # Build day_label → day_index map
     day_map: dict[str, int] = {}
