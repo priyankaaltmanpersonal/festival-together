@@ -6,6 +6,12 @@
     "orientation": "portrait",
     "scheme": "festivaltogether",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f3a8d0"
+    },
     "updates": {
       "fallbackToCacheTimeout": 0
     },
