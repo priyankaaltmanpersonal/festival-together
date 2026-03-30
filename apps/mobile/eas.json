@@ -36,9 +36,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "REPLACE_WITH_YOUR_APPLE_ID",
-        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_TEAM_ID"
+        "appleId": "priyankaaltman@gmail.com",
+        "ascAppId": "6761346931",
+        "appleTeamId": "Q65RQ4M79Z"
       },
       "android": {
         "serviceAccountKeyPath": "../google-play-key.json",
