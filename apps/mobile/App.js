@@ -90,7 +90,6 @@ export default function App() {
   const [selectedChipColor, setSelectedChipColor] = useState(CHIP_COLOR_OPTIONS[0]);
   const [availableJoinColors, setAvailableJoinColors] = useState([]);
 
-  const [founderSession, setFounderSession] = useState('');
   const [memberSession, setMemberSession] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [groupId, setGroupId] = useState('');
@@ -146,7 +145,6 @@ export default function App() {
         setOnboardingStep(storedState.onboardingStep || 'welcome');
         setSelectedChipColor(storedState.selectedChipColor || CHIP_COLOR_OPTIONS[0]);
         setAvailableJoinColors(storedState.availableJoinColors || []);
-        setFounderSession(storedState.founderSession || '');
         setMemberSession(storedState.memberSession || '');
         setInviteCode(storedState.inviteCode || '');
         setGroupId(storedState.groupId || '');
@@ -214,7 +212,6 @@ export default function App() {
       onboardingStep,
       selectedChipColor,
       availableJoinColors,
-      founderSession,
       memberSession,
       inviteCode,
       groupId,
@@ -244,7 +241,6 @@ export default function App() {
     onboardingStep,
     selectedChipColor,
     availableJoinColors,
-    founderSession,
     memberSession,
     inviteCode,
     groupId,
