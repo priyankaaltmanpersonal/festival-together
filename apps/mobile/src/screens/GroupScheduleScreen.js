@@ -12,7 +12,10 @@ export function GroupScheduleScreen({
   selectedMemberIds,
   loading,
   onToggleMember,
-  onResetFilters
+  onResetFilters,
+  inviteCode,
+  onCopyInvite,
+  inviteCopied
 }) {
   const [expandedSet, setExpandedSet] = useState(null);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -45,6 +48,12 @@ export function GroupScheduleScreen({
             {hasActiveFilters ? (
               <Pressable onPress={onResetFilters} style={styles.resetBtn}>
                 <Text style={styles.resetBtnText}>Clear Filters</Text>
+              </Pressable>
+            ) : null}
+            {inviteCode ? (
+              <Pressable onPress={onCopyInvite} style={styles.inviteRow}>
+                <Text style={styles.inviteText}>Invite: <Text style={styles.inviteCode}>{inviteCode}</Text></Text>
+                <Text style={styles.inviteCopyIcon}>{inviteCopied ? '✓' : '📋'}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -344,7 +353,11 @@ const styles = StyleSheet.create({
   },
   modalAvatarText: { fontSize: 10, fontWeight: '800' },
   modalName: { color: '#2d2d2d', fontSize: 13, fontWeight: '600' },
-  modalEmpty: { color: '#7a6d5d', fontSize: 12, marginBottom: 6 }
+  modalEmpty: { color: '#7a6d5d', fontSize: 12, marginBottom: 6 },
+  inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  inviteText: { fontSize: 12, color: '#555' },
+  inviteCode: { fontWeight: '800', color: '#183a27', letterSpacing: 1 },
+  inviteCopyIcon: { fontSize: 14 },
 });
 
 function tierStyle(tier) {

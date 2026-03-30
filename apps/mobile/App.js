@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -74,6 +75,7 @@ export default function App() {
 
   const [activeView, setActiveView] = useState('onboarding');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   const apiUrl = DEFAULT_API_URL;
   const [loading, setLoading] = useState(false);
@@ -1077,6 +1079,13 @@ export default function App() {
     );
   };
 
+  const copyInviteCode = async () => {
+    if (!inviteCode) return;
+    await Clipboard.setStringAsync(inviteCode);
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 2000);
+  };
+
   const canOpenMenu = onboardingStep === 'complete';
   const title = useMemo(() => {
     if (activeView === 'group') return 'Group Schedule';
@@ -1178,6 +1187,9 @@ export default function App() {
             applyScheduleFilters(nextMemberIds, { debounceMs: 300 });
           }}
           onResetFilters={() => applyScheduleFilters([], { debounceMs: 300 })}
+          inviteCode={inviteCode}
+          onCopyInvite={copyInviteCode}
+          inviteCopied={inviteCopied}
         />
       ) : null}
 
@@ -1215,6 +1227,17 @@ export default function App() {
       {menuOpen ? (
         <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
           <Pressable style={styles.menuCard} onPress={() => {}}>
+            {inviteCode ? (
+              <View style={styles.menuInviteCard}>
+                <Text style={styles.menuInviteLabel}>Invite friends</Text>
+                <View style={styles.menuInviteRow}>
+                  <Text style={styles.menuInviteCode}>{inviteCode}</Text>
+                  <Pressable onPress={copyInviteCode} style={styles.menuCopyBtn}>
+                    <Text style={styles.menuCopyBtnText}>{inviteCopied ? 'Copied!' : '📋'}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
             <Text style={styles.menuLabel}>Navigate</Text>
             <MenuItem label="Group Schedule" onPress={() => { setActiveView('group'); setMenuOpen(false); }} />
             <MenuItem label="Individual Schedules" onPress={loadIndividual} />
@@ -1339,5 +1362,19 @@ const styles = StyleSheet.create({
   },
   menuItemTextDestructive: {
     color: '#b52424'
-  }
+  },
+  menuInviteCard: {
+    backgroundColor: '#f0f7f3',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#b0d4bc',
+    padding: 12,
+    marginBottom: 8,
+    gap: 4,
+  },
+  menuInviteLabel: { fontSize: 11, fontWeight: '700', color: '#345a46', textTransform: 'uppercase', letterSpacing: 0.5 },
+  menuInviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  menuInviteCode: { fontSize: 22, fontWeight: '800', color: '#183a27', letterSpacing: 2, fontVariant: ['tabular-nums'] },
+  menuCopyBtn: { padding: 6 },
+  menuCopyBtnText: { fontSize: 18 },
 });
