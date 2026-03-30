@@ -11,10 +11,6 @@ from app.core.db import get_conn
 from app.core.image_utils import ImageValidationError, validate_and_compress
 from app.core.llm_parser import parse_schedule_from_image
 from app.core.parser import ScreenshotInput, build_demo_personal_screenshots, parse_personal_screenshots
-
-logger = logging.getLogger(__name__)
-
-MAX_UPLOAD_IMAGES = 30
 from app.schemas.personal import (
     AddSetRequest,
     CompleteSetupRequest,
@@ -23,6 +19,10 @@ from app.schemas.personal import (
     PersonalReviewResponse,
     PersonalSet,
 )
+
+logger = logging.getLogger(__name__)
+
+MAX_UPLOAD_IMAGES = 30
 
 router = APIRouter(tags=["personal"])
 
