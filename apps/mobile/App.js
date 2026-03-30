@@ -405,7 +405,6 @@ export default function App() {
       scheduleFilterTimeoutRef.current = null;
     }
     scheduleRequestIdRef.current += 1;
-    setFounderSession('');
     setMemberSession('');
     setInviteCode('');
     setGroupId('');
@@ -690,7 +689,6 @@ export default function App() {
           festival_days: festivalDays.map((d) => ({ day_index: d.dayIndex, label: d.label }))
         }
       });
-      setFounderSession(payload.session.token);
       setMemberSession(payload.session.token);
       setGroupId(payload.group.id);
       setInviteCode(payload.group.invite_code);
