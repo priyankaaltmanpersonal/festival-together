@@ -168,7 +168,7 @@ export default function App() {
         const sanitizedDayStates = {};
         for (const [key, val] of Object.entries(rawDayStates)) {
           sanitizedDayStates[key] = val.status === 'uploading'
-            ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1, imageUris: null }
+            ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1 }
             : val;
         }
         setDayStates(sanitizedDayStates);
@@ -205,7 +205,7 @@ export default function App() {
           const next = {};
           for (const [key, val] of Object.entries(prev)) {
             next[key] = val.status === 'uploading'
-              ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1, imageUris: null }
+              ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1 }
               : val;
           }
           setError('Upload may have been interrupted — tap to retry.');
@@ -575,6 +575,9 @@ export default function App() {
 
   const finishUploadFlow = () => {
     run('finish setup', async () => {
+      if (Object.values(dayStates).some((d) => d.status === 'uploading')) {
+        throw new Error('Uploads are still in progress — please wait before finishing.');
+      }
       if (!isOnline) throw new Error('Finish setup requires a connection');
       await apiRequest({
         baseUrl: apiUrl,
@@ -603,14 +606,17 @@ export default function App() {
   };
 
   const deleteDaySet = async (canonicalSetId, dayIndex) => {
-    const previous = dayStates[dayIndex]?.sets || [];
-    setDayStates((prev) => ({
-      ...prev,
-      [dayIndex]: {
-        ...prev[dayIndex],
-        sets: previous.filter((s) => s.canonical_set_id !== canonicalSetId),
-      },
-    }));
+    let previousSets;
+    setDayStates((prev) => {
+      previousSets = prev[dayIndex]?.sets || [];
+      return {
+        ...prev,
+        [dayIndex]: {
+          ...prev[dayIndex],
+          sets: previousSets.filter((s) => s.canonical_set_id !== canonicalSetId),
+        },
+      };
+    });
     try {
       await apiRequest({
         baseUrl: apiUrl,
@@ -621,7 +627,7 @@ export default function App() {
     } catch (err) {
       setDayStates((prev) => ({
         ...prev,
-        [dayIndex]: { ...prev[dayIndex], sets: previous },
+        [dayIndex]: { ...prev[dayIndex], sets: previousSets },
       }));
       setError(friendlyError(err instanceof Error ? err.message : String(err)));
     }
@@ -654,17 +660,21 @@ export default function App() {
   };
 
   const setDaySetPreference = (canonicalSetId, preference, dayIndex) => {
-    setDayStates((prev) => ({
-      ...prev,
-      [dayIndex]: {
-        ...prev[dayIndex],
-        sets: (prev[dayIndex]?.sets || []).map((s) =>
-          s.canonical_set_id === canonicalSetId ? { ...s, preference } : s
-        ),
-      },
-    }));
+    let previousPref;
+    setDayStates((prev) => {
+      const set = (prev[dayIndex]?.sets || []).find((s) => s.canonical_set_id === canonicalSetId);
+      previousPref = set?.preference;
+      return {
+        ...prev,
+        [dayIndex]: {
+          ...prev[dayIndex],
+          sets: (prev[dayIndex]?.sets || []).map((s) =>
+            s.canonical_set_id === canonicalSetId ? { ...s, preference } : s
+          ),
+        },
+      };
+    });
     if (!memberSession || !isOnline) return;
-    const revertPref = preference === 'must_see' ? 'flexible' : 'must_see';
     apiRequest({
       baseUrl: apiUrl,
       path: `/v1/members/me/sets/${canonicalSetId}`,
@@ -677,7 +687,7 @@ export default function App() {
         [dayIndex]: {
           ...prev[dayIndex],
           sets: (prev[dayIndex]?.sets || []).map((s) =>
-            s.canonical_set_id === canonicalSetId ? { ...s, preference: revertPref } : s
+            s.canonical_set_id === canonicalSetId ? { ...s, preference: previousPref } : s
           ),
         },
       }));
