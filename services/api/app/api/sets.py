@@ -40,20 +40,13 @@ def patch_canonical_set(
         raise HTTPException(status_code=400, detail="no_updates_provided")
 
     with get_conn() as conn:
-        member = conn.execute(
-            "SELECT group_id FROM members WHERE id = ? AND active = 1",
-            (session["member_id"],),
-        ).fetchone()
-        if member is None:
-            raise HTTPException(status_code=401, detail="invalid_session")
-
         canonical_set = conn.execute(
             "SELECT id, group_id FROM canonical_sets WHERE id = ?",
             (canonical_set_id,),
         ).fetchone()
         if canonical_set is None:
             raise HTTPException(status_code=404, detail="set_not_found")
-        if canonical_set["group_id"] != member["group_id"]:
+        if canonical_set["group_id"] != session["group_id"]:
             raise HTTPException(status_code=403, detail="forbidden")
 
         values.append(canonical_set_id)
