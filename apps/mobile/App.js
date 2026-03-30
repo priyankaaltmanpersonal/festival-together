@@ -1,6 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTheme } from './src/theme';
 import { Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
@@ -66,6 +67,7 @@ const CHIP_COLOR_OPTIONS = [
 ];
 
 export default function App() {
+  const C = useTheme();
   const scheduleFilterTimeoutRef = useRef(null);
   const scheduleRequestIdRef = useRef(0);
   const queueRef = useRef([]);
@@ -109,13 +111,8 @@ export default function App() {
   const [festivalDays, setFestivalDays] = useState([{ dayIndex: 1, label: '' }]);
 
   const [uploadDayIndex, setUploadDayIndex] = useState(1);
-  const [dayUploadStatus, setDayUploadStatus] = useState('idle'); // 'idle'|'uploading'|'done'|'error'
-  const [dayParsedSets, setDayParsedSets] = useState([]);
-  const [editingDaySetId, setEditingDaySetId] = useState(null);
-  const [savingDaySetId, setSavingDaySetId] = useState(null);
-  const [isAddingDaySet, setIsAddingDaySet] = useState(false);
-  const [skippedDayIndices, setSkippedDayIndices] = useState(new Set());
-  const [successfulUploadCount, setSuccessfulUploadCount] = useState(0);
+  // { [dayIndex]: { status: 'idle'|'uploading'|'done'|'failed', sets: [], retryCount: 0, imageUris: null } }
+  const [dayStates, setDayStates] = useState({});
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
@@ -166,8 +163,15 @@ export default function App() {
         setLog(storedState.log || []);
         setLastSyncAt(storedState.lastSyncAt || '');
         setUploadDayIndex(storedState.uploadDayIndex || 1);
-        setSuccessfulUploadCount(storedState.successfulUploadCount || 0);
-        setSkippedDayIndices(new Set(storedState.skippedDayIndices || []));
+        // Convert any in-flight 'uploading' day to 'failed' — uploads can't resume after restart
+        const rawDayStates = storedState.dayStates || {};
+        const sanitizedDayStates = {};
+        for (const [key, val] of Object.entries(rawDayStates)) {
+          sanitizedDayStates[key] = val.status === 'uploading'
+            ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1, imageUris: null }
+            : val;
+        }
+        setDayStates(sanitizedDayStates);
       })
       .finally(() => {
         if (alive) {
@@ -195,12 +199,17 @@ export default function App() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        setDayUploadStatus((prev) => {
-          if (prev === 'uploading') {
-            setError('Upload may have been interrupted — tap to try again.');
-            return 'error';
+        setDayStates((prev) => {
+          const hasInterrupted = Object.values(prev).some((d) => d.status === 'uploading');
+          if (!hasInterrupted) return prev;
+          const next = {};
+          for (const [key, val] of Object.entries(prev)) {
+            next[key] = val.status === 'uploading'
+              ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1, imageUris: null }
+              : val;
           }
-          return prev;
+          setError('Upload may have been interrupted — tap to retry.');
+          return next;
         });
       }
     });
@@ -233,8 +242,7 @@ export default function App() {
       log,
       lastSyncAt,
       uploadDayIndex,
-      successfulUploadCount,
-      skippedDayIndices: Array.from(skippedDayIndices),
+      dayStates,
     }).catch((err) => {
       console.warn('saveAppState failed:', err);
     });
@@ -262,8 +270,7 @@ export default function App() {
     log,
     lastSyncAt,
     uploadDayIndex,
-    successfulUploadCount,
-    skippedDayIndices,
+    dayStates,
   ]);
 
   useEffect(() => {
@@ -467,52 +474,106 @@ export default function App() {
     });
   };
 
-  const chooseAndUploadDayScreenshot = async () => {
+  // ── Upload-all-days flow ─────────────────────────────────────────────────
+
+  const advancePickDay = (currentDayIndex) => {
+    const currentIdx = festivalDays.findIndex((d) => d.dayIndex === currentDayIndex);
+    const nextDay = festivalDays[currentIdx + 1];
+    if (nextDay) {
+      setUploadDayIndex(nextDay.dayIndex);
+    } else {
+      setOnboardingStep('review_days');
+    }
+  };
+
+  const chooseAndUploadDayScreenshot = async (dayIndex) => {
     if (!memberSession || !isOnline) {
       setError(isOnline ? 'Start onboarding first' : 'Upload requires a connection');
       return;
     }
     let uris;
     try {
-      uris = await pickImages(5); // up to 5 screenshots per day (accumulates)
+      uris = await pickImages(5);
     } catch (e) {
       setError('Photo library permission denied');
       return;
     }
     if (!uris || uris.length === 0) return;
 
-    const currentDay = festivalDays.find((d) => d.dayIndex === uploadDayIndex);
+    const currentDay = festivalDays.find((d) => d.dayIndex === dayIndex);
     const dayLabel = currentDay?.label || '';
 
-    setDayUploadStatus('uploading');
-    setDayParsedSets([]);
+    setDayStates((prev) => ({
+      ...prev,
+      [dayIndex]: { status: 'uploading', sets: [], retryCount: 0, imageUris: uris },
+    }));
     setError('');
 
-    try {
-      const response = await uploadImages(
-        apiUrl,
-        '/v1/members/me/personal/upload',
-        memberSession,
-        uris,
-        null,
-        dayLabel
-      );
-      const sets = (response.sets || []).map((s) => ({ ...s, preference: 'flexible' }));
-      setDayParsedSets(sets);
-      setDayUploadStatus('done');
-    } catch (e) {
-      setDayUploadStatus('error');
-      const raw = e instanceof Error ? e.message : String(e);
-      setError(friendlyError(raw));
-    }
+    // Advance to next day immediately (non-blocking upload fires in background)
+    advancePickDay(dayIndex);
+
+    uploadImages(apiUrl, '/v1/members/me/personal/upload', memberSession, uris, null, dayLabel)
+      .then((response) => {
+        const sets = (response.sets || []).map((s) => ({ ...s, preference: 'flexible' }));
+        setDayStates((prev) => ({
+          ...prev,
+          [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
+        }));
+      })
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        setDayStates((prev) => ({
+          ...prev,
+          [dayIndex]: {
+            ...prev[dayIndex],
+            status: 'failed',
+            retryCount: (prev[dayIndex]?.retryCount || 0) + 1,
+          },
+        }));
+        setError(friendlyError(msg));
+      });
   };
 
-  const finishUploadFlow = (lastDayWasSuccessful = false) => {
-    const totalCount = successfulUploadCount + (lastDayWasSuccessful ? 1 : 0);
-    if (totalCount < 1) {
-      setError("Upload at least one day's schedule to continue");
-      return;
-    }
+  const retryDayUpload = (dayIndex) => {
+    const dayState = dayStates[dayIndex];
+    if (!dayState?.imageUris || dayState.status === 'uploading') return;
+
+    const currentDay = festivalDays.find((d) => d.dayIndex === dayIndex);
+    const dayLabel = currentDay?.label || '';
+
+    setDayStates((prev) => ({
+      ...prev,
+      [dayIndex]: { ...prev[dayIndex], status: 'uploading' },
+    }));
+    setError('');
+
+    uploadImages(apiUrl, '/v1/members/me/personal/upload', memberSession, dayState.imageUris, null, dayLabel)
+      .then((response) => {
+        const sets = (response.sets || []).map((s) => ({ ...s, preference: 'flexible' }));
+        setDayStates((prev) => ({
+          ...prev,
+          [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
+        }));
+      })
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        setDayStates((prev) => ({
+          ...prev,
+          [dayIndex]: {
+            ...prev[dayIndex],
+            status: 'failed',
+            retryCount: (prev[dayIndex]?.retryCount || 0) + 1,
+          },
+        }));
+        setError(friendlyError(msg));
+      });
+  };
+
+  const skipPickDay = () => {
+    advancePickDay(uploadDayIndex);
+  };
+
+  const finishUploadFlow = () => {
     run('finish setup', async () => {
       if (!isOnline) throw new Error('Finish setup requires a connection');
       await apiRequest({
@@ -520,13 +581,13 @@ export default function App() {
         path: '/v1/members/me/setup/complete',
         method: 'POST',
         sessionToken: memberSession,
-        body: { confirm: true }
+        body: { confirm: true },
       });
       const homePayload = await apiRequest({
         baseUrl: apiUrl,
         path: '/v1/members/me/home',
         method: 'GET',
-        sessionToken: memberSession
+        sessionToken: memberSession,
       });
       const nextGroupId = homePayload.group.id;
       setHomeSnapshot(homePayload);
@@ -541,69 +602,88 @@ export default function App() {
     });
   };
 
-  const advanceUploadDay = (wasSuccessful = false) => {
-    if (wasSuccessful) {
-      setSuccessfulUploadCount((prev) => prev + 1);
-    }
-    const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
-    const nextDay = festivalDays[currentIdx + 1];
-    if (nextDay) {
-      setUploadDayIndex(nextDay.dayIndex);
-      setDayUploadStatus('idle');
-      setDayParsedSets([]);
-      setError('');
-    } else {
-      finishUploadFlow(wasSuccessful);
-    }
-  };
-
-  const reuploadDay = () => {
-    setDayUploadStatus('idle');
-    setDayParsedSets([]);
-    setError('');
-  };
-
-  const goBackUploadDay = () => {
-    const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
-    if (currentIdx > 0) {
-      const prevDay = festivalDays[currentIdx - 1];
-      setUploadDayIndex(prevDay.dayIndex);
-      setDayUploadStatus('idle');
-      setDayParsedSets([]);
-      setError('');
-    } else {
-      choosePath('festival_setup');
+  const deleteDaySet = async (canonicalSetId, dayIndex) => {
+    const previous = dayStates[dayIndex]?.sets || [];
+    setDayStates((prev) => ({
+      ...prev,
+      [dayIndex]: {
+        ...prev[dayIndex],
+        sets: previous.filter((s) => s.canonical_set_id !== canonicalSetId),
+      },
+    }));
+    try {
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: `/v1/members/me/sets/${canonicalSetId}`,
+        method: 'DELETE',
+        sessionToken: memberSession,
+      });
+    } catch (err) {
+      setDayStates((prev) => ({
+        ...prev,
+        [dayIndex]: { ...prev[dayIndex], sets: previous },
+      }));
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
     }
   };
 
-  const skipUploadDay = () => {
-    setSkippedDayIndices((prev) => new Set([...prev, uploadDayIndex]));
-    advanceUploadDay(false);
+  const addDaySet = async (fields, dayIndex) => {
+    const data = await apiRequest({
+      baseUrl: apiUrl,
+      path: '/v1/members/me/sets',
+      method: 'POST',
+      sessionToken: memberSession,
+      body: fields,
+    });
+    const newSet = {
+      canonical_set_id: data.canonical_set_id,
+      artist_name: fields.artist_name,
+      stage_name: fields.stage_name,
+      start_time_pt: fields.start_time_pt,
+      end_time_pt: fields.end_time_pt,
+      day_index: dayIndex,
+      preference: 'flexible',
+    };
+    setDayStates((prev) => ({
+      ...prev,
+      [dayIndex]: {
+        ...prev[dayIndex],
+        sets: [...(prev[dayIndex]?.sets || []), newSet],
+      },
+    }));
   };
 
-  const setDayPreference = (canonicalSetId, preference) => {
-    // Optimistic local update to dayParsedSets
-    setDayParsedSets((prev) =>
-      prev.map((s) => s.canonical_set_id === canonicalSetId ? { ...s, preference } : s)
-    );
-    // Fire PATCH
+  const setDaySetPreference = (canonicalSetId, preference, dayIndex) => {
+    setDayStates((prev) => ({
+      ...prev,
+      [dayIndex]: {
+        ...prev[dayIndex],
+        sets: (prev[dayIndex]?.sets || []).map((s) =>
+          s.canonical_set_id === canonicalSetId ? { ...s, preference } : s
+        ),
+      },
+    }));
     if (!memberSession || !isOnline) return;
+    const revertPref = preference === 'must_see' ? 'flexible' : 'must_see';
     apiRequest({
       baseUrl: apiUrl,
       path: `/v1/members/me/sets/${canonicalSetId}`,
       method: 'PATCH',
       sessionToken: memberSession,
-      body: { preference }
+      body: { preference },
     }).catch(() => {
-      // Revert on error
-      setDayParsedSets((prev) =>
-        prev.map((s) => s.canonical_set_id === canonicalSetId
-          ? { ...s, preference: preference === 'must_see' ? 'flexible' : 'must_see' }
-          : s
-        )
-      );
+      setDayStates((prev) => ({
+        ...prev,
+        [dayIndex]: {
+          ...prev[dayIndex],
+          sets: (prev[dayIndex]?.sets || []).map((s) =>
+            s.canonical_set_id === canonicalSetId ? { ...s, preference: revertPref } : s
+          ),
+        },
+      }));
     });
   };
+
 
   const beginProfile = () =>
     run('start onboarding', async () => {
@@ -668,10 +748,8 @@ export default function App() {
       setLastSyncAt(new Date().toISOString());
       setFestivalDays((homePayload.festival_days || []).map((d) => ({ dayIndex: d.day_index, label: d.label })));
       setUploadDayIndex((homePayload.festival_days || [{ day_index: 1 }])[0].day_index);
-      setDayUploadStatus('idle');
-      setSuccessfulUploadCount(0);
-      setSkippedDayIndices(new Set());
-      setOnboardingStep('upload_day');
+      setDayStates({});
+      setOnboardingStep('upload_all_days');
     });
 
   const completeFestivalSetup = () =>
@@ -686,7 +764,7 @@ export default function App() {
           group_name: groupName.trim(),
           display_name: displayName.trim(),
           chip_color: selectedChipColor,
-          festival_days: festivalDays.map((d) => ({ day_index: d.dayIndex, label: d.label }))
+          festival_days: festivalDays.map((d) => ({ day_index: d.dayIndex, label: d.label.trim() }))
         }
       });
       setMemberSession(payload.session.token);
@@ -694,11 +772,9 @@ export default function App() {
       setInviteCode(payload.group.invite_code);
       setIsFounder(true);
       setLastSyncAt(new Date().toISOString());
-      setUploadDayIndex(festivalDays[0]?.dayIndex || 1);
-      setDayUploadStatus('idle');
-      setSuccessfulUploadCount(0);
-      setSkippedDayIndices(new Set());
-      setOnboardingStep('upload_day');
+      setDayStates({});
+      setUploadDayIndex(festivalDays[0]?.dayIndex ?? 1);
+      setOnboardingStep('upload_all_days');
     });
 
   const importPersonal = () =>
@@ -839,23 +915,6 @@ export default function App() {
     }
   };
 
-  const deleteDayParsedSet = async (canonicalSetId) => {
-    // Optimistic remove from upload_day list
-    const previous = dayParsedSets;
-    setDayParsedSets((prev) => prev.filter((s) => s.canonical_set_id !== canonicalSetId));
-    try {
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/members/me/sets/${canonicalSetId}`,
-        method: 'DELETE',
-        sessionToken: memberSession,
-      });
-    } catch (err) {
-      setDayParsedSets(previous);
-      setError(friendlyError(err instanceof Error ? err.message : String(err)));
-    }
-  };
-
   const addPersonalSet = async (fields) => {
     // fields: { artist_name, stage_name, start_time_pt, end_time_pt, day_index }
     const data = await apiRequest({
@@ -879,27 +938,6 @@ export default function App() {
     setPersonalSets((prev) => [...prev, newSet]);
   };
 
-  const addDayParsedSet = async (fields) => {
-    // Same as addPersonalSet but appends to dayParsedSets (upload_day context)
-    const data = await apiRequest({
-      baseUrl: apiUrl,
-      path: '/v1/members/me/sets',
-      method: 'POST',
-      sessionToken: memberSession,
-      body: fields,
-    });
-    const newSet = {
-      canonical_set_id: data.canonical_set_id,
-      artist_name: fields.artist_name,
-      stage_name: fields.stage_name,
-      start_time_pt: fields.start_time_pt,
-      end_time_pt: fields.end_time_pt,
-      day_index: fields.day_index,
-      preference: 'flexible',
-    };
-    setDayParsedSets((prev) => [...prev, newSet]);
-  };
-
   const editCanonicalSet = async (canonicalSetId, fields) => {
     // fields: { artist_name?, stage_name?, start_time_pt?, end_time_pt? }
     await apiRequest({
@@ -909,27 +947,11 @@ export default function App() {
       sessionToken: memberSession,
       body: fields,
     });
-    // Update both personalSets and dayParsedSets if present
     setPersonalSets((prev) =>
       prev.map((s) =>
         s.canonical_set_id === canonicalSetId ? { ...s, ...fields } : s
       )
     );
-    setDayParsedSets((prev) =>
-      prev.map((s) =>
-        s.canonical_set_id === canonicalSetId ? { ...s, ...fields } : s
-      )
-    );
-  };
-
-  const editDaySet = async (canonicalSetId, fields) => {
-    setSavingDaySetId(canonicalSetId);
-    try {
-      await editCanonicalSet(canonicalSetId, fields);
-      setEditingDaySetId(null);
-    } finally {
-      setSavingDaySetId(null);
-    }
   };
 
   const applyScheduleFilters = (nextSelectedMemberIds, options = {}) => {
@@ -1036,10 +1058,7 @@ export default function App() {
     setAvailableJoinColors([]);
     setFestivalDays([{ dayIndex: 1, label: '' }]);
     setUploadDayIndex(1);
-    setSuccessfulUploadCount(0);
-    setSkippedDayIndices(new Set());
-    setDayUploadStatus('idle');
-    setDayParsedSets([]);
+    setDayStates({});
     setError('');
     setLog(['Reset: onboarding restarted']);
   };
@@ -1093,6 +1112,7 @@ export default function App() {
     return 'Festival Together';
   }, [activeView]);
 
+  const styles = useMemo(() => makeStyles(C), [C]);
   const statusText = `${isOnline ? 'Online' : 'Offline'}${pendingMutations.length ? ` • ${pendingMutations.length} pending sync` : ''}${lastSyncAt ? ` • synced ${new Date(lastSyncAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`;
 
   return (
@@ -1149,26 +1169,14 @@ export default function App() {
           onResetFlow={resetFlow}
           onChoosePath={choosePath}
           uploadDayIndex={uploadDayIndex}
-          dayUploadStatus={dayUploadStatus}
-          dayParsedSets={dayParsedSets}
-          successfulUploadCount={successfulUploadCount}
+          dayStates={dayStates}
           onChooseDayScreenshot={chooseAndUploadDayScreenshot}
-          onReuploadDay={reuploadDay}
-          onSkipDay={skipUploadDay}
-          onAdvanceDay={advanceUploadDay}
+          onRetryDayUpload={retryDayUpload}
+          onSkipPickDay={skipPickDay}
           onFinishUploadFlow={finishUploadFlow}
-          onSetDayPreference={setDayPreference}
-          onGoBackDay={goBackUploadDay}
-          editingDaySetId={editingDaySetId}
-          onStartEditDaySet={(id) => setEditingDaySetId(id)}
-          onCancelEditDaySet={() => setEditingDaySetId(null)}
-          onEditDaySet={editDaySet}
-          onDeleteDaySet={deleteDayParsedSet}
-          savingDaySetId={savingDaySetId}
-          isAddingDaySet={isAddingDaySet}
-          onAddDaySet={addDayParsedSet}
-          onStartAddDaySet={() => setIsAddingDaySet(true)}
-          onCancelAddDaySet={() => setIsAddingDaySet(false)}
+          onDeleteDaySet={deleteDaySet}
+          onAddDaySet={addDaySet}
+          onSetDaySetPreference={setDaySetPreference}
         />
       ) : null}
 
@@ -1231,7 +1239,14 @@ export default function App() {
                 <View style={styles.menuInviteRow}>
                   <Text style={styles.menuInviteCode}>{inviteCode}</Text>
                   <Pressable onPress={copyInviteCode} style={styles.menuCopyBtn}>
-                    <Text style={styles.menuCopyBtnText}>{inviteCopied ? 'Copied!' : '📋'}</Text>
+                    {inviteCopied ? (
+                      <View style={styles.menuCopiedState}>
+                        <Text style={styles.menuCopiedText}>Copied!</Text>
+                        <Text style={styles.menuCopyBtnText}>✓</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.menuCopyBtnText}>📋</Text>
+                    )}
                   </Pressable>
                 </View>
               </View>
@@ -1240,9 +1255,6 @@ export default function App() {
             <MenuItem label="Group Schedule" onPress={() => { setActiveView('group'); setMenuOpen(false); }} />
             <MenuItem label="Individual Schedules" onPress={loadIndividual} />
             <MenuItem label="Edit My Schedule" onPress={openEditSchedule} />
-            {isFounder ? (
-              <MenuItem label="Founder Tools" onPress={() => { setActiveView('founder'); setMenuOpen(false); }} />
-            ) : null}
             <MenuItem label="Restart Onboarding" onPress={resetFlow} />
             <MenuItem label="Delete My Data" onPress={deleteMyData} destructive />
           </Pressable>
@@ -1254,17 +1266,18 @@ export default function App() {
 }
 
 function MenuItem({ label, onPress, destructive = false }) {
+  const C = useTheme();
   return (
-    <Pressable onPress={onPress} style={styles.menuItem}>
-      <Text style={[styles.menuItemText, destructive && styles.menuItemTextDestructive]}>{label}</Text>
+    <Pressable onPress={onPress} style={{ borderWidth: 1, borderColor: C.menuItemBorder, borderRadius: 10, backgroundColor: C.menuItemBg, paddingHorizontal: 10, paddingVertical: 9 }}>
+      <Text style={{ color: destructive ? C.error : C.menuItemText, fontWeight: '700' }}>{label}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3ecde'
+    backgroundColor: C.bg
   },
   header: {
     paddingHorizontal: 16,
@@ -1272,25 +1285,26 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    backgroundColor: C.headerBg
   },
   title: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1f2c23'
+    color: C.headerText
   },
   offlineDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#e0963a',
+    backgroundColor: C.offlineDot,
     marginTop: 2
   },
   pendingDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#a0b8a4',
+    backgroundColor: C.pendingDot,
     marginTop: 2
   },
   menuButton: {
@@ -1298,32 +1312,32 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#a88f73',
-    backgroundColor: '#fff8ee',
+    borderColor: C.menuBtnBorder,
+    backgroundColor: C.menuBtnBg,
     alignItems: 'center',
     justifyContent: 'center'
   },
   menuButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#36463b'
+    color: C.menuBtnText
   },
   errorBanner: {
     marginHorizontal: 16,
     marginBottom: 10,
     marginTop: 4,
-    backgroundColor: '#ffe7e7',
+    backgroundColor: C.errorBg,
     borderWidth: 1,
-    borderColor: '#df9e9e',
+    borderColor: C.errorBorder,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    color: '#8a1d1d',
+    color: C.error,
     fontWeight: '600'
   },
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(20, 20, 20, 0.25)',
+    backgroundColor: C.menuOverlayBg,
     justifyContent: 'flex-start',
     alignItems: 'flex-end',
     paddingTop: 60,
@@ -1332,47 +1346,34 @@ const styles = StyleSheet.create({
   menuCard: {
     width: 230,
     borderRadius: 14,
-    backgroundColor: '#fffdf7',
+    backgroundColor: C.menuCardBg,
     borderWidth: 1,
-    borderColor: '#d8c3a7',
+    borderColor: C.menuCardBorder,
     padding: 10,
     gap: 6
   },
   menuLabel: {
-    color: '#6a5a47',
+    color: C.menuLabelText,
     fontWeight: '700',
     fontSize: 12,
     paddingHorizontal: 8,
     paddingTop: 2,
     paddingBottom: 4
   },
-  menuItem: {
-    borderWidth: 1,
-    borderColor: '#deceb9',
-    borderRadius: 10,
-    backgroundColor: '#fff9f0',
-    paddingHorizontal: 10,
-    paddingVertical: 9
-  },
-  menuItemText: {
-    color: '#304036',
-    fontWeight: '700'
-  },
-  menuItemTextDestructive: {
-    color: '#b52424'
-  },
   menuInviteCard: {
-    backgroundColor: '#f0f7f3',
+    backgroundColor: C.inviteCardBg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#b0d4bc',
+    borderColor: C.inviteCardBorder,
     padding: 12,
     marginBottom: 8,
     gap: 4,
   },
-  menuInviteLabel: { fontSize: 11, fontWeight: '700', color: '#345a46', textTransform: 'uppercase', letterSpacing: 0.5 },
-  menuInviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  menuInviteCode: { fontSize: 22, fontWeight: '800', color: '#183a27', letterSpacing: 2, fontVariant: ['tabular-nums'] },
-  menuCopyBtn: { padding: 6 },
+  menuInviteLabel: { fontSize: 11, fontWeight: '700', color: C.inviteLabel, textTransform: 'uppercase', letterSpacing: 0.5 },
+  menuInviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  menuInviteCode: { fontSize: 16, fontWeight: '800', color: C.inviteCode, letterSpacing: 1.5, fontVariant: ['tabular-nums'], flexShrink: 1 },
+  menuCopyBtn: { padding: 6, flexShrink: 0 },
   menuCopyBtnText: { fontSize: 18 },
+  menuCopiedState: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  menuCopiedText: { fontSize: 13, fontWeight: '700', color: C.copiedText },
 });
