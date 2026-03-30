@@ -1,7 +1,9 @@
 import io
 import os
 import tempfile
+from datetime import datetime, timezone
 from unittest.mock import patch
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -28,41 +30,27 @@ def _create_group(group_name: str, display_name: str) -> dict:
     return response.json()
 
 
-def _complete_founder_setup(group_id: str, session_token: str) -> None:
-    import_resp = client.post(
-        f"/v1/groups/{group_id}/canonical/import",
-        headers={"x-session-token": session_token},
-        json={
-            "screenshot_count": 2,
-            "screenshots": [
-                {
-                    "raw_text": "\n".join(
-                        [
-                            "DAY 1",
-                            "Aurora Skyline | Main Stage | 12:00 PM - 12:45 PM",
-                            "Neon Valley | Sahara | 1:10 PM - 2:00 PM",
-                        ]
-                    ),
-                },
-                {
-                    "raw_text": "\n".join(
-                        [
-                            "DAY 1",
-                            "Desert Echo | Outdoor | 2:15 PM - 3:05 PM",
-                            "Solar Ritual | Mojave | 4:20 PM - 5:10 PM",
-                        ]
-                    ),
-                },
-            ],
-        },
-    )
-    assert import_resp.status_code == 200
-
-    confirm_resp = client.post(
-        f"/v1/groups/{group_id}/canonical/confirm",
-        headers={"x-session-token": session_token},
-    )
-    assert confirm_resp.status_code == 200
+def _seed_canonical_sets(group_id: str) -> None:
+    """Directly insert canonical sets + mark group setup_complete, bypassing the deleted canonical API."""
+    now = datetime.now(tz=timezone.utc).isoformat()
+    sets = [
+        ("Aurora Skyline", "Main Stage", "12:00", "12:45", 1),
+        ("Neon Valley", "Sahara", "13:10", "14:00", 1),
+        ("Desert Echo", "Outdoor", "14:15", "15:05", 1),
+        ("Solar Ritual", "Mojave", "16:20", "17:10", 1),
+    ]
+    with get_conn() as conn:
+        for artist, stage, start, end, day in sets:
+            conn.execute(
+                """
+                INSERT INTO canonical_sets
+                  (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                   day_index, status, source_confidence, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 0.9, ?)
+                """,
+                (str(uuid4()), group_id, artist, stage, start, end, day, now),
+            )
+        conn.execute("UPDATE groups SET setup_complete = 1 WHERE id = ?", (group_id,))
 
 
 def test_personal_import_and_setup_completion() -> None:
@@ -71,7 +59,7 @@ def test_personal_import_and_setup_completion() -> None:
     founder_session = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
-    _complete_founder_setup(founder_group_id, founder_session)
+    _seed_canonical_sets(founder_group_id)
 
     member_creator = _create_group("Other", "Taylor")
     member_session = member_creator["session"]["token"]
@@ -199,7 +187,7 @@ def test_personal_upload_with_vision_mock() -> None:
     founder_token = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
-    _complete_founder_setup(group_id, founder_token)
+    _seed_canonical_sets(group_id)
 
     # Join as new member via anonymous session
     anon_resp = client.post("/v1/sessions")
