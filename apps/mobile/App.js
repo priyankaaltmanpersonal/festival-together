@@ -1181,12 +1181,13 @@ export default function App() {
           uploadDayIndex={uploadDayIndex}
           dayStates={dayStates}
           onChooseDayScreenshot={chooseAndUploadDayScreenshot}
-          onRetryDayUpload={retryDayUpload}
-          onSkipPickDay={skipPickDay}
-          onFinishUploadFlow={finishUploadFlow}
+          onSkipDay={skipPickDay}
+          onRetryDay={retryDayUpload}
           onDeleteDaySet={deleteDaySet}
           onAddDaySet={addDaySet}
-          onSetDaySetPreference={setDaySetPreference}
+          onSetDayPreference={setDaySetPreference}
+          onEditDaySet={editCanonicalSet}
+          onFinishUploadFlow={finishUploadFlow}
         />
       ) : null}
 

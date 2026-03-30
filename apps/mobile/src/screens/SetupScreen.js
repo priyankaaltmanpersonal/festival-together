@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { EditableSetCard } from '../components/EditableSetCard';
+import { DayTabReview } from '../components/DayTabReview';
+import { useTheme } from '../theme';
 
 function formatTime(t) {
   if (!t) return '';
@@ -39,28 +40,21 @@ export function SetupScreen({
   onCompleteFestivalSetup,
   onResetFlow,
   onChoosePath,
+  // upload_all_days step
+  uploadDayIndex,
+  dayStates,
   onChooseDayScreenshot,
   onSkipDay,
-  onAdvanceDay,
-  onFinishUploadFlow,
-  onSetDayPreference,
-  onReuploadDay,
-  onGoBackDay,
-  uploadDayIndex,
-  dayUploadStatus,
-  dayParsedSets,
-  successfulUploadCount,
-  editingDaySetId,
-  onStartEditDaySet,
-  onCancelEditDaySet,
-  onEditDaySet,
+  // review_days step
+  onRetryDay,
   onDeleteDaySet,
-  savingDaySetId,
-  isAddingDaySet,
   onAddDaySet,
-  onStartAddDaySet,
-  onCancelAddDaySet,
+  onSetDayPreference,
+  onEditDaySet,
+  onFinishUploadFlow,
 }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const isWelcome = onboardingStep === 'welcome';
 
   return (
@@ -154,117 +148,74 @@ export function SetupScreen({
         </View>
       ) : null}
 
-      {onboardingStep === 'upload_day' ? (() => {
+      {onboardingStep === 'upload_all_days' ? (() => {
         const totalDays = (festivalDays || []).length;
         const dayPosition = (festivalDays || []).findIndex((d) => d.dayIndex === uploadDayIndex) + 1;
         const currentDay = (festivalDays || []).find((d) => d.dayIndex === uploadDayIndex);
         const dayLabel = currentDay?.label || `Day ${uploadDayIndex}`;
         const truncatedLabel = dayLabel.length > 15 ? dayLabel.slice(0, 15) + '…' : dayLabel;
-        const isLastDay = dayPosition === totalDays;
-        const canFinish = successfulUploadCount >= 1 || dayUploadStatus === 'done';
+        const dayState = (dayStates || {})[uploadDayIndex] || { status: 'idle' };
 
         return (
           <View style={styles.stepCard}>
-            <View style={styles.skipRow}>
-              {dayPosition > 1 || userRole === 'founder' ? (
-                <Pressable onPress={onGoBackDay}>
-                  <Text style={styles.skipLink}>← Back</Text>
-                </Pressable>
-              ) : <View />}
-              <Pressable onPress={onSkipDay}>
-                <Text style={styles.skipLink}>Skip this day →</Text>
-              </Pressable>
-            </View>
-
             <Text style={styles.stepTitle}>Upload {truncatedLabel} schedule</Text>
             <Text style={styles.helper}>Day {dayPosition} of {totalDays}</Text>
-
-            {dayUploadStatus === 'idle' || dayUploadStatus === 'error' ? (
-              <ActionButton
-                label="Choose Screenshot"
-                onPress={onChooseDayScreenshot}
-                primary
-                disabled={loading}
-              />
-            ) : null}
-
-            {dayUploadStatus === 'uploading' ? (
-              <View style={styles.uploadingBlock}>
-                <View style={styles.uploadingRow}>
-                  <ActivityIndicator color="#183a27" />
-                  <Text style={styles.helper}>Processing…</Text>
-                </View>
-                <Text style={styles.uploadingHint}>Analyzing your schedule, usually takes 5–10 seconds…</Text>
+            {dayState.status === 'uploading' ? (
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <ActivityIndicator color={C.primary} size="small" />
+                <Text style={styles.helper}>Uploading in background…</Text>
               </View>
+            ) : dayState.status === 'done' ? (
+              <Text style={styles.helper}>✓ {(dayState.sets || []).length} artists found</Text>
+            ) : dayState.status === 'failed' ? (
+              <Text style={[styles.helper, { color: C.error }]}>Upload failed — retry in review</Text>
             ) : null}
-
-            {error ? (
-              <Text style={styles.error}>{error}</Text>
-            ) : null}
-
-            {dayUploadStatus === 'done' ? (
-              <>
-                <View style={styles.parsedHeader}>
-                  <Text style={styles.parsedCount}>✓ {dayParsedSets.length} artists found</Text>
-                  <Pressable onPress={onReuploadDay}>
-                    <Text style={styles.skipLink}>Re-upload ↺</Text>
-                  </Pressable>
-                </View>
-                {(dayParsedSets || []).map((setItem) => (
-                  <EditableSetCard
-                    key={setItem.canonical_set_id}
-                    setItem={setItem}
-                    isEditing={editingDaySetId === setItem.canonical_set_id}
-                    onStartEdit={() => onStartEditDaySet(setItem.canonical_set_id)}
-                    onCancelEdit={onCancelEditDaySet}
-                    onSave={(fields) => onEditDaySet(setItem.canonical_set_id, fields)}
-                    onDelete={() => onDeleteDaySet(setItem.canonical_set_id)}
-                    onSetPreference={onSetDayPreference}
-                    saving={savingDaySetId === setItem.canonical_set_id}
-                  />
-                ))}
-                {isAddingDaySet ? (
-                  <AddArtistCard
-                    onAdd={onAddDaySet}
-                    onCancel={onCancelAddDaySet}
-                    defaultDayIndex={uploadDayIndex}
-                  />
-                ) : (
-                  <Pressable onPress={onStartAddDaySet} style={styles.addButton}>
-                    <Text style={styles.addButtonText}>+ Add Artist</Text>
-                  </Pressable>
-                )}
-              </>
-            ) : null}
-
-            {/* Action button: Next Day, Finish, or nothing */}
-            {isLastDay ? (
-              <ActionButton
-                label="Finish →"
-                onPress={() => onFinishUploadFlow(dayUploadStatus === 'done')}
-                primary
-                disabled={loading || dayUploadStatus === 'uploading' || !canFinish}
-              />
-            ) : dayUploadStatus === 'done' ? (
-              <ActionButton
-                label="Next Day →"
-                onPress={() => onAdvanceDay(true)}
-                primary
-                disabled={loading}
-              />
-            ) : null}
+            <ActionButton
+              label="Choose Screenshot"
+              onPress={() => onChooseDayScreenshot(uploadDayIndex)}
+              primary
+              disabled={loading}
+            />
+            <ActionButton
+              label="Skip This Day"
+              onPress={onSkipDay}
+              disabled={loading}
+            />
           </View>
         );
       })() : null}
 
+      {onboardingStep === 'review_days' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Review Your Schedule</Text>
+          <Text style={styles.helper}>Check each day and fix any mistakes.</Text>
+          <DayTabReview
+            festivalDays={festivalDays || []}
+            dayStates={dayStates || {}}
+            onRetry={onRetryDay}
+            onDeleteSet={onDeleteDaySet}
+            onAddSet={onAddDaySet}
+            onSetPreference={onSetDayPreference}
+            onEditSet={onEditDaySet}
+          />
+          <ActionButton
+            label="Finish →"
+            onPress={onFinishUploadFlow}
+            primary
+            disabled={loading || Object.values(dayStates || {}).some((d) => d.status === 'uploading')}
+          />
+        </View>
+      ) : null}
 
       {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
-      {error && onboardingStep !== 'upload_day' ? <Text style={styles.error}>{error}</Text> : null}
+      {error && onboardingStep !== 'upload_all_days' ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>
   );
 }
 
 function AddArtistCard({ onAdd, onCancel, defaultDayIndex }) {
+  const C = useTheme();
+  const addCardStyles = useMemo(() => makeAddCardStyles(C), [C]);
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
   const [start, setStart] = useState('');
@@ -296,52 +247,54 @@ function AddArtistCard({ onAdd, onCancel, defaultDayIndex }) {
   };
 
   return (
-    <View style={setupAddCardStyles.addCard}>
-      <Text style={setupAddCardStyles.addCardLabel}>Add Artist</Text>
-      <Text style={setupAddCardStyles.fieldLabel}>Artist name</Text>
-      <TextInput value={name} onChangeText={setName} style={setupAddCardStyles.input} placeholder="e.g. Bad Bunny" />
-      <Text style={setupAddCardStyles.fieldLabel}>Stage</Text>
-      <TextInput value={stage} onChangeText={setStage} style={setupAddCardStyles.input} placeholder="e.g. Coachella Stage" />
-      <View style={setupAddCardStyles.timeRow}>
+    <View style={addCardStyles.addCard}>
+      <Text style={addCardStyles.addCardLabel}>Add Artist</Text>
+      <Text style={addCardStyles.fieldLabel}>Artist name</Text>
+      <TextInput value={name} onChangeText={setName} style={addCardStyles.input} placeholder="e.g. Bad Bunny" />
+      <Text style={addCardStyles.fieldLabel}>Stage</Text>
+      <TextInput value={stage} onChangeText={setStage} style={addCardStyles.input} placeholder="e.g. Coachella Stage" />
+      <View style={addCardStyles.timeRow}>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={setupAddCardStyles.fieldLabel}>Start (HH:MM)</Text>
-          <TextInput value={start} onChangeText={setStart} style={setupAddCardStyles.input} placeholder="21:00" />
+          <Text style={addCardStyles.fieldLabel}>Start (HH:MM)</Text>
+          <TextInput value={start} onChangeText={setStart} style={addCardStyles.input} placeholder="21:00" />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={setupAddCardStyles.fieldLabel}>End (HH:MM)</Text>
-          <TextInput value={end} onChangeText={setEnd} style={setupAddCardStyles.input} placeholder="23:00" />
+          <Text style={addCardStyles.fieldLabel}>End (HH:MM)</Text>
+          <TextInput value={end} onChangeText={setEnd} style={addCardStyles.input} placeholder="23:00" />
         </View>
       </View>
-      <View style={setupAddCardStyles.saveRow}>
-        {saving ? <ActivityIndicator color="#183a27" /> : (
-          <Pressable onPress={handleAdd} style={setupAddCardStyles.saveBtn}>
-            <Text style={setupAddCardStyles.saveBtnText}>Add</Text>
+      <View style={addCardStyles.saveRow}>
+        {saving ? <ActivityIndicator color={C.primary} /> : (
+          <Pressable onPress={handleAdd} style={addCardStyles.saveBtn}>
+            <Text style={addCardStyles.saveBtnText}>Add</Text>
           </Pressable>
         )}
-        <Pressable onPress={onCancel} style={setupAddCardStyles.cancelBtn}>
-          <Text style={setupAddCardStyles.cancelBtnText}>Cancel</Text>
+        <Pressable onPress={onCancel} style={addCardStyles.cancelBtn}>
+          <Text style={addCardStyles.cancelBtnText}>Cancel</Text>
         </Pressable>
       </View>
-      {error ? <Text style={setupAddCardStyles.saveError}>{error}</Text> : null}
+      {error ? <Text style={addCardStyles.saveError}>{error}</Text> : null}
     </View>
   );
 }
 
-const setupAddCardStyles = StyleSheet.create({
-  addCard: { borderWidth: 1, borderColor: '#6a9e73', borderRadius: 10, padding: 10, backgroundColor: '#f8fdf8', gap: 6 },
-  addCardLabel: { fontWeight: '700', color: '#2d6a4a', fontSize: 13 },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#5a4d3b' },
-  input: { borderWidth: 1, borderColor: '#d8c8b2', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, fontSize: 13, backgroundColor: '#fff' },
+const makeAddCardStyles = (C) => StyleSheet.create({
+  addCard: { borderWidth: 1, borderColor: C.addCardBorder, borderRadius: 10, padding: 10, backgroundColor: C.addCardBg, gap: 6 },
+  addCardLabel: { fontWeight: '700', color: C.addCardLabel, fontSize: 13 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: C.fieldLabelText },
+  input: { borderWidth: 1, borderColor: C.inputBorder, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, fontSize: 13, backgroundColor: C.inputBg },
   timeRow: { flexDirection: 'row', gap: 8 },
   saveRow: { flexDirection: 'row', gap: 8 },
-  saveBtn: { flex: 1, backgroundColor: '#183a27', borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
+  saveBtn: { flex: 1, backgroundColor: C.primary, borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  cancelBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8c8b2', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 16, alignItems: 'center' },
-  cancelBtnText: { color: '#666', fontWeight: '700', fontSize: 13 },
-  saveError: { color: '#b52424', fontWeight: '600', fontSize: 12 },
+  cancelBtn: { backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.inputBorder, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 16, alignItems: 'center' },
+  cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
+  saveError: { color: C.error, fontWeight: '600', fontSize: 12 },
 });
 
 function ActionButton({ label, onPress, primary = false, disabled = false, large = false }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   return (
     <Pressable
       disabled={disabled}
@@ -358,6 +311,8 @@ function ActionButton({ label, onPress, primary = false, disabled = false, large
 }
 
 function PrefButton({ label, selected, onPress }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   return (
     <Pressable onPress={onPress} style={[styles.prefButton, selected && styles.prefButtonSelected]}>
       <Text style={[styles.prefButtonText, selected && styles.prefButtonTextSelected]}>{label}</Text>
@@ -366,6 +321,8 @@ function PrefButton({ label, selected, onPress }) {
 }
 
 function ColorPicker({ options, selected, onSelect, availableSet = null }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const all = options || [];
   const rows = [all.slice(0, 9), all.slice(9, 18)];
   return (
@@ -382,7 +339,7 @@ function ColorPicker({ options, selected, onSelect, availableSet = null }) {
                 onPress={() => onSelect(color)}
                 style={[
                   styles.colorSwatch,
-                  { backgroundColor: color, borderColor: selected === color ? '#1f3024' : '#d2c5b3' },
+                  { backgroundColor: color, borderColor: selected === color ? C.swatchSelectedBorder : C.swatchDefaultBorder },
                   selected === color && styles.colorSwatchSelected,
                   !enabled && styles.colorSwatchDisabled
                 ]}
@@ -398,52 +355,52 @@ function ColorPicker({ options, selected, onSelect, availableSet = null }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   wrap: { flexGrow: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 24 },
   wrapWelcome: { paddingTop: 20 },
   welcomeScreen: { gap: 20 },
   welcomeActions: { gap: 12 },
   card: {
-    backgroundColor: '#fffdf8',
+    backgroundColor: C.cardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e5d7c3',
+    borderColor: C.cardBorder,
     padding: 12,
     gap: 8
   },
   stepCard: {
-    backgroundColor: '#fffefb',
+    backgroundColor: C.stepCardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#d7c9b4',
+    borderColor: C.stepCardBorder,
     padding: 12,
     gap: 8
   },
-  kicker: { color: '#7a684f', fontWeight: '700', fontSize: 12, textTransform: 'uppercase' },
-  h1: { color: '#1f3024', fontSize: 21, fontWeight: '800', lineHeight: 26 },
-  label: { color: '#303030', fontWeight: '700' },
-  stepTitle: { color: '#2f302f', fontWeight: '700', fontSize: 16 },
-  inputLabel: { color: '#5a4d3b', fontSize: 12, fontWeight: '700', marginTop: 2 },
-  helper: { color: '#666', fontSize: 12 },
+  kicker: { color: C.kickerText, fontWeight: '700', fontSize: 12, textTransform: 'uppercase' },
+  h1: { color: C.headingText, fontSize: 21, fontWeight: '800', lineHeight: 26 },
+  label: { color: C.text, fontWeight: '700' },
+  stepTitle: { color: C.text, fontWeight: '700', fontSize: 16 },
+  inputLabel: { color: C.fieldLabelText, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  helper: { color: C.textMuted, fontSize: 12 },
   input: {
     borderWidth: 1,
-    borderColor: '#d8c8b2',
+    borderColor: C.inputBorder,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 9,
-    backgroundColor: '#fff'
+    backgroundColor: C.inputBg
   },
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dayIndexLabel: { color: '#5a4d3b', fontSize: 12, fontWeight: '700', width: 40 },
+  dayIndexLabel: { color: C.fieldLabelText, fontSize: 12, fontWeight: '700', width: 40 },
   dayInput: { flex: 1 },
   buttonPrimary: {
-    backgroundColor: '#183a27',
+    backgroundColor: C.primary,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10
   },
   buttonSecondary: {
-    backgroundColor: '#345a46',
+    backgroundColor: C.btnSecondaryText,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10
@@ -458,25 +415,25 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.45 },
   setRow: {
     borderWidth: 1,
-    borderColor: '#e4d6c3',
+    borderColor: C.setRowBorder,
     borderRadius: 10,
     padding: 8,
-    backgroundColor: '#fffdfa',
+    backgroundColor: C.setRowBg,
     gap: 4
   },
-  setTitle: { color: '#2f2f2f', fontWeight: '700', fontSize: 13 },
+  setTitle: { color: C.setRowTitle, fontWeight: '700', fontSize: 13 },
   prefRow: { flexDirection: 'row', gap: 6 },
   prefButton: {
     borderWidth: 1,
-    borderColor: '#cab697',
+    borderColor: C.prefBtnBorder,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#fbf6ee'
+    backgroundColor: C.prefBtnBg
   },
-  prefButtonSelected: { borderColor: '#2f6244', backgroundColor: '#e6f2e8' },
-  prefButtonText: { color: '#4e4e4e', fontSize: 12, fontWeight: '700' },
-  prefButtonTextSelected: { color: '#214731' },
+  prefButtonSelected: { borderColor: C.prefBtnActiveBorder, backgroundColor: C.prefBtnActiveBg },
+  prefButtonText: { color: C.prefBtnText, fontSize: 12, fontWeight: '700' },
+  prefButtonTextSelected: { color: C.prefBtnActiveText },
   colorBlock: { gap: 8, marginTop: 2 },
   colorRow: { flexDirection: 'row', justifyContent: 'space-between' },
   colorSwatch: {
@@ -493,27 +450,27 @@ const styles = StyleSheet.create({
   },
   removeButton: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: '#e8ddd0', alignItems: 'center', justifyContent: 'center'
+    backgroundColor: C.stepCardBorder, alignItems: 'center', justifyContent: 'center'
   },
   removeButtonDisabled: { opacity: 0.3 },
-  removeButtonText: { fontSize: 18, color: '#5a4d3b', fontWeight: '700', lineHeight: 20 },
-  error: { color: '#b52424', fontWeight: '600' },
-  logLine: { color: '#444', fontSize: 11 },
+  removeButtonText: { fontSize: 18, color: C.fieldLabelText, fontWeight: '700', lineHeight: 20 },
+  error: { color: C.error, fontWeight: '600' },
+  logLine: { color: C.textMuted, fontSize: 11 },
   skipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   parsedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  skipLink: { color: '#345a46', fontWeight: '600', fontSize: 13 },
+  skipLink: { color: C.btnSecondaryText, fontWeight: '600', fontSize: 13 },
   uploadingBlock: { gap: 4 },
   uploadingRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  uploadingHint: { color: '#666', fontSize: 11, fontStyle: 'italic' },
-  parsedCount: { color: '#2d6a4a', fontWeight: '700', fontSize: 14 },
+  uploadingHint: { color: C.textMuted, fontSize: 11, fontStyle: 'italic' },
+  parsedCount: { color: C.primary, fontWeight: '700', fontSize: 14 },
   addButton: {
     borderWidth: 1,
-    borderColor: '#6a9e73',
+    borderColor: C.addCardBorder,
     borderStyle: 'dashed',
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: '#f0f7f3',
+    backgroundColor: C.addCardBg,
   },
-  addButtonText: { color: '#345a46', fontWeight: '700', fontSize: 13 },
+  addButtonText: { color: C.addCardLabel, fontWeight: '700', fontSize: 13 },
 });
