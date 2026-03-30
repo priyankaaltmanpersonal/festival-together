@@ -6,7 +6,6 @@ from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api.canonical import router as canonical_router
 from app.api.groups import router as groups_router
 from app.api.meta import router as meta_router
 from app.api.personal import router as personal_router
@@ -67,6 +66,5 @@ def health() -> dict[str, str]:
 
 app.include_router(meta_router, prefix=settings.api_prefix)
 app.include_router(groups_router, prefix=settings.api_prefix)
-app.include_router(canonical_router, prefix=settings.api_prefix)
 app.include_router(personal_router, prefix=settings.api_prefix)
 app.include_router(schedule_router, prefix=settings.api_prefix)

@@ -231,32 +231,6 @@ def _minutes(value: str) -> int:
     return int(hours) * 60 + int(minutes)
 
 
-def build_demo_canonical_screenshots(screenshot_count: int) -> list[ScreenshotInput]:
-    demo_lines = []
-    base_sets = _seed_demo_sets()
-    for item in base_sets:
-        day_label = f"DAY {item.day_index}"
-        time_range = f"{_display_time(item.start_time_pt)} - {_display_time(item.end_time_pt)}"
-        demo_lines.append(f"{day_label}\n{item.artist_name} | {item.stage_name} | {time_range}")
-
-    page_size = max(6, min(14, len(demo_lines) // max(1, screenshot_count)))
-    overlap = 2
-    screenshots: list[ScreenshotInput] = []
-    start_idx = 0
-    for index in range(screenshot_count):
-        chunk = demo_lines[start_idx:start_idx + page_size]
-        if not chunk:
-            chunk = demo_lines[-page_size:]
-        screenshots.append(
-            ScreenshotInput(
-                source_id=f"canonical-demo-{index + 1}",
-                raw_text="\n".join(chunk),
-            )
-        )
-        start_idx = min(len(demo_lines), start_idx + max(1, page_size - overlap))
-    return screenshots
-
-
 def build_demo_personal_screenshots(
     canonical_rows: Sequence,
     member_id: str,
@@ -300,58 +274,6 @@ def build_demo_personal_screenshots(
         )
         start_idx = min(len(lines), start_idx + max(1, page_size - overlap))
     return screenshots
-
-
-def _seed_demo_sets() -> list[ParsedSet]:
-    stages = ["Main Stage", "Outdoor", "Sahara", "Mojave", "Gobi", "Sonora"]
-    artists = [
-        "Aurora Skyline",
-        "Neon Valley",
-        "Desert Echo",
-        "Sundial City",
-        "Palm Static",
-        "Mirage Club",
-        "Golden Transit",
-        "Afterglow Kids",
-        "Cactus Choir",
-        "Solar Ritual",
-        "Moonline",
-        "Circuit Bloom",
-        "Dune Parade",
-        "Velvet Arcade",
-        "Night Ferry",
-        "Cosmic Lanes",
-        "Heatwave Social",
-        "Luma Avenue",
-    ]
-    base_sets: list[ParsedSet] = []
-    artist_idx = 0
-    for day_index in range(1, 4):
-        day_start = 12 * 60
-        for stage_idx, stage_name in enumerate(stages):
-            current_min = day_start + (stage_idx * 20)
-            slot = 0
-            while current_min < 22 * 60:
-                duration = [45, 55, 60, 70][(slot + stage_idx + day_index) % 4]
-                end_min = current_min + duration
-                if end_min > 23 * 60 + 30:
-                    break
-                artist_name = artists[artist_idx % len(artists)]
-                artist_idx += 1
-                base_sets.append(
-                    ParsedSet(
-                        artist_name=artist_name,
-                        stage_name=stage_name,
-                        start_time_pt=f"{current_min // 60:02d}:{current_min % 60:02d}",
-                        end_time_pt=f"{end_min // 60:02d}:{end_min % 60:02d}",
-                        day_index=day_index,
-                        status="resolved",
-                        source_confidence=0.84,
-                    )
-                )
-                current_min = end_min + [30, 35, 45][(slot + day_index) % 3]
-                slot += 1
-    return base_sets
 
 
 def _display_time(value: str) -> str:

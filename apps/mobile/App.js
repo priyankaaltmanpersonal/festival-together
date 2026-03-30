@@ -910,27 +910,6 @@ export default function App() {
     }
   };
 
-  const rerunFounderCanonical = () =>
-    run('rerun founder canonical setup', async () => {
-      if (!isFounder || !founderSession || !groupId) throw new Error('Founder session required');
-      if (!isOnline) throw new Error('Canonical parse rerun requires a connection');
-
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/groups/${groupId}/canonical/import`,
-        method: 'POST',
-        sessionToken: founderSession,
-        body: { screenshot_count: 4 }
-      });
-      await apiRequest({
-        baseUrl: apiUrl,
-        path: `/v1/groups/${groupId}/canonical/confirm`,
-        method: 'POST',
-        sessionToken: founderSession
-      });
-      setLastSyncAt(new Date().toISOString());
-    });
-
   const resetFlow = async () => {
     await clearSessionData(true);
     setUserRole('member');
@@ -1104,8 +1083,6 @@ export default function App() {
         <FounderToolsScreen
           inviteCode={inviteCode}
           groupName={homeSnapshot?.group?.name || groupName}
-          loading={loading}
-          onRerunCanonical={rerunFounderCanonical}
           onOpenSchedule={() => setActiveView('group')}
         />
       ) : null}
