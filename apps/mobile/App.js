@@ -1175,6 +1175,9 @@ export default function App() {
           onRefreshPersonal={refreshPersonal}
           onSetAllMustSee={setAllMustSee}
           onSetPreference={setPreference}
+          onDeleteSet={deletePersonalSet}
+          onAddSet={addPersonalSet}
+          onEditSet={editCanonicalSet}
         />
       ) : null}
 
