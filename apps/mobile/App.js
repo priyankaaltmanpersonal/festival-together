@@ -1162,7 +1162,6 @@ export default function App() {
           setGroupName={setGroupName}
           inviteCodeInput={inviteCodeInput}
           setInviteCodeInput={setInviteCodeInput}
-          inviteCode={inviteCode}
           selectedChipColor={selectedChipColor}
           setSelectedChipColor={setSelectedChipColor}
           chipColorOptions={CHIP_COLOR_OPTIONS}
@@ -1173,7 +1172,6 @@ export default function App() {
           onRemoveFestivalDay={removeFestivalDay}
           loading={loading}
           error={error}
-          log={log}
           onBeginProfile={beginProfile}
           onCompleteFestivalSetup={completeFestivalSetup}
           onResetFlow={resetFlow}

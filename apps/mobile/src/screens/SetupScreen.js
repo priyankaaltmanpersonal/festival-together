@@ -24,7 +24,6 @@ export function SetupScreen({
   setGroupName,
   inviteCodeInput,
   setInviteCodeInput,
-  inviteCode,
   selectedChipColor,
   setSelectedChipColor,
   chipColorOptions,
@@ -35,7 +34,6 @@ export function SetupScreen({
   onRemoveFestivalDay,
   loading,
   error,
-  log,
   onBeginProfile,
   onCompleteFestivalSetup,
   onResetFlow,
@@ -310,16 +308,6 @@ function ActionButton({ label, onPress, primary = false, disabled = false, large
   );
 }
 
-function PrefButton({ label, selected, onPress }) {
-  const C = useTheme();
-  const styles = useMemo(() => makeStyles(C), [C]);
-  return (
-    <Pressable onPress={onPress} style={[styles.prefButton, selected && styles.prefButtonSelected]}>
-      <Text style={[styles.prefButtonText, selected && styles.prefButtonTextSelected]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 function ColorPicker({ options, selected, onSelect, availableSet = null }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -400,7 +388,7 @@ const makeStyles = (C) => StyleSheet.create({
     paddingHorizontal: 10
   },
   buttonSecondary: {
-    backgroundColor: C.btnSecondaryText,
+    backgroundColor: C.btnSecondaryBg,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10
@@ -413,27 +401,6 @@ const makeStyles = (C) => StyleSheet.create({
   },
   buttonTextLarge: { fontSize: 20, fontWeight: '800' },
   buttonDisabled: { opacity: 0.45 },
-  setRow: {
-    borderWidth: 1,
-    borderColor: C.setRowBorder,
-    borderRadius: 10,
-    padding: 8,
-    backgroundColor: C.setRowBg,
-    gap: 4
-  },
-  setTitle: { color: C.setRowTitle, fontWeight: '700', fontSize: 13 },
-  prefRow: { flexDirection: 'row', gap: 6 },
-  prefButton: {
-    borderWidth: 1,
-    borderColor: C.prefBtnBorder,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: C.prefBtnBg
-  },
-  prefButtonSelected: { borderColor: C.prefBtnActiveBorder, backgroundColor: C.prefBtnActiveBg },
-  prefButtonText: { color: C.prefBtnText, fontSize: 12, fontWeight: '700' },
-  prefButtonTextSelected: { color: C.prefBtnActiveText },
   colorBlock: { gap: 8, marginTop: 2 },
   colorRow: { flexDirection: 'row', justifyContent: 'space-between' },
   colorSwatch: {
@@ -455,14 +422,6 @@ const makeStyles = (C) => StyleSheet.create({
   removeButtonDisabled: { opacity: 0.3 },
   removeButtonText: { fontSize: 18, color: C.fieldLabelText, fontWeight: '700', lineHeight: 20 },
   error: { color: C.error, fontWeight: '600' },
-  logLine: { color: C.textMuted, fontSize: 11 },
-  skipRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  parsedHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  skipLink: { color: C.btnSecondaryText, fontWeight: '600', fontSize: 13 },
-  uploadingBlock: { gap: 4 },
-  uploadingRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  uploadingHint: { color: C.textMuted, fontSize: 11, fontStyle: 'italic' },
-  parsedCount: { color: C.primary, fontWeight: '700', fontSize: 14 },
   addButton: {
     borderWidth: 1,
     borderColor: C.addCardBorder,
