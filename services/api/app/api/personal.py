@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_IMAGES = 30
 from app.schemas.personal import (
+    AddSetRequest,
     CompleteSetupRequest,
     MemberSetUpdateRequest,
     PersonalImportRequest,
@@ -210,6 +211,72 @@ def delete_member_set(canonical_set_id: str, session=Depends(require_session)) -
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="set_not_found")
     return {"ok": True}
+
+
+@router.post("/members/me/sets")
+def add_member_set(payload: AddSetRequest, session=Depends(require_session)) -> dict:
+    now = _now_iso()
+
+    with get_conn() as conn:
+        member = conn.execute(
+            "SELECT group_id FROM members WHERE id = ? AND active = 1",
+            (session["member_id"],),
+        ).fetchone()
+        if member is None:
+            raise HTTPException(status_code=401, detail="invalid_session")
+
+        group_id = member["group_id"]
+
+        # Match-or-create canonical set
+        existing = conn.execute(
+            """
+            SELECT id FROM canonical_sets
+            WHERE group_id = ?
+              AND LOWER(TRIM(artist_name)) = LOWER(TRIM(?))
+              AND LOWER(TRIM(stage_name)) = LOWER(TRIM(?))
+              AND start_time_pt = ?
+              AND day_index = ?
+            """,
+            (group_id, payload.artist_name, payload.stage_name, payload.start_time_pt, payload.day_index),
+        ).fetchone()
+
+        if existing:
+            canonical_set_id = existing["id"]
+        else:
+            canonical_set_id = str(uuid4())
+            conn.execute(
+                """
+                INSERT INTO canonical_sets
+                  (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                   day_index, status, source_confidence, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 1.0, ?)
+                """,
+                (
+                    canonical_set_id, group_id,
+                    payload.artist_name, payload.stage_name,
+                    payload.start_time_pt, payload.end_time_pt,
+                    payload.day_index, now,
+                ),
+            )
+
+        # Check for existing preference
+        existing_pref = conn.execute(
+            "SELECT id FROM member_set_preferences WHERE member_id = ? AND canonical_set_id = ?",
+            (session["member_id"], canonical_set_id),
+        ).fetchone()
+        if existing_pref:
+            raise HTTPException(status_code=409, detail="already_in_schedule")
+
+        conn.execute(
+            """
+            INSERT INTO member_set_preferences
+              (id, member_id, canonical_set_id, preference, attendance, source_confidence, created_at, updated_at)
+            VALUES (?, ?, ?, 'flexible', 'going', 1.0, ?, ?)
+            """,
+            (str(uuid4()), session["member_id"], canonical_set_id, now, now),
+        )
+
+    return {"ok": True, "canonical_set_id": canonical_set_id}
 
 
 @router.post("/members/me/setup/complete")

@@ -13,6 +13,14 @@ class MemberSetUpdateRequest(BaseModel):
     attendance: str | None = None
 
 
+class AddSetRequest(BaseModel):
+    artist_name: str = Field(min_length=1, max_length=200)
+    stage_name: str = Field(min_length=1, max_length=200)
+    start_time_pt: str = Field(pattern=r"^\d{1,2}:\d{2}$")
+    end_time_pt: str = Field(pattern=r"^\d{1,2}:\d{2}$")
+    day_index: int = Field(ge=1)
+
+
 class CompleteSetupRequest(BaseModel):
     confirm: bool = True
 

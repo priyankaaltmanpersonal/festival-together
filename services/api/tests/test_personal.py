@@ -277,3 +277,85 @@ def test_delete_member_set_not_found() -> None:
         headers={"x-session-token": session_token},
     )
     assert resp.status_code == 404
+
+
+def test_add_member_set_creates_new() -> None:
+    """Adding an artist that doesn't exist yet creates a canonical set and preference."""
+    founder = _create_group("AddSetNew", "Founder")
+    group_id = founder["group"]["id"]
+    session_token = founder["session"]["token"]
+    seed_canonical_sets(group_id)
+
+    resp = client.post(
+        "/v1/members/me/sets",
+        headers={"x-session-token": session_token},
+        json={
+            "artist_name": "Brand New Artist",
+            "stage_name": "Main Stage",
+            "start_time_pt": "20:00",
+            "end_time_pt": "21:00",
+            "day_index": 1,
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ok"] is True
+    assert "canonical_set_id" in body
+
+    # Verify it appears in the review
+    review = client.get("/v1/members/me/personal/review", headers={"x-session-token": session_token})
+    names = [s["artist_name"] for s in review.json()["sets"]]
+    assert "Brand New Artist" in names
+
+
+def test_add_member_set_matches_existing() -> None:
+    """Adding an artist that already exists in canonical_sets links to the existing row."""
+    founder = _create_group("AddSetMatch", "Founder")
+    group_id = founder["group"]["id"]
+    session_token = founder["session"]["token"]
+    seed_canonical_sets(group_id)
+
+    # "Aurora Skyline" at "Main Stage" 12:00 day 1 already exists from seed_canonical_sets
+    resp = client.post(
+        "/v1/members/me/sets",
+        headers={"x-session-token": session_token},
+        json={
+            "artist_name": "AURORA SKYLINE",  # different case — should still match
+            "stage_name": "main stage",
+            "start_time_pt": "12:00",
+            "end_time_pt": "12:45",
+            "day_index": 1,
+        },
+    )
+    assert resp.status_code == 200
+
+    # Check only one canonical set exists for this name
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id FROM canonical_sets WHERE group_id = ? AND LOWER(TRIM(artist_name)) = 'aurora skyline'",
+            (group_id,),
+        ).fetchall()
+    assert len(rows) == 1
+
+
+def test_add_member_set_conflict() -> None:
+    """Adding an artist the member already has returns 409."""
+    founder = _create_group("AddSetConflict", "Founder")
+    group_id = founder["group"]["id"]
+    session_token = founder["session"]["token"]
+    seed_canonical_sets(group_id)
+
+    payload = {
+        "artist_name": "New Solo Act",
+        "stage_name": "Main Stage",
+        "start_time_pt": "22:00",
+        "end_time_pt": "23:00",
+        "day_index": 1,
+    }
+    # First add — succeeds
+    r1 = client.post("/v1/members/me/sets", headers={"x-session-token": session_token}, json=payload)
+    assert r1.status_code == 200
+
+    # Second add — same artist, same member
+    r2 = client.post("/v1/members/me/sets", headers={"x-session-token": session_token}, json=payload)
+    assert r2.status_code == 409
