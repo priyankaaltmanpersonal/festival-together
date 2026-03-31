@@ -1218,8 +1218,7 @@ export default function App() {
       {activeView === 'edit' ? (
         <EditMyScheduleScreen
           personalSets={personalSets}
-          screenshotCount={screenshotCount}
-          setScreenshotCount={setScreenshotCount}
+          festivalDays={festivalDays}
           loading={loading}
           onImportPersonal={importPersonal}
           onRefreshPersonal={refreshPersonal}
