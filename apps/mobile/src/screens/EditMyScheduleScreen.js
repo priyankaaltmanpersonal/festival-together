@@ -58,13 +58,16 @@ export function EditMyScheduleScreen({
         {(festivalDays || []).length === 0 ? (
           <Text style={styles.helper}>No schedule loaded yet.</Text>
         ) : (
+          {/* dayIndex from DayTabReview callbacks is intentionally ignored:
+              deletePersonalSet and setPreference use canonicalSetId only;
+              addPersonalSet receives day_index inside the fields object */}
           <DayTabReview
             festivalDays={festivalDays || []}
             dayStates={dayStates}
             onRetry={() => {}}
-            onDeleteSet={(canonicalSetId) => onDeleteSet(canonicalSetId)}
-            onAddSet={(fields) => onAddSet(fields)}
-            onSetPreference={(canonicalSetId, pref) => onSetPreference(canonicalSetId, pref)}
+            onDeleteSet={onDeleteSet}
+            onAddSet={onAddSet}
+            onSetPreference={onSetPreference}
             onEditSet={onEditSet}
           />
         )}
