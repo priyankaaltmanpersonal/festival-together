@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../theme';
 
 const GRID_HEADER_HEIGHT = 33; // header row height (padding 6+6 + font ~12 + border 1)
 
@@ -17,6 +18,8 @@ export function GroupScheduleScreen({
   onCopyInvite,
   inviteCopied
 }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const [expandedSet, setExpandedSet] = useState(null);
   const [containerHeight, setContainerHeight] = useState(0);
   const [filterHeight, setFilterHeight] = useState(0);
@@ -131,7 +134,7 @@ export function GroupScheduleScreen({
                         <View key={setItem.id} style={[styles.setCardWrap, { top, height }]}>
                           <Pressable
                             onPress={() => setExpandedSet({ ...setItem, definite, maybe })}
-                            style={[styles.setTag, compact && styles.setTagCompact, tierStyle(setItem.popularity_tier)]}
+                            style={[styles.setTag, compact && styles.setTagCompact, tierStyle(setItem.popularity_tier, C)]}
                           >
                             <View style={styles.setMain}>
                               <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
@@ -144,7 +147,7 @@ export function GroupScheduleScreen({
                                     key={attendee.member_id}
                                     style={[
                                       styles.attendeeBubble,
-                                      { backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || '#1f7a42' }
+                                      { backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || C.attendeeBg }
                                     ]}
                                   >
                                     <Text style={styles.attendeeText}>{initials(attendee.display_name)}</Text>
@@ -217,15 +220,17 @@ export function GroupScheduleScreen({
 }
 
 function AttendeeRow({ attendee, chipColor }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   return (
     <View style={styles.modalRow}>
       <View
         style={[
           styles.modalAvatar,
-          { backgroundColor: withAlpha(chipColor || '#1f7a42', 0.2), borderColor: chipColor || '#1f7a42' }
+          { backgroundColor: withAlpha(chipColor || C.attendeeBg, 0.2), borderColor: chipColor || C.attendeeBg }
         ]}
       >
-        <Text style={[styles.modalAvatarText, { color: chipColor || '#205735' }]}>
+        <Text style={[styles.modalAvatarText, { color: chipColor || C.attendeeBg }]}>
           {initials(attendee.display_name)}
         </Text>
       </View>
@@ -234,7 +239,7 @@ function AttendeeRow({ attendee, chipColor }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   wrap: { flex: 1, paddingHorizontal: 12 },
   filterSection: { paddingBottom: 8 },
   filterBar: { gap: 6 },
@@ -253,7 +258,7 @@ const styles = StyleSheet.create({
   },
   chipSelected: {
     borderBottomWidth: 2,
-    borderBottomColor: '#1f3024'
+    borderBottomColor: C.chipSelectedBorder
   },
   chipText: { fontSize: 13, fontWeight: '800' },
   resetBtn: {
@@ -263,27 +268,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   resetBtnText: {
-    color: '#7a4a1c',
+    color: C.resetBtnText,
     fontWeight: '800',
     fontSize: 12,
     textDecorationLine: 'underline',
-    textDecorationColor: '#c78f52'
+    textDecorationColor: C.resetBtnUnderline
   },
-  helperPad: { color: '#666', fontSize: 12, paddingHorizontal: 2, paddingTop: 2 },
-  gridHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#d8c8b2' },
+  helperPad: { color: C.textMuted, fontSize: 12, paddingHorizontal: 2, paddingTop: 2 },
+  gridHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: C.gridBorder },
   headerCell: {
     paddingHorizontal: 6,
     paddingVertical: 6,
     borderRightWidth: 1,
-    borderColor: '#eee0cd'
+    borderColor: C.gridBorder
   },
   gridBody: { flexDirection: 'row' },
-  timeCol: { width: 70, borderRightWidth: 1, borderColor: '#eee0cd', backgroundColor: '#faf6ef' },
-  stageCol: { width: 130, borderRightWidth: 1, borderColor: '#eee0cd', position: 'relative', backgroundColor: '#fff' },
-  headerText: { fontWeight: '700', color: '#2d2d2d', fontSize: 12 },
+  timeCol: { width: 70, borderRightWidth: 1, borderColor: C.gridBorder, backgroundColor: C.gridTimeBg },
+  stageCol: { width: 130, borderRightWidth: 1, borderColor: C.gridBorder, position: 'relative', backgroundColor: C.gridStageBg },
+  headerText: { fontWeight: '700', color: C.gridHeaderText, fontSize: 12 },
   timeTick: { position: 'absolute', left: 4 },
-  timeText: { color: '#504a41', fontWeight: '700', fontSize: 11 },
-  rowLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#f0e4d4' },
+  timeText: { color: C.gridTimeText, fontWeight: '700', fontSize: 11 },
+  rowLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.gridRowLine },
   setCardWrap: {
     position: 'absolute',
     left: 3,
@@ -296,7 +301,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 4,
     paddingVertical: 3,
-    backgroundColor: '#fffcf7',
+    backgroundColor: C.setCardBg,
     justifyContent: 'space-between',
     overflow: 'hidden'
   },
@@ -306,24 +311,24 @@ const styles = StyleSheet.create({
   setMain: {
     gap: 1
   },
-  artistText: { fontWeight: '800', color: '#2f2f2f', fontSize: 10, lineHeight: 11 },
-  timeRangeText: { color: '#555', fontSize: 8, marginTop: 1, lineHeight: 9 },
+  artistText: { fontWeight: '800', color: C.setCardText, fontSize: 10, lineHeight: 11 },
+  timeRangeText: { color: C.setCardTimeTxt, fontSize: 8, marginTop: 1, lineHeight: 9 },
   attendeeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   attendeeBubble: {
     width: 14,
     height: 14,
     borderRadius: 999,
-    backgroundColor: '#1f7a42',
+    backgroundColor: C.attendeeBg,
     alignItems: 'center',
     justifyContent: 'center'
   },
-  attendeeText: { color: '#fff', fontSize: 8, fontWeight: '800' },
-  summaryText: { color: '#444', fontSize: 8, lineHeight: 9, marginTop: 2 },
+  attendeeText: { color: C.attendeeText, fontSize: 8, fontWeight: '800' },
+  summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 9, marginTop: 2 },
   summaryTextCompact: { fontSize: 7, lineHeight: 8, marginTop: 1 },
-  countText: { color: '#555', fontSize: 8 },
+  countText: { color: C.setCardTimeTxt, fontSize: 8 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: C.modalOverlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16
@@ -334,13 +339,13 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#d8c8b2',
-    backgroundColor: '#fffdf8',
+    borderColor: C.modalBorder,
+    backgroundColor: C.modalBg,
     padding: 14
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#2f2f2f' },
-  modalSubtitle: { marginTop: 2, marginBottom: 10, color: '#66584a', fontSize: 12 },
-  modalSectionTitle: { marginTop: 4, marginBottom: 6, color: '#3d3d3d', fontWeight: '700', fontSize: 13 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: C.modalTitle },
+  modalSubtitle: { marginTop: 2, marginBottom: 10, color: C.modalSubtitle, fontSize: 12 },
+  modalSectionTitle: { marginTop: 4, marginBottom: 6, color: C.modalSectionTitle, fontWeight: '700', fontSize: 13 },
   modalList: { gap: 6, marginBottom: 6 },
   modalRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modalAvatar: {
@@ -352,25 +357,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   modalAvatarText: { fontSize: 10, fontWeight: '800' },
-  modalName: { color: '#2d2d2d', fontSize: 13, fontWeight: '600' },
-  modalEmpty: { color: '#7a6d5d', fontSize: 12, marginBottom: 6 },
+  modalName: { color: C.modalName, fontSize: 13, fontWeight: '600' },
+  modalEmpty: { color: C.modalEmpty, fontSize: 12, marginBottom: 6 },
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
-  inviteText: { fontSize: 12, color: '#555' },
-  inviteCode: { fontWeight: '800', color: '#183a27', letterSpacing: 1 },
+  inviteText: { fontSize: 12, color: C.inviteRowText },
+  inviteCode: { fontWeight: '800', color: C.inviteRowCode, letterSpacing: 1 },
   inviteCopyIcon: { fontSize: 14 },
 });
 
-function tierStyle(tier) {
+function tierStyle(tier, C) {
   if (tier === 'high') {
-    return { borderColor: '#1f7a42', backgroundColor: '#e6f6eb' };
+    return { borderColor: C.tierHighBorder, backgroundColor: C.tierHighBg };
   }
   if (tier === 'medium') {
-    return { borderColor: '#7a6d1f', backgroundColor: '#faf7e8' };
+    return { borderColor: C.tierMidBorder, backgroundColor: C.tierMidBg };
   }
   if (tier === 'low') {
-    return { borderColor: '#6a6a6a', backgroundColor: '#f7f7f7' };
+    return { borderColor: C.tierLowBorder, backgroundColor: C.tierLowBg };
   }
-  return { borderColor: '#dfd0bb', backgroundColor: '#fffcf7' };
+  return { borderColor: C.setCardBorder, backgroundColor: C.setCardBg };
 }
 
 function initials(name) {
@@ -384,7 +389,7 @@ function initials(name) {
 function withAlpha(hexColor, alpha) {
   const raw = (hexColor || '').replace('#', '');
   if (!/^[0-9A-Fa-f]{6}$/.test(raw)) {
-    return `rgba(31, 122, 66, ${alpha})`;
+    return `rgba(0, 0, 0, ${alpha})`;
   }
   const intValue = Number.parseInt(raw, 16);
   const r = (intValue >> 16) & 255;

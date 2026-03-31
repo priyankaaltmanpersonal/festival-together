@@ -1,6 +1,10 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../theme';
 
 export function PrivacyScreen({ onAccept }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
@@ -32,24 +36,24 @@ export function PrivacyScreen({ onAccept }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   wrap: { flexGrow: 1, gap: 12, paddingHorizontal: 16, paddingBottom: 16, paddingTop: 4 },
   card: {
     flex: 1,
-    backgroundColor: '#fffefb',
+    backgroundColor: C.cardBg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e0d2bb',
+    borderColor: C.cardBorder,
     padding: 20,
     gap: 16,
   },
-  cardTitle: { fontSize: 22, fontWeight: '800', color: '#1f3024' },
-  divider: { height: 1, backgroundColor: '#e0d2bb' },
-  row: { fontSize: 15, lineHeight: 23, color: '#555' },
-  label: { fontWeight: '700', color: '#2f302f' },
+  cardTitle: { fontSize: 22, fontWeight: '800', color: C.headingText },
+  divider: { height: 1, backgroundColor: C.cardBorder },
+  row: { fontSize: 15, lineHeight: 23, color: C.textSec },
+  label: { fontWeight: '700', color: C.text },
   body: { fontWeight: '400' },
   button: {
-    backgroundColor: '#183a27',
+    backgroundColor: C.primary,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 10,

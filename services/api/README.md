@@ -23,8 +23,11 @@ FastAPI backend for group, schedule, and parsing workflows.
 - `GET /v1/groups/{group_id}/canonical/review`
 - `POST /v1/groups/{group_id}/canonical/confirm` (founder only)
 - `POST /v1/members/me/personal/import`
+- `POST /v1/members/me/personal/upload` (Claude Haiku vision parsing)
 - `GET /v1/members/me/personal/review`
 - `PATCH /v1/members/me/sets/{canonical_set_id}`
+- `DELETE /v1/members/me/sets/{canonical_set_id}`
+- `POST /v1/members/me/sets`
 - `POST /v1/members/me/setup/complete`
 - `GET /v1/members/me/home`
 - `GET /v1/groups/{group_id}/schedule` (`must_see_only`, `member_ids` query filters)

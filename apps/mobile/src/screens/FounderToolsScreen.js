@@ -1,10 +1,14 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../theme';
 
 export function FounderToolsScreen({
   inviteCode,
   groupName,
   onOpenSchedule
 }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
@@ -23,20 +27,20 @@ export function FounderToolsScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   wrap: { gap: 10, paddingHorizontal: 12, paddingBottom: 20 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e8d8c1',
+    borderColor: C.cardBorder,
     padding: 12,
     gap: 8
   },
-  label: { fontWeight: '700', color: '#303030' },
-  helper: { color: '#666', fontSize: 12 },
+  label: { fontWeight: '700', color: C.text },
+  helper: { color: C.textMuted, fontSize: 12 },
   buttonSecondary: {
-    backgroundColor: '#345a46',
+    backgroundColor: C.primary,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10,

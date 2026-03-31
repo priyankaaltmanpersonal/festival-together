@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "festivaltogether",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
@@ -21,9 +21,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.festivaltogether.app",
-      "buildNumber": "1.0.0",
+      "buildNumber": "1.0.1",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Festival Together needs access to your photo library so you can upload screenshots of the festival schedule."
+        "NSPhotoLibraryUsageDescription": "Festival Together needs access to your photo library so you can upload screenshots of the festival schedule.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -38,7 +39,10 @@
       ]
     },
     "extra": {
-      "appEnv": "production"
+      "appEnv": "production",
+      "eas": {
+        "projectId": "bb2b2270-8beb-4240-bb21-f62e32e2606d"
+      }
     }
   }
 }

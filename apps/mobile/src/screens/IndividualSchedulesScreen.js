@@ -1,6 +1,10 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../theme';
 
 export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const members = individualSnapshot?.members || [];
 
   return (
@@ -35,21 +39,21 @@ export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   wrap: { gap: 10, paddingBottom: 22 },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: C.cardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e8d8c1',
+    borderColor: C.cardBorder,
     padding: 12,
     gap: 8
   },
-  label: { fontWeight: '700', color: '#303030' },
-  memberName: { fontWeight: '700', fontSize: 16, color: '#2a2a2a' },
-  helper: { color: '#666', fontSize: 12 },
+  label: { fontWeight: '700', color: C.text },
+  memberName: { fontWeight: '700', fontSize: 16, color: C.text },
+  helper: { color: C.textMuted, fontSize: 12 },
   buttonPrimary: {
-    backgroundColor: '#183a27',
+    backgroundColor: C.primary,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10
@@ -57,10 +61,10 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontWeight: '700' },
   setRow: {
     borderWidth: 1,
-    borderColor: '#e5d8c6',
+    borderColor: C.setRowBorder,
     borderRadius: 10,
     padding: 8,
-    backgroundColor: '#fffdf9'
+    backgroundColor: C.setRowBg
   },
-  setTitle: { color: '#2f2f2f', fontWeight: '600' }
+  setTitle: { color: C.setRowTitle, fontWeight: '600' }
 });

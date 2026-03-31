@@ -1,6 +1,10 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../theme';
 
 export function Tabs({ activeTab, onChange }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const tabs = [
     { id: 'setup', label: 'Setup' },
     { id: 'group', label: 'Group Schedule' },
@@ -22,7 +26,7 @@ export function Tabs({ activeTab, onChange }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     gap: 8,
@@ -34,19 +38,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ccb79b',
-    backgroundColor: '#fff8ef'
+    borderColor: C.tabBorder,
+    backgroundColor: C.tabBg
   },
   tabActive: {
-    borderColor: '#2f6244',
-    backgroundColor: '#e6f2e8'
+    borderColor: C.tabActiveBorder,
+    backgroundColor: C.tabActiveBg
   },
   tabText: {
     fontSize: 12,
-    color: '#4e4e4e',
+    color: C.tabText,
     fontWeight: '600'
   },
   tabTextActive: {
-    color: '#214731'
+    color: C.tabActiveText
   }
 });

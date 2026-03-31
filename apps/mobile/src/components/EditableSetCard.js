@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useTheme } from '../theme';
 
 function formatTime(t) {
   if (!t) return '';
@@ -37,6 +38,8 @@ export function EditableSetCard({
   saving = false,
   deleting = false,
 }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
   const [editName, setEditName] = useState(setItem.artist_name);
   const [editStage, setEditStage] = useState(setItem.stage_name);
   const [editStart, setEditStart] = useState(setItem.start_time_pt);
@@ -105,7 +108,7 @@ export function EditableSetCard({
 
         <View style={styles.saveRow}>
           {saving ? (
-            <ActivityIndicator color="#183a27" />
+            <ActivityIndicator color={C.primary} />
           ) : (
             <Pressable onPress={handleSave} style={styles.saveBtn}>
               <Text style={styles.saveBtnText}>Save</Text>
@@ -157,91 +160,91 @@ export function EditableSetCard({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (C) => StyleSheet.create({
   card: {
     borderWidth: 1,
-    borderColor: '#e4d6c3',
+    borderColor: C.setRowBorder,
     borderRadius: 10,
     padding: 8,
-    backgroundColor: '#fffdfa',
+    backgroundColor: C.setRowBg,
     gap: 6,
   },
   cardEditing: {
     borderWidth: 2,
-    borderColor: '#6a9e73',
+    borderColor: C.addCardBorder,
     borderRadius: 10,
     padding: 10,
-    backgroundColor: '#fffdf8',
+    backgroundColor: C.addCardBg,
     gap: 8,
   },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardInfo: { flex: 1, gap: 2 },
-  artistName: { color: '#2f2f2f', fontWeight: '700', fontSize: 13 },
-  details: { color: '#888', fontSize: 11 },
+  artistName: { color: C.text, fontWeight: '700', fontSize: 13 },
+  details: { color: C.textMuted, fontSize: 11 },
   prefRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   prefBtn: {
     borderWidth: 1,
-    borderColor: '#cab697',
+    borderColor: C.prefBtnBorder,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#fbf6ee',
+    backgroundColor: C.prefBtnBg,
   },
-  prefBtnActive: { backgroundColor: '#e4f2e7', borderColor: '#6a9e73' },
-  prefBtnText: { color: '#4a4a4a', fontSize: 12, fontWeight: '700' },
-  prefBtnTextActive: { color: '#235232' },
+  prefBtnActive: { backgroundColor: C.prefBtnActiveBg, borderColor: C.prefBtnActiveBorder },
+  prefBtnText: { color: C.prefBtnText, fontSize: 12, fontWeight: '700' },
+  prefBtnTextActive: { color: C.prefBtnActiveText },
   editBtn: {
     borderWidth: 1,
-    borderColor: '#b0c8bc',
+    borderColor: C.editBtnBorder,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#f0f7f3',
+    backgroundColor: C.editBtnBg,
     marginLeft: 'auto',
   },
-  editBtnText: { color: '#345a46', fontSize: 11, fontWeight: '700' },
+  editBtnText: { color: C.editBtnText, fontSize: 11, fontWeight: '700' },
   deleteBtn: { paddingHorizontal: 6, paddingVertical: 2 },
-  deleteBtnText: { color: '#b52424', fontWeight: '800', fontSize: 16 },
+  deleteBtnText: { color: C.error, fontWeight: '800', fontSize: 16 },
   editHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  editLabel: { color: '#2d6a4a', fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  editLabel: { color: C.addCardLabel, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
   fieldGroup: { gap: 2 },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#5a4d3b' },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: C.fieldLabelText },
   input: {
     borderWidth: 1,
-    borderColor: '#d8c8b2',
+    borderColor: C.inputBorder,
     borderRadius: 8,
     paddingHorizontal: 9,
     paddingVertical: 7,
     fontSize: 13,
-    backgroundColor: '#fff',
+    backgroundColor: C.inputBg,
   },
   timeRow: { flexDirection: 'row', gap: 8 },
   saveRow: { flexDirection: 'row', gap: 8, marginTop: 2 },
   saveBtn: {
     flex: 1,
-    backgroundColor: '#183a27',
+    backgroundColor: C.primary,
     borderRadius: 8,
     paddingVertical: 9,
     alignItems: 'center',
   },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cancelBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: C.inputBg,
     borderWidth: 1,
-    borderColor: '#d8c8b2',
+    borderColor: C.inputBorder,
     borderRadius: 8,
     paddingVertical: 9,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
-  cancelBtnText: { color: '#666', fontWeight: '700', fontSize: 13 },
-  saveError: { color: '#b52424', fontWeight: '600', fontSize: 12 },
+  cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
+  saveError: { color: C.error, fontWeight: '600', fontSize: 12 },
   warningBox: {
-    backgroundColor: '#fff8f0',
+    backgroundColor: C.warningBg,
     borderWidth: 1,
-    borderColor: '#e8c89a',
+    borderColor: C.warningBorder,
     borderRadius: 8,
     padding: 8,
   },
-  warningText: { fontSize: 11, color: '#7a5a2a' },
+  warningText: { fontSize: 11, color: C.warning },
 });
