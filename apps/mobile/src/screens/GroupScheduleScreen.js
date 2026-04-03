@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
@@ -16,7 +17,9 @@ export function GroupScheduleScreen({
   onResetFilters,
   inviteCode,
   onCopyInvite,
-  inviteCopied
+  inviteCopied,
+  myMemberId,
+  onAddToMySchedule,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -189,6 +192,7 @@ export function GroupScheduleScreen({
                         key={`def-${attendee.member_id}`}
                         attendee={attendee}
                         chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
+                        isSelf={attendee.member_id === myMemberId}
                       />
                     ))}
                   </View>
@@ -204,12 +208,38 @@ export function GroupScheduleScreen({
                         key={`maybe-${attendee.member_id}`}
                         attendee={attendee}
                         chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
+                        isSelf={attendee.member_id === myMemberId}
                       />
                     ))}
                   </View>
                 ) : (
                   <Text style={styles.modalEmpty}>No maybes for this set.</Text>
                 )}
+
+                {myMemberId && onAddToMySchedule ? (() => {
+                  const myAttendance = (expandedSet.attendees || []).find(
+                    (a) => a.member_id === myMemberId
+                  );
+                  return (
+                    <>
+                      <View style={styles.modalDivider} />
+                      {myAttendance ? (
+                        <View style={styles.modalStatusPill}>
+                          <Text style={styles.modalStatusText}>
+                            ✓ On your schedule — {myAttendance.preference === 'must_see' ? 'Must See' : 'Maybe'}
+                          </Text>
+                          <Text style={styles.modalAddHint}>Edit in your schedule to change preference</Text>
+                        </View>
+                      ) : (
+                        <AddToScheduleFooter
+                          setItem={expandedSet}
+                          onAdd={onAddToMySchedule}
+                          onAdded={() => setExpandedSet(null)}
+                        />
+                      )}
+                    </>
+                  );
+                })() : null}
               </ScrollView>
             ) : null}
           </Pressable>
@@ -219,7 +249,7 @@ export function GroupScheduleScreen({
   );
 }
 
-function AttendeeRow({ attendee, chipColor }) {
+function AttendeeRow({ attendee, chipColor, isSelf = false }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   return (
@@ -234,7 +264,57 @@ function AttendeeRow({ attendee, chipColor }) {
           {initials(attendee.display_name)}
         </Text>
       </View>
-      <Text style={styles.modalName}>{attendee.display_name}</Text>
+      <Text style={styles.modalName}>
+        {attendee.display_name}
+        {isSelf ? <Text style={styles.modalSelfLabel}> (you)</Text> : null}
+      </Text>
+    </View>
+  );
+}
+
+function AddToScheduleFooter({ setItem, onAdd, onAdded }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [addError, setAddError] = useState('');
+
+  const handleAdd = async () => {
+    setAdding(true);
+    setAddError('');
+    try {
+      await onAdd(setItem);
+      setAdded(true);
+      setTimeout(onAdded, 1000);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add. Try again.');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  if (added) {
+    return (
+      <View style={styles.modalAddedPill}>
+        <Text style={styles.modalAddedText}>✓ Added as maybe!</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: 6 }}>
+      <Pressable onPress={handleAdd} disabled={adding} style={[styles.modalAddBtn, adding && { opacity: 0.6 }]}>
+        <LinearGradient
+          colors={C.gradientPrimary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.modalAddBtnGradient}
+        >
+          <Text style={styles.modalAddBtnText}>{adding ? 'Adding…' : '+ Add to My Schedule'}</Text>
+        </LinearGradient>
+      </Pressable>
+      <Text style={styles.modalAddHint}>Adds as "maybe" — edit in your schedule to confirm</Text>
+      {addError ? <Text style={styles.modalAddError}>{addError}</Text> : null}
     </View>
   );
 }
@@ -359,6 +439,46 @@ const makeStyles = (C) => StyleSheet.create({
   modalAvatarText: { fontSize: 10, fontWeight: '800' },
   modalName: { color: C.modalName, fontSize: 13, fontWeight: '600' },
   modalEmpty: { color: C.modalEmpty, fontSize: 12, marginBottom: 6 },
+  modalSelfLabel: { color: C.textMuted, fontWeight: '400', fontSize: 13 },
+  modalDivider: { height: 1, backgroundColor: C.cardBorder, marginVertical: 4 },
+  modalStatusPill: {
+    backgroundColor: C.primaryBg,
+    borderRadius: 10,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    alignItems: 'center',
+    gap: 3,
+  },
+  modalStatusText: { fontSize: 13, fontWeight: '700', color: C.kickerText, textAlign: 'center' },
+  modalAddHint: { fontSize: 11, color: C.textMuted, textAlign: 'center' },
+  modalAddedPill: {
+    backgroundColor: C.successBg,
+    borderRadius: 10,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: C.successBorder,
+    alignItems: 'center',
+  },
+  modalAddedText: { fontSize: 13, fontWeight: '800', color: C.success },
+  modalAddError: { fontSize: 11, color: C.error, textAlign: 'center' },
+  modalAddBtn: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: C.primaryShadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  modalAddBtnGradient: {
+    borderRadius: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAddBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   inviteText: { fontSize: 12, color: C.inviteRowText },
   inviteCode: { fontWeight: '800', color: C.inviteRowCode, letterSpacing: 1 },

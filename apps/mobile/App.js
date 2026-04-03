@@ -949,6 +949,16 @@ export default function App() {
     setPersonalSets((prev) => [...prev, newSet]);
   };
 
+  const addSetFromGrid = async (setItem) => {
+    await addPersonalSet({
+      artist_name: setItem.artist_name,
+      stage_name: setItem.stage_name,
+      start_time_pt: setItem.start_time_pt,
+      end_time_pt: setItem.end_time_pt,
+      day_index: setItem.day_index,
+    });
+  };
+
   const editCanonicalSet = async (canonicalSetId, fields) => {
     // fields: { artist_name?, stage_name?, start_time_pt?, end_time_pt? }
     await apiRequest({
@@ -1206,6 +1216,8 @@ export default function App() {
           inviteCode={inviteCode}
           onCopyInvite={copyInviteCode}
           inviteCopied={inviteCopied}
+          myMemberId={homeSnapshot?.me?.id}
+          onAddToMySchedule={addSetFromGrid}
         />
       ) : null}
 
