@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DayTabReview } from '../components/DayTabReview';
@@ -296,17 +297,31 @@ const makeAddCardStyles = (C) => StyleSheet.create({
 function ActionButton({ label, onPress, primary = false, disabled = false, large = false }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
+  if (primary) {
+    return (
+      <Pressable
+        disabled={disabled}
+        onPress={onPress}
+        style={[styles.buttonPrimaryWrap, large && styles.buttonLarge, disabled && styles.buttonDisabled]}
+      >
+        <LinearGradient
+          colors={C.gradientPrimary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.buttonPrimaryGradient, large && styles.buttonLarge]}
+        >
+          <Text style={[styles.buttonText, large && styles.buttonTextLarge]}>{label}</Text>
+        </LinearGradient>
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      style={[
-        primary ? styles.buttonPrimary : styles.buttonSecondary,
-        large && styles.buttonLarge,
-        disabled && styles.buttonDisabled
-      ]}
+      style={[styles.buttonSecondary, large && styles.buttonLarge, disabled && styles.buttonDisabled]}
     >
-      <Text style={[styles.buttonText, !primary && styles.buttonTextSecondary, large && styles.buttonTextLarge]}>{label}</Text>
+      <Text style={[styles.buttonText, styles.buttonTextSecondary, large && styles.buttonTextLarge]}>{label}</Text>
     </Pressable>
   );
 }
@@ -384,11 +399,21 @@ const makeStyles = (C) => StyleSheet.create({
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dayIndexLabel: { color: C.fieldLabelText, fontSize: 12, fontWeight: '700', width: 40 },
   dayInput: { flex: 1 },
-  buttonPrimary: {
-    backgroundColor: C.primary,
+  buttonPrimaryWrap: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: C.primaryShadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonPrimaryGradient: {
     borderRadius: 10,
     paddingVertical: 10,
-    paddingHorizontal: 10
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonSecondary: {
     backgroundColor: C.btnSecondaryBg,

@@ -1,4 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
+import { LinearGradient } from 'expo-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from './src/theme';
@@ -1128,7 +1129,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <LinearGradient colors={C.gradientHeader} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={styles.title}>{title}</Text>
           {!isOnline ? (
@@ -1142,7 +1143,7 @@ export default function App() {
             <Text style={styles.menuButtonText}>☰</Text>
           </Pressable>
         ) : null}
-      </View>
+      </LinearGradient>
 
       {/* Privacy screen shown once per install. Intentionally outside the onboardingStep
           state machine so it gates ALL paths (create group and join group) with a single
@@ -1294,7 +1295,6 @@ const makeStyles = (C) => StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: C.headerBg
   },
   title: {
     fontSize: 22,

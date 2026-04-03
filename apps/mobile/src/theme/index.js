@@ -1,49 +1,51 @@
-import { useColorScheme } from 'react-native';
-
 export const lightColors = {
   // App chrome
-  bg: '#f5f3fa',
+  bg: '#fff2e8',
   surface: '#ffffff',
-  surfaceTinted: '#ede9ff',
+  surfaceTinted: '#fff0e0',
 
-  // Header
-  headerBg: '#4a3db5',
+  // Header (replaced by gradientHeader for LinearGradient usage)
   headerText: '#ffffff',
 
+  // Gradients (pass to LinearGradient colors prop)
+  gradientHeader: ['#ff6b00', '#ff2d78'],
+  gradientPrimary: ['#ff6b00', '#ffb800'],
+  primaryShadow: 'rgba(255, 107, 0, 0.4)',
+
   // Primary
-  primary: '#4a3db5',
-  primaryBg: '#ede9ff',
+  primary: '#ff6b00',
+  primaryBg: '#fff0e0',
   primaryText: '#ffffff',
 
   // Secondary button
-  btnSecondaryBg: '#f0eeff',
-  btnSecondaryBorder: '#c0b8f0',
-  btnSecondaryText: '#4a3db5',
+  btnSecondaryBg: '#e8f2ff',
+  btnSecondaryBorder: '#7ab0f0',
+  btnSecondaryText: '#1a4fa0',
 
   // Menu
-  menuOverlayBg: 'rgba(15, 10, 50, 0.35)',
+  menuOverlayBg: 'rgba(80, 20, 0, 0.35)',
   menuCardBg: '#ffffff',
-  menuCardBorder: '#ddd8f8',
-  menuItemBg: '#f8f6ff',
-  menuItemBorder: '#ddd8f8',
-  menuLabelText: '#6e68a0',
-  menuItemText: '#2a2650',
+  menuCardBorder: '#ffc8a0',
+  menuItemBg: '#fff8f2',
+  menuItemBorder: '#ffc8a0',
+  menuLabelText: '#a07050',
+  menuItemText: '#1e0800',
 
   // Invite card (in menu)
-  inviteCardBg: '#ede9ff',
-  inviteCardBorder: '#b8b0f0',
-  inviteLabel: '#4a3db5',
-  inviteCode: '#1a1638',
-  copiedText: '#4a3db5',
+  inviteCardBg: '#fff0e0',
+  inviteCardBorder: '#ffc8a0',
+  inviteLabel: '#cc4400',
+  inviteCode: '#1e0800',
+  copiedText: '#cc4400',
 
   // Text
-  text: '#1a1638',
-  textSec: '#5a5480',
-  textMuted: '#8e8aac',
+  text: '#1e0800',
+  textSec: '#a07050',
+  textMuted: '#c07840',
 
   // Input
   inputBg: '#ffffff',
-  inputBorder: '#cdc9e8',
+  inputBorder: '#ffc8a0',
 
   // Error / success / warning
   error: '#c62828',
@@ -57,268 +59,108 @@ export const lightColors = {
   warningBorder: '#e8c89a',
 
   // Grid
-  gridBg: '#faf8ff',
-  gridTimeBg: '#f0edff',
-  gridStageBg: '#faf8ff',
-  gridBorder: '#cdc9e8',
-  gridRowLine: '#e8e4ff',
-  gridTimeText: '#5a5480',
-  gridHeaderText: '#2a2650',
+  gridBg: '#fff8f2',
+  gridTimeBg: '#fff0e0',
+  gridStageBg: '#fff8f2',
+  gridBorder: '#e8c8a0',
+  gridRowLine: '#f5d8b8',
+  gridTimeText: '#c07840',
+  gridHeaderText: '#8a3800',
 
   // Set cards (the colored bubbles in the grid)
-  setCardBg: '#eeebff',
-  setCardBorder: '#b8b0f0',
-  setCardText: '#1a1638',
-  setCardTimeTxt: '#6e68a0',
-  setCardSummaryTxt: '#5a5480',
+  setCardBg: '#fff4e8',
+  setCardBorder: '#e8b888',
+  setCardText: '#5a2800',
+  setCardTimeTxt: '#c07040',
+  setCardSummaryTxt: '#c07040',
 
   // Popularity tiers
   tierHighBg: '#e3f9ea',
   tierHighBorder: '#45b066',
   tierMidBg: '#fffbe0',
   tierMidBorder: '#c9a500',
-  tierLowBg: '#f0eeff',
-  tierLowBorder: '#9e98cc',
+  tierLowBg: '#fff4e8',
+  tierLowBorder: '#e8b888',
 
   // Attendee bubble
-  attendeeBg: '#4a3db5',
+  attendeeBg: '#ff6b00',
   attendeeText: '#ffffff',
 
   // Modal
-  modalOverlay: 'rgba(15, 10, 50, 0.45)',
+  modalOverlay: 'rgba(80, 20, 0, 0.45)',
   modalBg: '#ffffff',
-  modalBorder: '#ddd8f8',
-  modalTitle: '#1a1638',
-  modalSubtitle: '#6e68a0',
-  modalSectionTitle: '#2a2650',
-  modalEmpty: '#8e8aac',
-  modalName: '#2a2650',
+  modalBorder: '#ffc8a0',
+  modalTitle: '#1e0800',
+  modalSubtitle: '#a07050',
+  modalSectionTitle: '#5a2800',
+  modalEmpty: '#c07840',
+  modalName: '#1e0800',
 
   // Chip / filters
-  chipSelectedBorder: '#4a3db5',
-  resetBtnText: '#4a3db5',
-  resetBtnUnderline: '#9390d0',
+  chipSelectedBorder: '#ff6b00',
+  resetBtnText: '#ff6b00',
+  resetBtnUnderline: '#ffb800',
 
   // Preference buttons
-  prefBtnBg: '#f5f3ff',
-  prefBtnBorder: '#c0b8f0',
-  prefBtnText: '#4e4e7a',
-  prefBtnActiveBg: '#ede9ff',
-  prefBtnActiveBorder: '#4a3db5',
-  prefBtnActiveText: '#1a1638',
+  prefBtnBg: '#fff4e8',
+  prefBtnBorder: '#ffc8a0',
+  prefBtnText: '#a07050',
+  prefBtnActiveBg: '#fff0e0',
+  prefBtnActiveBorder: '#ff6b00',
+  prefBtnActiveText: '#1e0800',
 
   // Edit/action buttons on set cards
-  editBtnBg: '#f0eeff',
-  editBtnBorder: '#c0b8f0',
-  editBtnText: '#4a3db5',
+  editBtnBg: '#fff0e0',
+  editBtnBorder: '#ffc8a0',
+  editBtnText: '#cc4400',
 
   // Status dots
   offlineDot: '#e0963a',
   pendingDot: '#a0b8d8',
 
-  // Hamburger menu button
-  menuBtnBg: '#f0eeff',
-  menuBtnBorder: '#c0b8f0',
-  menuBtnText: '#4a3db5',
+  // Hamburger menu button (sits on gradient header — semi-transparent white)
+  menuBtnBg: 'rgba(255, 255, 255, 0.2)',
+  menuBtnBorder: 'rgba(255, 255, 255, 0.4)',
+  menuBtnText: '#ffffff',
 
   // Tabs
-  tabBg: '#f8f6ff',
-  tabBorder: '#c0b8f0',
-  tabText: '#5a5480',
-  tabActiveBg: '#ede9ff',
-  tabActiveBorder: '#4a3db5',
-  tabActiveText: '#1a1638',
+  tabBg: '#fff4e8',
+  tabBorder: '#ffc8a0',
+  tabText: '#a07050',
+  tabActiveBg: '#fff0e0',
+  tabActiveBorder: '#ff6b00',
+  tabActiveText: '#1e0800',
 
   // Inline invite row (inside group schedule screen)
-  inviteRowText: '#5a5480',
-  inviteRowCode: '#4a3db5',
+  inviteRowText: '#a07050',
+  inviteRowCode: '#cc4400',
 
   // Setup screen color swatch selected border
-  swatchSelectedBorder: '#4a3db5',
-  swatchDefaultBorder: '#cdc9e8',
+  swatchSelectedBorder: '#ff6b00',
+  swatchDefaultBorder: '#ffc8a0',
 
   // Card backgrounds in setup/edit screens
   cardBg: '#ffffff',
-  cardBorder: '#ddd8f8',
-  stepCardBg: '#faf8ff',
-  stepCardBorder: '#cdc9e8',
-  kickerText: '#6e68a0',
-  headingText: '#1a1638',
-  labelText: '#5a5480',
-  helperText: '#8e8aac',
-  fieldLabelText: '#5a5480',
+  cardBorder: '#ffc8a0',
+  stepCardBg: '#fff8f2',
+  stepCardBorder: '#ffc8a0',
+  kickerText: '#cc4400',
+  headingText: '#1e0800',
+  labelText: '#a07050',
+  helperText: '#c07840',
+  fieldLabelText: '#a05020',
 
   // Set row in lists
-  setRowBg: '#faf8ff',
-  setRowBorder: '#ddd8f8',
-  setRowTitle: '#1a1638',
+  setRowBg: '#fff8f2',
+  setRowBorder: '#ffc8a0',
+  setRowTitle: '#1e0800',
 
   // Add artist card
-  addCardBg: '#f0eeff',
-  addCardBorder: '#c0b8f0',
-  addCardLabel: '#4a3db5',
-};
-
-export const darkColors = {
-  // App chrome
-  bg: '#12101f',
-  surface: '#1e1b30',
-  surfaceTinted: '#262244',
-
-  // Header
-  headerBg: '#1e1b30',
-  headerText: '#e8e4ff',
-
-  // Primary
-  primary: '#b0a4ff',
-  primaryBg: '#2e2a50',
-  primaryText: '#12101f',
-
-  // Secondary button
-  btnSecondaryBg: '#262244',
-  btnSecondaryBorder: '#4a4480',
-  btnSecondaryText: '#b0a4ff',
-
-  // Menu
-  menuOverlayBg: 'rgba(0, 0, 0, 0.55)',
-  menuCardBg: '#1e1b30',
-  menuCardBorder: '#3a3660',
-  menuItemBg: '#262244',
-  menuItemBorder: '#3a3660',
-  menuLabelText: '#8e8ab0',
-  menuItemText: '#d8d4f8',
-
-  // Invite card (in menu)
-  inviteCardBg: '#262244',
-  inviteCardBorder: '#4a4480',
-  inviteLabel: '#b0a4ff',
-  inviteCode: '#e8e4ff',
-  copiedText: '#b0a4ff',
-
-  // Text
-  text: '#e8e4ff',
-  textSec: '#a8a0cc',
-  textMuted: '#6e6888',
-
-  // Input
-  inputBg: '#262244',
-  inputBorder: '#4a4480',
-
-  // Error / success / warning
-  error: '#ef9a9a',
-  errorBg: '#2d1515',
-  errorBorder: '#7a2a2a',
-  success: '#a5d6a7',
-  successBg: '#1a2f1a',
-  successBorder: '#3a6a3a',
-  warning: '#ffe082',
-  warningBg: '#3d3010',
-  warningBorder: '#8a6a10',
-
-  // Grid
-  gridBg: '#12101f',
-  gridTimeBg: '#1a1828',
-  gridStageBg: '#12101f',
-  gridBorder: '#3a3660',
-  gridRowLine: '#262244',
-  gridTimeText: '#a8a0cc',
-  gridHeaderText: '#d8d4f8',
-
-  // Set cards (bubbles)
-  setCardBg: '#232040',
-  setCardBorder: '#3a3660',
-  setCardText: '#e8e4ff',
-  setCardTimeTxt: '#8e8ab0',
-  setCardSummaryTxt: '#a8a0cc',
-
-  // Popularity tiers
-  tierHighBg: '#1a3828',
-  tierHighBorder: '#4caf7a',
-  tierMidBg: '#3a2e08',
-  tierMidBorder: '#c9a500',
-  tierLowBg: '#232040',
-  tierLowBorder: '#5a5480',
-
-  // Attendee bubble
-  attendeeBg: '#7060d8',
-  attendeeText: '#ffffff',
-
-  // Modal
-  modalOverlay: 'rgba(0, 0, 0, 0.65)',
-  modalBg: '#1e1b30',
-  modalBorder: '#3a3660',
-  modalTitle: '#e8e4ff',
-  modalSubtitle: '#8e8ab0',
-  modalSectionTitle: '#d8d4f8',
-  modalEmpty: '#6e6888',
-  modalName: '#d8d4f8',
-
-  // Chip / filters
-  chipSelectedBorder: '#b0a4ff',
-  resetBtnText: '#b0a4ff',
-  resetBtnUnderline: '#6060a0',
-
-  // Preference buttons
-  prefBtnBg: '#262244',
-  prefBtnBorder: '#4a4480',
-  prefBtnText: '#a8a0cc',
-  prefBtnActiveBg: '#2e2a50',
-  prefBtnActiveBorder: '#b0a4ff',
-  prefBtnActiveText: '#e8e4ff',
-
-  // Edit/action buttons on set cards
-  editBtnBg: '#262244',
-  editBtnBorder: '#4a4480',
-  editBtnText: '#b0a4ff',
-
-  // Status dots
-  offlineDot: '#e0963a',
-  pendingDot: '#6080a0',
-
-  // Hamburger menu button
-  menuBtnBg: '#262244',
-  menuBtnBorder: '#4a4480',
-  menuBtnText: '#b0a4ff',
-
-  // Tabs
-  tabBg: '#1e1b30',
-  tabBorder: '#3a3660',
-  tabText: '#a8a0cc',
-  tabActiveBg: '#2e2a50',
-  tabActiveBorder: '#b0a4ff',
-  tabActiveText: '#e8e4ff',
-
-  // Inline invite row
-  inviteRowText: '#a8a0cc',
-  inviteRowCode: '#b0a4ff',
-
-  // Setup screen color swatch
-  swatchSelectedBorder: '#b0a4ff',
-  swatchDefaultBorder: '#4a4480',
-
-  // Card backgrounds
-  cardBg: '#1e1b30',
-  cardBorder: '#3a3660',
-  stepCardBg: '#262244',
-  stepCardBorder: '#3a3660',
-  kickerText: '#8e8ab0',
-  headingText: '#e8e4ff',
-  labelText: '#a8a0cc',
-  helperText: '#6e6888',
-  fieldLabelText: '#a8a0cc',
-
-  // Set row in lists
-  setRowBg: '#262244',
-  setRowBorder: '#3a3660',
-  setRowTitle: '#e8e4ff',
-
-  // Add artist card
-  addCardBg: '#262244',
-  addCardBorder: '#4a4480',
-  addCardLabel: '#b0a4ff',
+  addCardBg: '#fff0e0',
+  addCardBorder: '#ffc8a0',
+  addCardLabel: '#cc4400',
 };
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  return scheme === 'dark' ? darkColors : lightColors;
+  return lightColors;
 }
