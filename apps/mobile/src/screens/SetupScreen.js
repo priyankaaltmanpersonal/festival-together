@@ -159,9 +159,12 @@ export function SetupScreen({
             <Text style={styles.stepTitle}>Upload {truncatedLabel} schedule</Text>
             <Text style={styles.helper}>Day {dayPosition} of {totalDays}</Text>
             {dayState.status === 'uploading' ? (
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <ActivityIndicator color={C.primary} size="small" />
-                <Text style={styles.helper}>Uploading in background…</Text>
+              <View style={{ gap: 6 }}>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <ActivityIndicator color={C.primary} size="small" />
+                  <Text style={styles.helper}>Parsing your schedule…</Text>
+                </View>
+                <Text style={styles.helper}>This usually takes 5–10 seconds. Hang tight!</Text>
               </View>
             ) : dayState.status === 'done' ? (
               <Text style={styles.helper}>✓ {(dayState.sets || []).length} artists found</Text>
@@ -303,7 +306,7 @@ function ActionButton({ label, onPress, primary = false, disabled = false, large
         disabled && styles.buttonDisabled
       ]}
     >
-      <Text style={[styles.buttonText, large && styles.buttonTextLarge]}>{label}</Text>
+      <Text style={[styles.buttonText, !primary && styles.buttonTextSecondary, large && styles.buttonTextLarge]}>{label}</Text>
     </Pressable>
   );
 }
@@ -344,7 +347,7 @@ function ColorPicker({ options, selected, onSelect, availableSet = null }) {
 }
 
 const makeStyles = (C) => StyleSheet.create({
-  wrap: { flexGrow: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 24 },
+  wrap: { flexGrow: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 24, paddingTop: 16 },
   wrapWelcome: { paddingTop: 20 },
   welcomeScreen: { gap: 20 },
   welcomeActions: { gap: 12 },
@@ -394,6 +397,7 @@ const makeStyles = (C) => StyleSheet.create({
     paddingHorizontal: 10
   },
   buttonText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
+  buttonTextSecondary: { color: C.btnSecondaryText },
   buttonLarge: {
     minHeight: 66,
     justifyContent: 'center',
