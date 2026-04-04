@@ -11,7 +11,7 @@ export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
         <Text style={styles.label}>Individual Schedules</Text>
-        <Pressable onPress={onLoadIndividual} style={styles.buttonPrimary}>
+        <Pressable onPress={onLoadIndividual} style={styles.buttonSecondary}>
           <Text style={styles.buttonText}>Refresh Individual Schedules</Text>
         </Pressable>
         {!members.length ? <Text style={styles.helper}>No data yet. Run member setup and refresh.</Text> : null}
@@ -40,7 +40,7 @@ export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual
 }
 
 const makeStyles = (C) => StyleSheet.create({
-  wrap: { gap: 10, paddingBottom: 22 },
+  wrap: { gap: 10, paddingHorizontal: 12, paddingTop: 16, paddingBottom: 22 },
   card: {
     backgroundColor: C.cardBg,
     borderRadius: 14,
@@ -52,13 +52,16 @@ const makeStyles = (C) => StyleSheet.create({
   label: { fontWeight: '700', color: C.text },
   memberName: { fontWeight: '700', fontSize: 16, color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },
-  buttonPrimary: {
-    backgroundColor: C.primary,
+  buttonSecondary: {
+    backgroundColor: C.btnSecondaryBg,
+    borderWidth: 1,
+    borderColor: C.btnSecondaryBorder,
     borderRadius: 10,
     paddingVertical: 10,
-    paddingHorizontal: 10
+    paddingHorizontal: 10,
+    alignItems: 'center',
   },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  buttonText: { color: C.btnSecondaryText, fontWeight: '700' },
   setRow: {
     borderWidth: 1,
     borderColor: C.setRowBorder,

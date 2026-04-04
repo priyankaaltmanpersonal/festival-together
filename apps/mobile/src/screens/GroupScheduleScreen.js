@@ -144,6 +144,7 @@ export function GroupScheduleScreen({
                               <Text style={styles.timeRangeText} numberOfLines={1}>
                                 {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
                               </Text>
+                              {!compact ? (
                               <View style={styles.attendeeRow}>
                                 {definite.slice(0, iconLimit).map((attendee) => (
                                   <View
@@ -158,6 +159,7 @@ export function GroupScheduleScreen({
                                 ))}
                                 {definite.length > iconLimit ? <Text style={styles.countText}>+{definite.length - iconLimit}</Text> : null}
                               </View>
+                            ) : null}
                             </View>
                             <Text style={[styles.summaryText, compact && styles.summaryTextCompact]} numberOfLines={1}>
                               {definite.length} def · {maybeCount} maybe
@@ -320,7 +322,7 @@ function AddToScheduleFooter({ setItem, onAdd, onAdded }) {
 }
 
 const makeStyles = (C) => StyleSheet.create({
-  wrap: { flex: 1, paddingHorizontal: 12 },
+  wrap: { flex: 1, paddingHorizontal: 12, paddingTop: 16 },
   filterSection: { paddingBottom: 8 },
   filterBar: { gap: 6 },
   gridHScroll: { flex: 1 },

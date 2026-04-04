@@ -8,7 +8,6 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { apiRequest } from './src/api/client';
 import { EditMyScheduleScreen } from './src/screens/EditMyScheduleScreen';
-import { FounderToolsScreen } from './src/screens/FounderToolsScreen';
 import { GroupScheduleScreen } from './src/screens/GroupScheduleScreen';
 import { IndividualSchedulesScreen } from './src/screens/IndividualSchedulesScreen';
 import { PrivacyScreen } from './src/screens/PrivacyScreen';
@@ -1129,7 +1128,6 @@ export default function App() {
     if (activeView === 'group') return 'Group Schedule';
     if (activeView === 'individual') return 'Individual Schedules';
     if (activeView === 'edit') return 'Edit My Schedule';
-    if (activeView === 'founder') return 'Founder Tools';
     return 'Festival Together';
   }, [activeView]);
 
@@ -1240,14 +1238,6 @@ export default function App() {
           onDeleteSet={deletePersonalSet}
           onAddSet={addPersonalSet}
           onEditSet={editCanonicalSet}
-        />
-      ) : null}
-
-      {activeView === 'founder' ? (
-        <FounderToolsScreen
-          inviteCode={inviteCode}
-          groupName={homeSnapshot?.group?.name || groupName}
-          onOpenSchedule={() => setActiveView('group')}
         />
       ) : null}
 
