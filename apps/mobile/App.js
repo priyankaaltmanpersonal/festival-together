@@ -1233,7 +1233,7 @@ export default function App() {
           personalSets={personalSets}
           festivalDays={festivalDays}
           loading={loading}
-          onImportPersonal={importPersonal}
+          onReUploadDay={chooseAndUploadDayScreenshot}
           onRefreshPersonal={refreshPersonal}
           onSetAllMustSee={setAllMustSee}
           onSetPreference={setPreference}

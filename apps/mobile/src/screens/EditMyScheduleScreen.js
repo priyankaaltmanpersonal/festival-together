@@ -7,7 +7,7 @@ export function EditMyScheduleScreen({
   personalSets,
   festivalDays,
   loading,
-  onImportPersonal,
+  onReUploadDay,
   onRefreshPersonal,
   onSetAllMustSee,
   onSetPreference,
@@ -36,16 +36,12 @@ export function EditMyScheduleScreen({
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
         <Text style={styles.label}>Update Your Schedule</Text>
-        <Text style={styles.helper}>Upload more screenshots if your plans changed.</Text>
-        <Pressable onPress={onImportPersonal} style={[styles.buttonPrimary, loading && styles.buttonDisabled]} disabled={loading}>
-          <Text style={styles.buttonText}>Upload + Re-Parse</Text>
-        </Pressable>
         <View style={styles.row}>
           <Pressable onPress={onRefreshPersonal} style={styles.buttonSecondary}>
-            <Text style={styles.buttonText}>Refresh</Text>
+            <Text style={styles.buttonTextSecondary}>Refresh</Text>
           </Pressable>
           <Pressable onPress={onSetAllMustSee} style={styles.buttonSecondary}>
-            <Text style={styles.buttonText}>All Must-See</Text>
+            <Text style={styles.buttonTextSecondary}>All Must-See</Text>
           </Pressable>
         </View>
         {loading ? <ActivityIndicator color={C.primary} style={{ marginTop: 4 }} /> : null}
@@ -69,6 +65,7 @@ export function EditMyScheduleScreen({
             onAddSet={onAddSet}
             onSetPreference={onSetPreference}
             onEditSet={onEditSet}
+            onReUpload={onReUploadDay}
           />
         )}
       </View>
@@ -77,7 +74,7 @@ export function EditMyScheduleScreen({
 }
 
 const makeStyles = (C) => StyleSheet.create({
-  wrap: { gap: 10, paddingHorizontal: 12, paddingBottom: 20 },
+  wrap: { gap: 10, paddingHorizontal: 12, paddingTop: 16, paddingBottom: 20 },
   card: {
     backgroundColor: C.cardBg,
     borderRadius: 14,
@@ -89,13 +86,6 @@ const makeStyles = (C) => StyleSheet.create({
   label: { fontWeight: '700', color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },
   row: { flexDirection: 'row', gap: 8 },
-  buttonPrimary: {
-    backgroundColor: C.primary,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
   buttonSecondary: {
     flex: 1,
     backgroundColor: C.btnSecondaryBg,
@@ -106,6 +96,5 @@ const makeStyles = (C) => StyleSheet.create({
     paddingHorizontal: 10,
     alignItems: 'center',
   },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: C.primaryText, fontWeight: '700', fontSize: 13 },
+  buttonTextSecondary: { color: C.btnSecondaryText, fontWeight: '700', fontSize: 13 },
 });

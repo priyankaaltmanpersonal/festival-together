@@ -79,6 +79,7 @@ export function DayTabReview({
   onAddSet,
   onSetPreference,
   onEditSet,
+  onReUpload,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -141,7 +142,10 @@ export function DayTabReview({
         {current.status === 'uploading' ? (
           <View style={styles.loadingBlock}>
             <ActivityIndicator color={C.primary} />
-            <Text style={styles.loadingText}>Analyzing your schedule…</Text>
+            <View>
+              <Text style={styles.loadingText}>Analyzing your schedule…</Text>
+              <Text style={styles.loadingHint}>This usually takes 5–10 seconds. Hang tight!</Text>
+            </View>
           </View>
         ) : current.status === 'failed' ? (
           <View style={styles.failedBlock}>
@@ -205,6 +209,11 @@ export function DayTabReview({
                 <Text style={styles.secondaryBtnText}>+ Add Artist</Text>
               </Pressable>
             )}
+            {onReUpload ? (
+              <Pressable onPress={() => onReUpload(activeDay)} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>Re-upload Screenshot</Text>
+              </Pressable>
+            ) : null}
           </>
         )}
       </View>
@@ -255,6 +264,7 @@ const makeStyles = (C) => StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: { color: C.textMuted, fontSize: 13 },
+  loadingHint: { color: C.textMuted, fontSize: 11, marginTop: 2 },
   failedBlock: { gap: 10 },
   failedText: { color: C.error, fontSize: 13 },
   emptyText: { color: C.textMuted, fontSize: 13 },
