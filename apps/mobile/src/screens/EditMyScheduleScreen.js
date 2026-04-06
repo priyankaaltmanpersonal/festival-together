@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useRef } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
@@ -14,6 +14,7 @@ export function EditMyScheduleScreen({
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
+  const scrollViewRef = useRef(null);
 
   // Build dayStates from personalSets so DayTabReview can render them
   const dayStates = useMemo(() => {
@@ -30,12 +31,12 @@ export function EditMyScheduleScreen({
   }, [festivalDays, personalSets]);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
-      keyboardVerticalOffset={100}
+    <ScrollView
+      ref={scrollViewRef}
+      contentContainerStyle={styles.wrap}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
     >
-      <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
         <Text style={styles.label}>
           Your Schedule ({(personalSets || []).length} artists)
@@ -55,11 +56,11 @@ export function EditMyScheduleScreen({
             onSetPreference={onSetPreference}
             onEditSet={onEditSet}
             onReUpload={onReUploadDay}
+            onAddOpen={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)}
           />
         )}
       </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+    </ScrollView>
   );
 }
 

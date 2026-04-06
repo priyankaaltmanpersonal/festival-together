@@ -1,31 +1,49 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { EditableSetCard } from './EditableSetCard';
+import { useTheme } from '../theme';
 
 const STAGE_OPTIONS = [
   'Coachella Stage', 'Outdoor Theatre', 'Sahara', 'Mojave', 'Gobi', 'Quasar', 'Sonora', 'DoLaB',
 ];
-import { EditableSetCard } from './EditableSetCard';
-import { useTheme } from '../theme';
+
+function formatHHMM(date) {
+  const h = date.getHours().toString().padStart(2, '0');
+  const m = date.getMinutes().toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function formatDisplayTime(date) {
+  let h = date.getHours();
+  const m = date.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+}
+
+function makeDefaultTime(hour) {
+  const d = new Date();
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
 
 function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
   const [stageOpen, setStageOpen] = useState(false);
   const [stageCustom, setStageCustom] = useState(false);
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
+  const [startDate, setStartDate] = useState(() => makeDefaultTime(20));
+  const [endDate, setEndDate] = useState(() => makeDefaultTime(21));
+  const [activeTimePicker, setActiveTimePicker] = useState(null); // 'start' | 'end' | null
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
   const stages = stageOptions || STAGE_OPTIONS;
 
   const handleAdd = async () => {
-    if (!name.trim() || !stage.trim() || !start.trim() || !end.trim()) {
-      setFormError('All fields are required.');
-      return;
-    }
-    if (!/^\d{1,2}:\d{2}$/.test(start.trim()) || !/^\d{1,2}:\d{2}$/.test(end.trim())) {
-      setFormError('Times must be in HH:MM format (e.g. 21:00).');
+    if (!name.trim() || !stage.trim()) {
+      setFormError('Artist name and stage are required.');
       return;
     }
     setSaving(true);
@@ -34,8 +52,8 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
       await onAdd({
         artist_name: name.trim(),
         stage_name: stage.trim(),
-        start_time_pt: start.trim(),
-        end_time_pt: end.trim(),
+        start_time_pt: formatHHMM(startDate),
+        end_time_pt: formatHHMM(endDate),
         day_index: dayIndex,
       });
       onCancel();
@@ -98,16 +116,55 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
           </>
         )}
       </View>
+
       <View style={styles.timeRow}>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
-          <Text style={styles.fieldLabel}>Start (24h HH:MM)</Text>
-          <TextInput value={start} onChangeText={setStart} style={styles.input} placeholder="21:00" keyboardType="numbers-and-punctuation" />
+          <Text style={styles.fieldLabel}>Start time</Text>
+          <Pressable
+            onPress={() => setActiveTimePicker(activeTimePicker === 'start' ? null : 'start')}
+            style={[styles.timePickerBtn, activeTimePicker === 'start' && styles.timePickerBtnActive]}
+          >
+            <Text style={styles.timePickerText}>{formatDisplayTime(startDate)}</Text>
+          </Pressable>
         </View>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
-          <Text style={styles.fieldLabel}>End (24h HH:MM)</Text>
-          <TextInput value={end} onChangeText={setEnd} style={styles.input} placeholder="23:00" keyboardType="numbers-and-punctuation" />
+          <Text style={styles.fieldLabel}>End time</Text>
+          <Pressable
+            onPress={() => setActiveTimePicker(activeTimePicker === 'end' ? null : 'end')}
+            style={[styles.timePickerBtn, activeTimePicker === 'end' && styles.timePickerBtnActive]}
+          >
+            <Text style={styles.timePickerText}>{formatDisplayTime(endDate)}</Text>
+          </Pressable>
         </View>
       </View>
+
+      {activeTimePicker ? (
+        <View style={styles.pickerContainer}>
+          <DateTimePicker
+            value={activeTimePicker === 'start' ? startDate : endDate}
+            mode="time"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            minuteInterval={5}
+            onChange={(event, selectedDate) => {
+              if (Platform.OS === 'android') {
+                setActiveTimePicker(null);
+              }
+              if (selectedDate) {
+                if (activeTimePicker === 'start') setStartDate(selectedDate);
+                else setEndDate(selectedDate);
+              }
+            }}
+            style={styles.picker}
+            textColor={C.text}
+          />
+          {Platform.OS === 'ios' ? (
+            <Pressable onPress={() => setActiveTimePicker(null)} style={styles.pickerDoneBtn}>
+              <Text style={styles.pickerDoneText}>Done</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       <View style={styles.saveRow}>
         {saving ? (
           <ActivityIndicator color={C.primary} />
@@ -134,6 +191,7 @@ export function DayTabReview({
   onSetPreference,
   onEditSet,
   onReUpload,
+  onAddOpen,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -224,7 +282,7 @@ export function DayTabReview({
                 styles={styles}
               />
             ) : (
-              <Pressable onPress={() => setIsAdding(true)} style={styles.secondaryBtn}>
+              <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
                 <Text style={styles.secondaryBtnText}>+ Add Manually</Text>
               </Pressable>
             )}
@@ -259,7 +317,7 @@ export function DayTabReview({
                 styles={styles}
               />
             ) : (
-              <Pressable onPress={() => setIsAdding(true)} style={styles.secondaryBtn}>
+              <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
                 <Text style={styles.secondaryBtnText}>+ Add Artist</Text>
               </Pressable>
             )}
@@ -415,4 +473,34 @@ const makeStyles = (C) => StyleSheet.create({
   },
   dropdownOptionText: { fontSize: 13, color: C.text },
   dropdownOptionSelectedText: { color: C.primary, fontWeight: '700' },
+  timePickerBtn: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 10,
+    backgroundColor: C.inputBg,
+    alignItems: 'center',
+  },
+  timePickerBtnActive: {
+    borderColor: C.primary,
+    backgroundColor: C.primaryBg,
+  },
+  timePickerText: { fontSize: 14, fontWeight: '600', color: C.text },
+  pickerContainer: {
+    backgroundColor: C.inputBg,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    overflow: 'hidden',
+  },
+  picker: { width: '100%' },
+  pickerDoneBtn: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: C.inputBorder,
+  },
+  pickerDoneText: { color: C.primary, fontWeight: '700', fontSize: 14 },
 });
