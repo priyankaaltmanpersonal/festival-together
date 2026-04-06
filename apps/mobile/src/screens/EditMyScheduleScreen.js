@@ -1,15 +1,12 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
 export function EditMyScheduleScreen({
   personalSets,
   festivalDays,
-  loading,
   onReUploadDay,
-  onRefreshPersonal,
-  onSetAllMustSee,
   onSetPreference,
   onDeleteSet,
   onAddSet,
@@ -34,19 +31,6 @@ export function EditMyScheduleScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
-      <View style={styles.card}>
-        <Text style={styles.label}>Update Your Schedule</Text>
-        <View style={styles.row}>
-          <Pressable onPress={onRefreshPersonal} style={styles.buttonSecondary}>
-            <Text style={styles.buttonTextSecondary}>Refresh</Text>
-          </Pressable>
-          <Pressable onPress={onSetAllMustSee} style={styles.buttonSecondary}>
-            <Text style={styles.buttonTextSecondary}>All Must-See</Text>
-          </Pressable>
-        </View>
-        {loading ? <ActivityIndicator color={C.primary} style={{ marginTop: 4 }} /> : null}
-      </View>
-
       <View style={styles.card}>
         <Text style={styles.label}>
           Your Schedule ({(personalSets || []).length} artists)
@@ -85,16 +69,4 @@ const makeStyles = (C) => StyleSheet.create({
   },
   label: { fontWeight: '700', color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },
-  row: { flexDirection: 'row', gap: 8 },
-  buttonSecondary: {
-    flex: 1,
-    backgroundColor: C.btnSecondaryBg,
-    borderWidth: 1,
-    borderColor: C.btnSecondaryBorder,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-  },
-  buttonTextSecondary: { color: C.btnSecondaryText, fontWeight: '700', fontSize: 13 },
 });

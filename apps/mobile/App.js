@@ -1230,10 +1230,7 @@ export default function App() {
         <EditMyScheduleScreen
           personalSets={personalSets}
           festivalDays={festivalDays}
-          loading={loading}
           onReUploadDay={chooseAndUploadDayScreenshot}
-          onRefreshPersonal={refreshPersonal}
-          onSetAllMustSee={setAllMustSee}
           onSetPreference={setPreference}
           onDeleteSet={deletePersonalSet}
           onAddSet={addPersonalSet}

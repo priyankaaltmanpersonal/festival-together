@@ -144,8 +144,7 @@ export function GroupScheduleScreen({
                               <Text style={styles.timeRangeText} numberOfLines={1}>
                                 {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
                               </Text>
-                              {!compact ? (
-                              <View style={styles.attendeeRow}>
+                                <View style={styles.attendeeRow}>
                                 {definite.slice(0, iconLimit).map((attendee) => (
                                   <View
                                     key={attendee.member_id}
@@ -159,7 +158,6 @@ export function GroupScheduleScreen({
                                 ))}
                                 {definite.length > iconLimit ? <Text style={styles.countText}>+{definite.length - iconLimit}</Text> : null}
                               </View>
-                            ) : null}
                             </View>
                             <Text style={[styles.summaryText, compact && styles.summaryTextCompact]} numberOfLines={1}>
                               {definite.length} definitely · {maybeCount} maybe
