@@ -162,7 +162,7 @@ export function GroupScheduleScreen({
                             ) : null}
                             </View>
                             <Text style={[styles.summaryText, compact && styles.summaryTextCompact]} numberOfLines={1}>
-                              {definite.length} def · {maybeCount} maybe
+                              {definite.length} definitely · {maybeCount} maybe
                             </Text>
                           </Pressable>
                         </View>
