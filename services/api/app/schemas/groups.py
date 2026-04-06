@@ -37,6 +37,11 @@ class LeaveGroupRequest(BaseModel):
     confirm: bool = False
 
 
+class MemberUpdateRequest(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=60)
+    chip_color: str | None = None
+
+
 class DeleteMemberRequest(BaseModel):
     confirm: bool = False
 

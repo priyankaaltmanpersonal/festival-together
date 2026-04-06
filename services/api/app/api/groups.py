@@ -22,6 +22,7 @@ from app.schemas.groups import (
     InvitePreviewResponse,
     LeaveGroupRequest,
     MemberSummary,
+    MemberUpdateRequest,
     SessionSummary,
     _DEFAULT_FESTIVAL_DAYS,
 )
@@ -326,6 +327,41 @@ def join_invite(
         )
 
     return {"ok": True, "already_joined": False}
+
+
+@router.patch("/members/me")
+def update_member(payload: MemberUpdateRequest, session=Depends(require_session)) -> dict:
+    with get_conn() as conn:
+        if payload.chip_color is not None:
+            normalized = normalize_chip_color(payload.chip_color)
+            if not validate_chip_color(normalized):
+                raise HTTPException(status_code=400, detail="invalid_chip_color")
+            used_rows = conn.execute(
+                "SELECT chip_color FROM members WHERE group_id = ? AND active = 1 AND id != ? AND chip_color IS NOT NULL",
+                (session["group_id"], session["member_id"]),
+            ).fetchall()
+            used = {row["chip_color"] for row in used_rows}
+            if normalized in used:
+                raise HTTPException(status_code=409, detail="chip_color_unavailable")
+
+        fields = []
+        values = []
+        if payload.display_name is not None:
+            fields.append("display_name = ?")
+            values.append(payload.display_name.strip())
+        if payload.chip_color is not None:
+            fields.append("chip_color = ?")
+            values.append(normalize_chip_color(payload.chip_color))
+
+        if not fields:
+            return {"ok": True}
+
+        values.append(session["member_id"])
+        conn.execute(
+            f"UPDATE members SET {', '.join(fields)} WHERE id = ?",
+            values,
+        )
+    return {"ok": True}
 
 
 @router.post("/members/me/leave")
