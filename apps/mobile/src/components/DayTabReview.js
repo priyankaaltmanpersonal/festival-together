@@ -11,6 +11,7 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
   const [stageOpen, setStageOpen] = useState(false);
+  const [stageCustom, setStageCustom] = useState(false);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,7 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
         stage_name: stage.trim(),
         start_time_pt: start.trim(),
         end_time_pt: end.trim(),
+        day_index: dayIndex,
       });
       onCancel();
     } catch (err) {
@@ -53,25 +55,48 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
       </View>
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Stage</Text>
-        <Pressable onPress={() => setStageOpen((o) => !o)} style={styles.dropdownTrigger}>
-          <Text style={[styles.dropdownTriggerText, !stage && styles.dropdownPlaceholder]}>
-            {stage || 'Select stage…'}
-          </Text>
-          <Text style={styles.dropdownChevron}>{stageOpen ? '▲' : '▼'}</Text>
-        </Pressable>
-        {stageOpen ? (
-          <View style={styles.dropdownList}>
-            {stages.map((s) => (
-              <Pressable
-                key={s}
-                onPress={() => { setStage(s); setStageOpen(false); }}
-                style={[styles.dropdownOption, stage === s && styles.dropdownOptionSelected]}
-              >
-                <Text style={[styles.dropdownOptionText, stage === s && styles.dropdownOptionSelectedText]}>{s}</Text>
-              </Pressable>
-            ))}
+        {stageCustom ? (
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <TextInput
+              value={stage}
+              onChangeText={setStage}
+              style={[styles.input, { flex: 1 }]}
+              placeholder="Enter stage name"
+              autoFocus
+            />
+            <Pressable onPress={() => { setStageCustom(false); setStage(''); }} style={styles.cancelBtn}>
+              <Text style={styles.cancelBtnText}>✕</Text>
+            </Pressable>
           </View>
-        ) : null}
+        ) : (
+          <>
+            <Pressable onPress={() => setStageOpen((o) => !o)} style={styles.dropdownTrigger}>
+              <Text style={[styles.dropdownTriggerText, !stage && styles.dropdownPlaceholder]}>
+                {stage || 'Select stage…'}
+              </Text>
+              <Text style={styles.dropdownChevron}>{stageOpen ? '▲' : '▼'}</Text>
+            </Pressable>
+            {stageOpen ? (
+              <View style={styles.dropdownList}>
+                {stages.map((s) => (
+                  <Pressable
+                    key={s}
+                    onPress={() => { setStage(s); setStageOpen(false); }}
+                    style={[styles.dropdownOption, stage === s && styles.dropdownOptionSelected]}
+                  >
+                    <Text style={[styles.dropdownOptionText, stage === s && styles.dropdownOptionSelectedText]}>{s}</Text>
+                  </Pressable>
+                ))}
+                <Pressable
+                  onPress={() => { setStage(''); setStageCustom(true); setStageOpen(false); }}
+                  style={styles.dropdownOption}
+                >
+                  <Text style={[styles.dropdownOptionText, { fontStyle: 'italic' }]}>Other (type manually)…</Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </>
+        )}
       </View>
       <View style={styles.timeRow}>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
