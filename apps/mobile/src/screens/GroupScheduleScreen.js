@@ -58,7 +58,7 @@ export function GroupScheduleScreen({
             ) : null}
             {inviteCode ? (
               <Pressable onPress={onCopyInvite} style={styles.inviteRow}>
-                <Text style={styles.inviteText}>Invite: <Text style={styles.inviteCode}>{inviteCode}</Text></Text>
+                <Text style={styles.inviteText}>Invite Your Friends to Join: <Text style={styles.inviteCode}>{inviteCode}</Text></Text>
                 <Text style={styles.inviteCopyIcon}>{inviteCopied ? '✓' : '📋'}</Text>
               </Pressable>
             ) : null}
@@ -382,7 +382,6 @@ const makeStyles = (C) => StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 3,
     backgroundColor: C.setCardBg,
-    justifyContent: 'space-between',
     overflow: 'hidden'
   },
   setTagCompact: {
@@ -393,7 +392,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
   artistText: { fontWeight: '800', color: C.setCardText, fontSize: 10, lineHeight: 11 },
   timeRangeText: { color: C.setCardTimeTxt, fontSize: 8, marginTop: 1, lineHeight: 9 },
-  attendeeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  attendeeRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   attendeeBubble: {
     width: 14,
     height: 14,
@@ -403,7 +402,7 @@ const makeStyles = (C) => StyleSheet.create({
     justifyContent: 'center'
   },
   attendeeText: { color: C.attendeeText, fontSize: 8, fontWeight: '800' },
-  summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 9, marginTop: 2 },
+  summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 9, marginTop: 1 },
   summaryTextCompact: { fontSize: 7, lineHeight: 8, marginTop: 1 },
   countText: { color: C.setCardTimeTxt, fontSize: 8 },
   modalOverlay: {

@@ -1,19 +1,30 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+
+const STAGE_OPTIONS = [
+  'Coachella Stage', 'Outdoor Theatre', 'Sahara', 'Mojave', 'Gobi', 'Quasar', 'Sonora', 'DoLaB',
+];
 import { EditableSetCard } from './EditableSetCard';
 import { useTheme } from '../theme';
 
-function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles }) {
+function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
+  const [stageOpen, setStageOpen] = useState(false);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
+  const stages = stageOptions || STAGE_OPTIONS;
+
   const handleAdd = async () => {
     if (!name.trim() || !stage.trim() || !start.trim() || !end.trim()) {
       setFormError('All fields are required.');
+      return;
+    }
+    if (!/^\d{1,2}:\d{2}$/.test(start.trim()) || !/^\d{1,2}:\d{2}$/.test(end.trim())) {
+      setFormError('Times must be in HH:MM format (e.g. 21:00).');
       return;
     }
     setSaving(true);
@@ -42,16 +53,34 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles }) {
       </View>
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Stage</Text>
-        <TextInput value={stage} onChangeText={setStage} style={styles.input} placeholder="e.g. Coachella Stage" />
+        <Pressable onPress={() => setStageOpen((o) => !o)} style={styles.dropdownTrigger}>
+          <Text style={[styles.dropdownTriggerText, !stage && styles.dropdownPlaceholder]}>
+            {stage || 'Select stage…'}
+          </Text>
+          <Text style={styles.dropdownChevron}>{stageOpen ? '▲' : '▼'}</Text>
+        </Pressable>
+        {stageOpen ? (
+          <View style={styles.dropdownList}>
+            {stages.map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => { setStage(s); setStageOpen(false); }}
+                style={[styles.dropdownOption, stage === s && styles.dropdownOptionSelected]}
+              >
+                <Text style={[styles.dropdownOptionText, stage === s && styles.dropdownOptionSelectedText]}>{s}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </View>
       <View style={styles.timeRow}>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
-          <Text style={styles.fieldLabel}>Start (HH:MM)</Text>
-          <TextInput value={start} onChangeText={setStart} style={styles.input} placeholder="21:00" />
+          <Text style={styles.fieldLabel}>Start (24h HH:MM)</Text>
+          <TextInput value={start} onChangeText={setStart} style={styles.input} placeholder="21:00" keyboardType="numbers-and-punctuation" />
         </View>
         <View style={[styles.fieldGroup, { flex: 1 }]}>
-          <Text style={styles.fieldLabel}>End (HH:MM)</Text>
-          <TextInput value={end} onChangeText={setEnd} style={styles.input} placeholder="23:00" />
+          <Text style={styles.fieldLabel}>End (24h HH:MM)</Text>
+          <TextInput value={end} onChangeText={setEnd} style={styles.input} placeholder="23:00" keyboardType="numbers-and-punctuation" />
         </View>
       </View>
       <View style={styles.saveRow}>
@@ -328,4 +357,37 @@ const makeStyles = (C) => StyleSheet.create({
   },
   cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
   saveError: { color: C.error, fontWeight: '600', fontSize: 12 },
+  dropdownTrigger: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 9,
+    backgroundColor: C.inputBg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownTriggerText: { fontSize: 13, color: C.text },
+  dropdownPlaceholder: { color: C.textMuted },
+  dropdownChevron: { fontSize: 10, color: C.textMuted },
+  dropdownList: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    backgroundColor: C.cardBg,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  dropdownOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: C.cardBorder,
+  },
+  dropdownOptionSelected: {
+    backgroundColor: C.primaryBg,
+  },
+  dropdownOptionText: { fontSize: 13, color: C.text },
+  dropdownOptionSelectedText: { color: C.primary, fontWeight: '700' },
 });

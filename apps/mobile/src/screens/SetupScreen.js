@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
@@ -57,7 +57,12 @@ export function SetupScreen({
   const isWelcome = onboardingStep === 'welcome';
 
   return (
-    <ScrollView contentContainerStyle={[styles.wrap, isWelcome && styles.wrapWelcome]}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={100}
+    >
+    <ScrollView contentContainerStyle={[styles.wrap, isWelcome && styles.wrapWelcome]} keyboardShouldPersistTaps="handled">
       {isWelcome ? (
         <View style={styles.welcomeScreen}>
           <View style={styles.card}>
@@ -212,6 +217,7 @@ export function SetupScreen({
       {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
       {error && onboardingStep !== 'upload_all_days' ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -363,8 +369,8 @@ function ColorPicker({ options, selected, onSelect, availableSet = null }) {
 
 const makeStyles = (C) => StyleSheet.create({
   wrap: { flexGrow: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 24, paddingTop: 16 },
-  wrapWelcome: { paddingTop: 20 },
-  welcomeScreen: { gap: 20 },
+  wrapWelcome: { paddingTop: 20, flex: 1 },
+  welcomeScreen: { flex: 1, justifyContent: 'space-between' },
   welcomeActions: { gap: 12 },
   card: {
     backgroundColor: C.cardBg,

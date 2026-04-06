@@ -17,7 +17,10 @@ export async function apiRequest({ baseUrl, path, method = 'GET', sessionToken, 
     }
 
     if (!response.ok) {
-      const detail = payload?.detail || payload?.message || `HTTP ${response.status}`;
+      const rawDetail = payload?.detail ?? payload?.message ?? `HTTP ${response.status}`;
+      const detail = Array.isArray(rawDetail)
+        ? rawDetail.map((e) => (e && typeof e === 'object' && e.msg ? e.msg : String(e))).join('; ')
+        : String(rawDetail);
       throw new Error(detail);
     }
 

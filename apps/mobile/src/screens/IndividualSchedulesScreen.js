@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 
-export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual }) {
+export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual, onBack }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const members = individualSnapshot?.members || [];
@@ -10,7 +10,14 @@ export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
-        <Text style={styles.label}>Individual Schedules</Text>
+        <View style={styles.headerRow}>
+          {onBack ? (
+            <Pressable onPress={onBack} style={styles.backBtn}>
+              <Text style={styles.backBtnText}>← Back</Text>
+            </Pressable>
+          ) : null}
+          <Text style={styles.label}>Individual Schedules</Text>
+        </View>
         <Pressable onPress={onLoadIndividual} style={styles.buttonSecondary}>
           <Text style={styles.buttonText}>Refresh Individual Schedules</Text>
         </Pressable>
@@ -49,6 +56,9 @@ const makeStyles = (C) => StyleSheet.create({
     padding: 12,
     gap: 8
   },
+  headerRow: { gap: 4 },
+  backBtn: { alignSelf: 'flex-start' },
+  backBtnText: { color: C.primary, fontWeight: '700', fontSize: 13 },
   label: { fontWeight: '700', color: C.text },
   memberName: { fontWeight: '700', fontSize: 16, color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },

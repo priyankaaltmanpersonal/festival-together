@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
@@ -30,7 +30,12 @@ export function EditMyScheduleScreen({
   }, [festivalDays, personalSets]);
 
   return (
-    <ScrollView contentContainerStyle={styles.wrap}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+      keyboardVerticalOffset={100}
+    >
+      <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
       <View style={styles.card}>
         <Text style={styles.label}>
           Your Schedule ({(personalSets || []).length} artists)
@@ -53,7 +58,8 @@ export function EditMyScheduleScreen({
           />
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -19,7 +19,7 @@ export function BottomTabBar({ activeView, onNavigate, onOpenMore }) {
     <View style={styles.tabBar}>
       {tabs.map((tab) => {
         const isActive = tab.key === 'more'
-          ? activeView === 'more'
+          ? activeView === 'more' || activeView === 'individual'
           : activeView === tab.key;
         const color = isActive ? C.primary : C.textMuted;
         return (

@@ -20,6 +20,7 @@ export function MoreSheet({
   onCopyInvite,
   onIndividualSchedules,
   onResetApp,
+  onDeleteMyData,
   currentDisplayName,
   currentChipColor,
   chipColorOptions,
@@ -144,6 +145,12 @@ export function MoreSheet({
               <Text style={styles.resetLabel}>Reset App</Text>
             </Pressable>
 
+            {onDeleteMyData ? (
+              <Pressable onPress={onDeleteMyData} style={styles.resetRow}>
+                <Text style={styles.deleteLabel}>Delete My Data</Text>
+              </Pressable>
+            ) : null}
+
           </ScrollView>
         </Pressable>
       </Pressable>
@@ -261,12 +268,17 @@ const makeStyles = (C) => StyleSheet.create({
   },
   cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
   resetRow: {
-    paddingVertical: 18,
+    paddingVertical: 14,
     alignItems: 'center',
   },
   resetLabel: {
     fontSize: 12,
     color: C.textMuted,
+    fontWeight: '500',
+  },
+  deleteLabel: {
+    fontSize: 12,
+    color: C.error,
     fontWeight: '500',
   },
 });

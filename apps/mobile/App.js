@@ -1144,18 +1144,18 @@ export default function App() {
 
   const canOpenMenu = onboardingStep === 'complete';
   const title = useMemo(() => {
-    if (activeView === 'group') return 'Group Schedule';
+    if (activeView === 'group') return homeSnapshot?.group?.name || 'Group Schedule';
     if (activeView === 'individual') return 'Individual Schedules';
     if (activeView === 'edit') return 'Edit My Schedule';
     return 'Festival Together';
-  }, [activeView]);
+  }, [activeView, homeSnapshot]);
 
   const styles = useMemo(() => makeStyles(C), [C]);
   const statusText = `${isOnline ? 'Online' : 'Offline'}${pendingMutations.length ? ` • ${pendingMutations.length} pending sync` : ''}${lastSyncAt ? ` • synced ${new Date(lastSyncAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`;
 
   return (
     <SafeAreaProvider>
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <LinearGradient colors={C.gradientHeader} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={styles.title}>{title}</Text>
@@ -1237,6 +1237,7 @@ export default function App() {
         <IndividualSchedulesScreen
           individualSnapshot={individualSnapshot}
           onLoadIndividual={loadIndividual}
+          onBack={() => setActiveView('group')}
         />
       ) : null}
 
@@ -1274,6 +1275,7 @@ export default function App() {
         onCopyInvite={copyInviteCode}
         onIndividualSchedules={loadIndividual}
         onResetApp={resetFlow}
+        onDeleteMyData={deleteMyData}
         currentDisplayName={homeSnapshot?.me?.display_name || ''}
         currentChipColor={homeSnapshot?.me?.chip_color || ''}
         chipColorOptions={CHIP_COLOR_OPTIONS}
