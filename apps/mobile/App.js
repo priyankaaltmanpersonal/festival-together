@@ -7,6 +7,8 @@ import { Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { apiRequest } from './src/api/client';
+import { BottomTabBar } from './src/components/BottomTabBar';
+import { MoreSheet } from './src/components/MoreSheet';
 import { EditMyScheduleScreen } from './src/screens/EditMyScheduleScreen';
 import { GroupScheduleScreen } from './src/screens/GroupScheduleScreen';
 import { IndividualSchedulesScreen } from './src/screens/IndividualSchedulesScreen';
@@ -76,7 +78,7 @@ export default function App() {
   const hydrationDoneRef = useRef(false);
 
   const [activeView, setActiveView] = useState('onboarding');
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
 
   const apiUrl = DEFAULT_API_URL;
@@ -140,7 +142,7 @@ export default function App() {
       .then((storedState) => {
         if (!alive || !storedState) return;
         setActiveView(storedState.activeView || 'onboarding');
-        setMenuOpen(false);
+        setMoreSheetOpen(false);
         setUserRole(storedState.userRole || 'member');
         setDisplayName(storedState.displayName || '');
         setGroupName(storedState.groupName || '');
@@ -601,7 +603,7 @@ export default function App() {
       setLastSyncAt(new Date().toISOString());
       setOnboardingStep('complete');
       setActiveView('group');
-      setMenuOpen(false);
+      setMoreSheetOpen(false);
     });
   };
 
@@ -979,7 +981,7 @@ export default function App() {
 
     setSelectedMemberIds(nextSelectedMemberIds);
     setActiveView('group');
-    setMenuOpen(false);
+    setMoreSheetOpen(false);
 
     if (scheduleFilterTimeoutRef.current) {
       clearTimeout(scheduleFilterTimeoutRef.current);
@@ -1038,7 +1040,7 @@ export default function App() {
       if (!isOnline) {
         if (individualSnapshot) {
           setActiveView('individual');
-          setMenuOpen(false);
+          setMoreSheetOpen(false);
           appendLog('OFFLINE: using cached individual schedules');
           return;
         }
@@ -1053,12 +1055,12 @@ export default function App() {
       setIndividualSnapshot(payload);
       setLastSyncAt(new Date().toISOString());
       setActiveView('individual');
-      setMenuOpen(false);
+      setMoreSheetOpen(false);
     });
 
   const openEditSchedule = () => {
     setActiveView('edit');
-    setMenuOpen(false);
+    setMoreSheetOpen(false);
     if (!personalSets.length && isOnline) {
       refreshPersonal();
     }
@@ -1073,7 +1075,7 @@ export default function App() {
     setScreenshotCount('3');
     setOnboardingStep('welcome');
     setActiveView('onboarding');
-    setMenuOpen(false);
+    setMoreSheetOpen(false);
     setSelectedChipColor(CHIP_COLOR_OPTIONS[0]);
     setAvailableJoinColors([]);
     setFestivalDays([{ dayIndex: 1, label: '' }]);
@@ -1107,7 +1109,7 @@ export default function App() {
               setUserRole('member');
               setOnboardingStep('welcome');
               setActiveView('onboarding');
-              setMenuOpen(false);
+              setMoreSheetOpen(false);
               setSelectedChipColor(CHIP_COLOR_OPTIONS[0]);
               setAvailableJoinColors([]);
             }),
@@ -1121,6 +1123,23 @@ export default function App() {
     await Clipboard.setStringAsync(inviteCode);
     setInviteCopied(true);
     setTimeout(() => setInviteCopied(false), 2000);
+  };
+
+  const updateProfile = async (newDisplayName, newChipColor) => {
+    await apiRequest({
+      baseUrl: apiUrl,
+      path: '/v1/members/me',
+      method: 'PATCH',
+      sessionToken: memberSession,
+      body: { display_name: newDisplayName, chip_color: newChipColor },
+    });
+    const homePayload = await apiRequest({
+      baseUrl: apiUrl,
+      path: '/v1/members/me/home',
+      method: 'GET',
+      sessionToken: memberSession,
+    });
+    setHomeSnapshot(homePayload);
   };
 
   const canOpenMenu = onboardingStep === 'complete';
@@ -1146,11 +1165,6 @@ export default function App() {
             <View style={styles.pendingDot} />
           ) : null}
         </View>
-        {canOpenMenu ? (
-          <Pressable onPress={() => setMenuOpen((prev) => !prev)} style={styles.menuButton}>
-            <Text style={styles.menuButtonText}>☰</Text>
-          </Pressable>
-        ) : null}
       </LinearGradient>
 
       {/* Privacy screen shown once per install. Intentionally outside the onboardingStep
@@ -1238,47 +1252,39 @@ export default function App() {
         />
       ) : null}
 
-      {menuOpen ? (
-        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
-          <Pressable style={styles.menuCard} onPress={() => {}}>
-            {inviteCode ? (
-              <View style={styles.menuInviteCard}>
-                <Text style={styles.menuInviteLabel}>Invite friends</Text>
-                <View style={styles.menuInviteRow}>
-                  <Text style={styles.menuInviteCode}>{inviteCode}</Text>
-                  <Pressable onPress={copyInviteCode} style={styles.menuCopyBtn}>
-                    {inviteCopied ? (
-                      <View style={styles.menuCopiedState}>
-                        <Text style={styles.menuCopiedText}>Copied!</Text>
-                        <Text style={styles.menuCopyBtnText}>✓</Text>
-                      </View>
-                    ) : (
-                      <Text style={styles.menuCopyBtnText}>📋</Text>
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-            ) : null}
-            <Text style={styles.menuLabel}>Navigate</Text>
-            <MenuItem label="Group Schedule" onPress={() => { setActiveView('group'); setMenuOpen(false); }} />
-            <MenuItem label="Individual Schedules" onPress={loadIndividual} />
-            <MenuItem label="Edit My Schedule" onPress={openEditSchedule} />
-            <MenuItem label="Restart Onboarding" onPress={resetFlow} />
-            <MenuItem label="Delete My Data" onPress={deleteMyData} destructive />
-          </Pressable>
-        </Pressable>
+      {canOpenMenu ? (
+        <BottomTabBar
+          activeView={activeView}
+          onNavigate={(view) => {
+            if (view === 'edit') {
+              openEditSchedule();
+            } else {
+              setActiveView(view);
+            }
+          }}
+          onOpenMore={() => setMoreSheetOpen(true)}
+        />
       ) : null}
+
+      <MoreSheet
+        visible={moreSheetOpen}
+        onClose={() => setMoreSheetOpen(false)}
+        inviteCode={inviteCode}
+        inviteCopied={inviteCopied}
+        onCopyInvite={copyInviteCode}
+        onIndividualSchedules={loadIndividual}
+        onResetApp={resetFlow}
+        currentDisplayName={homeSnapshot?.me?.display_name || ''}
+        currentChipColor={homeSnapshot?.me?.chip_color || ''}
+        chipColorOptions={CHIP_COLOR_OPTIONS}
+        takenColors={(homeSnapshot?.members || [])
+          .filter((m) => m.id !== homeSnapshot?.me?.id)
+          .map((m) => m.chip_color)
+          .filter(Boolean)}
+        onSaveProfile={updateProfile}
+      />
     </SafeAreaView>
     </SafeAreaProvider>
-  );
-}
-
-function MenuItem({ label, onPress, destructive = false }) {
-  const C = useTheme();
-  return (
-    <Pressable onPress={onPress} style={{ borderWidth: 1, borderColor: C.menuItemBorder, borderRadius: 10, backgroundColor: C.menuItemBg, paddingHorizontal: 10, paddingVertical: 9 }}>
-      <Text style={{ color: destructive ? C.error : C.menuItemText, fontWeight: '700' }}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -1314,21 +1320,6 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.pendingDot,
     marginTop: 2
   },
-  menuButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: C.menuBtnBorder,
-    backgroundColor: C.menuBtnBg,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  menuButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: C.menuBtnText
-  },
   errorBanner: {
     marginHorizontal: 16,
     marginBottom: 10,
@@ -1342,45 +1333,4 @@ const makeStyles = (C) => StyleSheet.create({
     color: C.error,
     fontWeight: '600'
   },
-  menuOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: C.menuOverlayBg,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 60,
-    paddingRight: 12
-  },
-  menuCard: {
-    width: 230,
-    borderRadius: 14,
-    backgroundColor: C.menuCardBg,
-    borderWidth: 1,
-    borderColor: C.menuCardBorder,
-    padding: 10,
-    gap: 6
-  },
-  menuLabel: {
-    color: C.menuLabelText,
-    fontWeight: '700',
-    fontSize: 12,
-    paddingHorizontal: 8,
-    paddingTop: 2,
-    paddingBottom: 4
-  },
-  menuInviteCard: {
-    backgroundColor: C.inviteCardBg,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.inviteCardBorder,
-    padding: 12,
-    marginBottom: 8,
-    gap: 4,
-  },
-  menuInviteLabel: { fontSize: 11, fontWeight: '700', color: C.inviteLabel, textTransform: 'uppercase', letterSpacing: 0.5 },
-  menuInviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  menuInviteCode: { fontSize: 16, fontWeight: '800', color: C.inviteCode, letterSpacing: 1.5, fontVariant: ['tabular-nums'], flexShrink: 1 },
-  menuCopyBtn: { padding: 6, flexShrink: 0 },
-  menuCopyBtnText: { fontSize: 18 },
-  menuCopiedState: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  menuCopiedText: { fontSize: 13, fontWeight: '700', color: C.copiedText },
 });
