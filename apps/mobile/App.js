@@ -958,14 +958,19 @@ export default function App() {
   };
 
   const addSetFromGrid = async (setItem) => {
-    await addPersonalSet({
-      artist_name: setItem.artist_name,
-      stage_name: setItem.stage_name,
-      start_time_pt: setItem.start_time_pt,
-      end_time_pt: setItem.end_time_pt,
-      day_index: setItem.day_index,
-    });
-    await refreshCoreSnapshots();
+    try {
+      await addPersonalSet({
+        artist_name: setItem.artist_name,
+        stage_name: setItem.stage_name,
+        start_time_pt: setItem.start_time_pt,
+        end_time_pt: setItem.end_time_pt,
+        day_index: setItem.day_index,
+      });
+      await refreshCoreSnapshots();
+    } catch (err) {
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+      throw err; // re-throw so AddToScheduleFooter can show its own error state
+    }
   };
 
   const handleRefreshGroup = async () => {
