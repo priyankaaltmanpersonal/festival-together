@@ -1309,6 +1309,7 @@ export default function App() {
           inviteCopied={inviteCopied}
           myMemberId={homeSnapshot?.me?.id}
           onAddToMySchedule={addSetFromGrid}
+          festivalDays={festivalDays}
         />
       ) : null}
 

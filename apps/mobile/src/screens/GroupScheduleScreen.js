@@ -21,6 +21,7 @@ export function GroupScheduleScreen({
   inviteCopied,
   myMemberId,
   onAddToMySchedule,
+  festivalDays,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -35,13 +36,33 @@ export function GroupScheduleScreen({
   const sets = scheduleSnapshot?.sets || [];
   const stages = scheduleSnapshot?.stages || [];
 
-  const timeline = buildTimeline(sets, gridBodyHeight || 0);
-  const stageColumns = stages.map((stage) => ({
-    stage,
-    sets: sets
-      .filter((item) => item.stage_name === stage)
-      .sort((a, b) => timeToMinutes(a.start_time_pt) - timeToMinutes(b.start_time_pt))
-  }));
+  // Sorted unique day indices that have sets
+  const availableDays = useMemo(
+    () => [...new Set(sets.map((s) => s.day_index).filter((d) => d != null))].sort((a, b) => a - b),
+    [sets]
+  );
+
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  // Default to first available day; stay on selected if it's still valid
+  const effectiveDay = selectedDay !== null && availableDays.includes(selectedDay)
+    ? selectedDay
+    : (availableDays[0] ?? null);
+
+  const filteredSets = effectiveDay !== null
+    ? sets.filter((s) => s.day_index === effectiveDay)
+    : sets;
+
+  const stageColumns = stages
+    .filter((stage) => filteredSets.some((s) => s.stage_name === stage))
+    .map((stage) => ({
+      stage,
+      sets: filteredSets
+        .filter((item) => item.stage_name === stage)
+        .sort((a, b) => timeToMinutes(a.start_time_pt) - timeToMinutes(b.start_time_pt)),
+    }));
+
+  const timeline = buildTimeline(filteredSets, gridBodyHeight || 0);
   const memberColorById = useMemo(
     () => Object.fromEntries(members.map((member) => [member.id, member.chip_color])),
     [members]
@@ -64,6 +85,25 @@ export function GroupScheduleScreen({
               </Pressable>
             ) : null}
           </View>
+          {availableDays.length > 1 ? (
+            <View style={styles.segmentedControl}>
+              {availableDays.map((dayIdx) => {
+                const dayLabel = (festivalDays || []).find((d) => d.dayIndex === dayIdx)?.label || `Day ${dayIdx}`;
+                const isActive = dayIdx === effectiveDay;
+                return (
+                  <Pressable
+                    key={dayIdx}
+                    onPress={() => setSelectedDay(dayIdx)}
+                    style={[styles.segmentedOption, isActive && styles.segmentedOptionActive]}
+                  >
+                    <Text style={[styles.segmentedText, isActive && styles.segmentedTextActive]}>
+                      {dayLabel}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
             {members.map((member) => {
               const selected = (selectedMemberIds || []).includes(member.id);
@@ -510,6 +550,36 @@ const makeStyles = (C) => StyleSheet.create({
   inviteText: { fontSize: 12, color: C.inviteRowText },
   inviteCode: { fontWeight: '800', color: C.inviteRowCode, letterSpacing: 1 },
   inviteCopyIcon: { fontSize: 14 },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: C.inputBg,
+    borderRadius: 8,
+    padding: 2,
+    gap: 2,
+  },
+  segmentedOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  segmentedOptionActive: {
+    backgroundColor: C.cardBg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentedText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: C.textMuted,
+  },
+  segmentedTextActive: {
+    color: C.text,
+    fontWeight: '700',
+  },
 });
 
 function tierStyle(tier, C) {
