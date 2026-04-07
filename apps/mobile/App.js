@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from './src/theme';
-import { Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { apiRequest } from './src/api/client';
@@ -115,6 +115,7 @@ export default function App() {
   const [uploadDayIndex, setUploadDayIndex] = useState(1);
   // { [dayIndex]: { status: 'idle'|'uploading'|'done'|'failed', sets: [], retryCount: 0, imageUris: null } }
   const [dayStates, setDayStates] = useState({});
+  const [refreshing, setRefreshing] = useState(false);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
 
@@ -964,6 +965,19 @@ export default function App() {
       end_time_pt: setItem.end_time_pt,
       day_index: setItem.day_index,
     });
+    await refreshCoreSnapshots();
+  };
+
+  const handleRefreshGroup = async () => {
+    if (!memberSession || !groupId || refreshing) return;
+    setRefreshing(true);
+    try {
+      await refreshCoreSnapshots();
+    } catch (err) {
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const editCanonicalSet = async (canonicalSetId, fields) => {
@@ -1216,6 +1230,15 @@ export default function App() {
             <Text style={styles.continueBtnText}>›</Text>
           </Pressable>
         ) : null}
+        {activeView === 'group' ? (
+          <Pressable onPress={handleRefreshGroup} disabled={refreshing} style={styles.refreshBtn}>
+            {refreshing ? (
+              <ActivityIndicator size="small" color={C.headerText} />
+            ) : (
+              <Text style={styles.refreshIcon}>↻</Text>
+            )}
+          </Pressable>
+        ) : null}
       </LinearGradient>
 
       {/* Privacy screen shown once per install. Intentionally outside the onboardingStep
@@ -1399,5 +1422,18 @@ const makeStyles = (C) => StyleSheet.create({
     color: C.headerText,
     fontWeight: '300',
     lineHeight: 28,
+  },
+  refreshBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshIcon: {
+    fontSize: 20,
+    color: C.headerText,
+    fontWeight: '300',
   },
 });
