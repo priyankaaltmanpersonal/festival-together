@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 
@@ -66,6 +66,7 @@ export function GroupScheduleScreen({
     () => Object.fromEntries(members.map((member) => [member.id, member.chip_color])),
     [members]
   );
+  const timeScrollRef = useRef(null);
 
   return (
     <View style={styles.wrap} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>
@@ -127,108 +128,130 @@ export function GroupScheduleScreen({
       {!timeline ? <Text style={styles.helperPad}>No schedule loaded yet.</Text> : null}
 
       {timeline ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.gridHScroll}>
-          <View>
-            <View style={styles.gridHeader}>
-              <Text style={[styles.headerCell, styles.timeCol, styles.headerText]}>Time</Text>
-              {stageColumns.map((column) => (
-                <Text key={column.stage} style={[styles.headerCell, styles.stageCol, styles.headerText]}>
-                  {column.stage}
-                </Text>
-              ))}
+        <View style={styles.gridOuter}>
+          {/* Fixed left: time header + time body */}
+          <View style={styles.timePanel}>
+            <View style={styles.timePanelHeader}>
+              <Text style={styles.headerText}>Time</Text>
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} style={gridBodyHeight ? { height: gridBodyHeight } : styles.gridVScroll}>
-              <View style={styles.gridBody}>
-                <View style={[styles.timeCol, { height: timeline.totalHeight }]}>
-                  {timeline.labels.map((minute) => {
-                    const y = minuteToY(minute, timeline.startMinute);
-                    return (
-                      <View key={`time-${minute}`} style={[styles.timeTick, { top: y }]}>
-                        <Text style={styles.timeText}>{formatTime(minute)}</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-
-                {stageColumns.map((column) => (
-                  <View key={column.stage} style={[styles.stageCol, { height: timeline.totalHeight }]}>
-                    {timeline.labels.map((minute) => (
-                      <View
-                        key={`${column.stage}-${minute}`}
-                        style={[styles.rowLine, { top: minuteToY(minute, timeline.startMinute) }]}
-                      />
-                    ))}
-
-                    {column.sets.map((setItem) => {
-                      const top = minuteToY(timeToMinutes(setItem.start_time_pt), timeline.startMinute);
-                      const startMin = timeToMinutes(setItem.start_time_pt);
-                      const endMin = setItem.end_time_pt ? timeToMinutes(setItem.end_time_pt) : startMin;
-                      const rawDuration = endMin - startMin;
-                      const duration = rawDuration > 0 ? rawDuration : 90;
-                      const height = Math.max(26, (duration / SLOT_MINUTES) * SLOT_HEIGHT - 2);
-                      const definite = (setItem.attendees || []).filter((a) => a.preference === 'must_see');
-                      const maybe = (setItem.attendees || []).filter((a) => a.preference !== 'must_see');
-                      const maybeCount = Math.max(0, (setItem.attendee_count || 0) - definite.length);
-                      // Row cap: 1 row (6 bubbles) for cards < 43px, 2 rows (12) otherwise
-                      const maxRows = height < 43 ? 1 : 2;
-                      const maxBubbles = maxRows * BUBBLES_PER_ROW;
-                      const hasOverflow = definite.length > maxBubbles;
-                      const shownBubbles = hasOverflow
-                        ? definite.slice(0, maxBubbles - 1)
-                        : definite.slice(0, maxBubbles);
-                      const overflowCount = hasOverflow ? definite.length - (maxBubbles - 1) : 0;
-                      // Summary visible only when there's room: threshold = bubblesHeight + 40
-                      // (40 = topContent 23 + minGap 4 + summaryGap 2 + summary 9 + bottomPad 2)
-                      const actualRows = Math.ceil(shownBubbles.length / BUBBLES_PER_ROW) || 1;
-                      const bubblesHeight = actualRows === 1 ? 16 : 35;
-                      const showSummary = height >= bubblesHeight + 40;
-
-                      return (
-                        <View key={setItem.id} style={[styles.setCardWrap, { top, height }]}>
-                          <Pressable
-                            onPress={() => setExpandedSet({ ...setItem, definite, maybe })}
-                            style={[styles.setTag, tierStyle(setItem.popularity_tier, C)]}
-                          >
-                            <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
-                            <Text style={styles.timeRangeText} numberOfLines={1}>
-                              {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
-                            </Text>
-                            <View style={styles.pin}>
-                              <View style={styles.attendeeRow}>
-                                {shownBubbles.map((attendee) => (
-                                  <View
-                                    key={attendee.member_id}
-                                    style={[
-                                      styles.attendeeBubble,
-                                      { backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || C.attendeeBg }
-                                    ]}
-                                  >
-                                    <Text style={styles.attendeeText}>{initials(attendee.display_name)}</Text>
-                                  </View>
-                                ))}
-                                {overflowCount > 0 ? (
-                                  <View style={styles.overflowBubble}>
-                                    <Text style={styles.overflowText}>+{overflowCount}</Text>
-                                  </View>
-                                ) : null}
-                              </View>
-                              {showSummary ? (
-                                <Text style={styles.summaryText} numberOfLines={1}>
-                                  {definite.length} definitely · {maybeCount} maybe
-                                </Text>
-                              ) : null}
-                            </View>
-                          </Pressable>
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
+            <ScrollView
+              ref={timeScrollRef}
+              scrollEnabled={false}
+              showsVerticalScrollIndicator={false}
+              style={gridBodyHeight ? { height: gridBodyHeight } : styles.gridVScroll}
+            >
+              <View style={[styles.timeCol, { height: timeline.totalHeight }]}>
+                {timeline.labels.map((minute) => {
+                  const y = minuteToY(minute, timeline.startMinute);
+                  return (
+                    <View key={`time-${minute}`} style={[styles.timeTick, { top: y }]}>
+                      <Text style={styles.timeText}>{formatTime(minute)}</Text>
+                    </View>
+                  );
+                })}
               </View>
             </ScrollView>
           </View>
-        </ScrollView>
+
+          {/* Scrollable right: stage headers + stage bodies */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stagesHScroll}>
+            <View>
+              <View style={styles.gridHeader}>
+                {stageColumns.map((column) => (
+                  <Text key={column.stage} style={[styles.headerCell, styles.stageCol, styles.headerText]}>
+                    {column.stage}
+                  </Text>
+                ))}
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={gridBodyHeight ? { height: gridBodyHeight } : styles.gridVScroll}
+                onScroll={(e) => {
+                  timeScrollRef.current?.scrollTo({
+                    y: e.nativeEvent.contentOffset.y,
+                    animated: false,
+                  });
+                }}
+                scrollEventThrottle={16}
+              >
+                <View style={styles.gridBody}>
+                  {stageColumns.map((column) => (
+                    <View key={column.stage} style={[styles.stageCol, { height: timeline.totalHeight }]}>
+                      {timeline.labels.map((minute) => (
+                        <View
+                          key={`${column.stage}-${minute}`}
+                          style={[styles.rowLine, { top: minuteToY(minute, timeline.startMinute) }]}
+                        />
+                      ))}
+
+                      {column.sets.map((setItem) => {
+                        const top = minuteToY(timeToMinutes(setItem.start_time_pt), timeline.startMinute);
+                        const startMin = timeToMinutes(setItem.start_time_pt);
+                        const endMin = setItem.end_time_pt ? timeToMinutes(setItem.end_time_pt) : startMin;
+                        const rawDuration = endMin - startMin;
+                        const duration = rawDuration > 0 ? rawDuration : 90;
+                        const height = Math.max(26, (duration / SLOT_MINUTES) * SLOT_HEIGHT - 2);
+                        const definite = (setItem.attendees || []).filter((a) => a.preference === 'must_see');
+                        const maybe = (setItem.attendees || []).filter((a) => a.preference !== 'must_see');
+                        const maybeCount = Math.max(0, (setItem.attendee_count || 0) - definite.length);
+                        const maxRows = height < 43 ? 1 : 2;
+                        const maxBubbles = maxRows * BUBBLES_PER_ROW;
+                        const hasOverflow = definite.length > maxBubbles;
+                        const shownBubbles = hasOverflow
+                          ? definite.slice(0, maxBubbles - 1)
+                          : definite.slice(0, maxBubbles);
+                        const overflowCount = hasOverflow ? definite.length - (maxBubbles - 1) : 0;
+                        const actualRows = Math.ceil(shownBubbles.length / BUBBLES_PER_ROW) || 1;
+                        const bubblesHeight = actualRows === 1 ? 16 : 35;
+                        const showSummary = height >= bubblesHeight + 40;
+
+                        return (
+                          <View key={setItem.id} style={[styles.setCardWrap, { top, height }]}>
+                            <Pressable
+                              onPress={() => setExpandedSet({ ...setItem, definite, maybe })}
+                              style={[styles.setTag, tierStyle(setItem.popularity_tier, C)]}
+                            >
+                              <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
+                              <Text style={styles.timeRangeText} numberOfLines={1}>
+                                {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
+                              </Text>
+                              <View style={styles.pin}>
+                                <View style={styles.attendeeRow}>
+                                  {shownBubbles.map((attendee) => (
+                                    <View
+                                      key={attendee.member_id}
+                                      style={[
+                                        styles.attendeeBubble,
+                                        { backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || C.attendeeBg }
+                                      ]}
+                                    >
+                                      <Text style={styles.attendeeText}>{initials(attendee.display_name)}</Text>
+                                    </View>
+                                  ))}
+                                  {overflowCount > 0 ? (
+                                    <View style={styles.overflowBubble}>
+                                      <Text style={styles.overflowText}>+{overflowCount}</Text>
+                                    </View>
+                                  ) : null}
+                                </View>
+                                {showSummary ? (
+                                  <Text style={styles.summaryText} numberOfLines={1}>
+                                    {definite.length} definitely · {maybeCount} maybe
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          </ScrollView>
+        </View>
       ) : null}
 
       <Modal visible={Boolean(expandedSet)} transparent animationType="fade" onRequestClose={() => setExpandedSet(null)}>
@@ -380,7 +403,26 @@ const makeStyles = (C) => StyleSheet.create({
   wrap: { flex: 1, paddingHorizontal: 12, paddingTop: 16 },
   filterSection: { paddingBottom: 8 },
   filterBar: { gap: 6 },
-  gridHScroll: { flex: 1 },
+  gridOuter: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  timePanel: {
+    width: 70,
+    borderRightWidth: 1,
+    borderColor: C.gridBorder,
+  },
+  timePanelHeader: {
+    height: GRID_HEADER_HEIGHT,
+    paddingHorizontal: 6,
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderColor: C.gridBorder,
+    backgroundColor: C.gridTimeBg,
+  },
+  stagesHScroll: {
+    flex: 1,
+  },
   gridVScroll: { flex: 1 },
   topRow: {
     flexDirection: 'row',
@@ -420,7 +462,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: C.gridBorder
   },
   gridBody: { flexDirection: 'row' },
-  timeCol: { width: 70, borderRightWidth: 1, borderColor: C.gridBorder, backgroundColor: C.gridTimeBg },
+  timeCol: { width: 70, backgroundColor: C.gridTimeBg },
   stageCol: { width: 130, borderRightWidth: 1, borderColor: C.gridBorder, position: 'relative', backgroundColor: C.gridStageBg },
   headerText: { fontWeight: '700', color: C.gridHeaderText, fontSize: 12 },
   timeTick: { position: 'absolute', left: 4 },
