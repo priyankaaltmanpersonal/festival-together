@@ -10,7 +10,6 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
 
   const availableDays = festivalDays || [];
   const [selectedDay, setSelectedDay] = useState(availableDays[0]?.dayIndex ?? null);
-  const effectiveDay = selectedDay !== null ? selectedDay : (availableDays[0]?.dayIndex ?? null);
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
@@ -26,7 +25,7 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
         {availableDays.length > 1 ? (
           <DaySelector
             days={availableDays}
-            selectedDay={effectiveDay}
+            selectedDay={selectedDay}
             onSelect={setSelectedDay}
           />
         ) : null}
@@ -37,10 +36,10 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
       </View>
 
       {members.map((member) => {
-        const daySets = effectiveDay !== null
-          ? (member.sets || []).filter((s) => s.day_index === effectiveDay)
+        const daySets = selectedDay !== null
+          ? (member.sets || []).filter((s) => s.day_index === selectedDay)
           : (member.sets || []);
-        const dayLabel = availableDays.find((d) => d.dayIndex === effectiveDay)?.label || '';
+        const dayLabel = availableDays.find((d) => d.dayIndex === selectedDay)?.label || '';
         return (
           <View key={member.member_id} style={styles.card}>
             <Text style={styles.memberName}>{member.display_name}</Text>
