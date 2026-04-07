@@ -214,6 +214,8 @@ describe('DayTabReview — add artist on failed day regression', () => {
       expect.objectContaining({ artist_name: 'Kendrick Lamar', stage_name: 'Coachella Stage' }),
       1
     );
+    // Form should dismiss after successful add
+    expect(queryByText('e.g. Bad Bunny')).toBeNull();
 
     const newSet = {
       canonical_set_id: 'set-new',

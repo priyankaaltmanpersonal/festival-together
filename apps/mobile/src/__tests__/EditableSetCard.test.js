@@ -88,6 +88,8 @@ describe('EditableSetCard — edit mode', () => {
 
   it('shows error and does not call onSave when end time <= start time', async () => {
     const onSave = jest.fn();
+    // timeStringToDate('22:00') → Date{hours:22}, timeStringToDate('21:00') → Date{hours:21}
+    // timeToTotalMinutes(Date{hours:22}) = 1320 >= timeToTotalMinutes(Date{hours:21}) = 1260 → validation fires
     const { getByText } = render(
       <EditableSetCard
         {...makeProps({
@@ -111,5 +113,10 @@ describe('EditableSetCard — edit mode', () => {
     );
     fireEvent.press(getByText('Cancel'));
     expect(onCancelEdit).toHaveBeenCalled();
+  });
+
+  it('hides Save button while saving=true', () => {
+    const { queryByText } = render(<EditableSetCard {...makeProps({ isEditing: true, saving: true })} />);
+    expect(queryByText('Save')).toBeNull();
   });
 });
