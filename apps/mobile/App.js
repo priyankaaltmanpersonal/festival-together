@@ -987,7 +987,16 @@ export default function App() {
       attendance: 'going',
       source_confidence: 1.0,
     };
-    setPersonalSets((prev) => [...prev, newSet]);
+    setPersonalSets((prev) => {
+      const minutesOf = (t) => {
+        const [h, m] = (t || '00:00').split(':').map(Number);
+        return (h < 6 ? h + 24 : h) * 60 + m;
+      };
+      return [...prev, newSet].sort((a, b) => {
+        if (a.day_index !== b.day_index) return a.day_index - b.day_index;
+        return minutesOf(a.start_time_pt) - minutesOf(b.start_time_pt);
+      });
+    });
   };
 
   const addSetFromGrid = async (setItem) => {
