@@ -36,7 +36,6 @@ const API_ERROR_MESSAGES = {
   too_many_images: 'Too many images at once — please upload up to 5 at a time.',
   canonical_not_ready: 'The group schedule isn\'t ready yet. Try again in a moment.',
   canonical_not_imported: 'No schedule has been imported for this group yet.',
-  at_least_one_set_required: 'You need at least one artist saved before finishing.',
   offline_unavailable: 'You appear to be offline. Please check your connection and try again.',
   forbidden: 'You don\'t have permission to do that.',
   founder_only: 'Only the group founder can do that.',

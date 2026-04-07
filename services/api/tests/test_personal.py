@@ -111,8 +111,9 @@ def test_personal_import_and_setup_completion() -> None:
     assert any(item["source_confidence"] >= 0.7 for item in review_payload["sets"])
 
 
-def test_setup_complete_requires_at_least_one_set() -> None:
-    solo = _create_group("Solo", "NoSets")
+def test_setup_complete_allows_zero_sets() -> None:
+    """Members can complete setup with no artists — they'll just see others' picks."""
+    solo = _create_group("ZeroSets", "NoSets")
     session_token = solo["session"]["token"]
 
     done_resp = client.post(
@@ -120,8 +121,8 @@ def test_setup_complete_requires_at_least_one_set() -> None:
         headers={"x-session-token": session_token},
         json={"confirm": True},
     )
-    assert done_resp.status_code == 400
-    assert done_resp.json()["detail"] == "at_least_one_set_required"
+    assert done_resp.status_code == 200
+    assert done_resp.json()["ok"] is True
 
 
 # ── Upload endpoint tests ────────────────────────────────────────────────────

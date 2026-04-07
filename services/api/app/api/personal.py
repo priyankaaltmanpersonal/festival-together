@@ -292,13 +292,6 @@ def complete_setup(payload: CompleteSetupRequest, session=Depends(require_sessio
         if member is None:
             raise HTTPException(status_code=401, detail="invalid_session")
 
-        pref_count = conn.execute(
-            "SELECT COUNT(*) AS cnt FROM member_set_preferences WHERE member_id = ?",
-            (session["member_id"],),
-        ).fetchone()
-        if pref_count is None or pref_count["cnt"] < 1:
-            raise HTTPException(status_code=400, detail="at_least_one_set_required")
-
         conn.execute(
             "UPDATE members SET setup_status = 'complete' WHERE id = ?",
             (session["member_id"],),
