@@ -1133,13 +1133,7 @@ export default function App() {
       sessionToken: memberSession,
       body: { display_name: newDisplayName, chip_color: newChipColor },
     });
-    const homePayload = await apiRequest({
-      baseUrl: apiUrl,
-      path: '/v1/members/me/home',
-      method: 'GET',
-      sessionToken: memberSession,
-    });
-    setHomeSnapshot(homePayload);
+    await refreshCoreSnapshots();
   };
 
   const canOpenMenu = onboardingStep === 'complete';
