@@ -170,7 +170,7 @@ export default function App() {
         const sanitizedDayStates = {};
         for (const [key, val] of Object.entries(rawDayStates)) {
           sanitizedDayStates[key] = val.status === 'uploading'
-            ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1 }
+            ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1, errorMsg: 'Upload may have been interrupted. Tap retry to try again.' }
             : val;
         }
         setDayStates(sanitizedDayStates);
@@ -207,10 +207,9 @@ export default function App() {
           const next = {};
           for (const [key, val] of Object.entries(prev)) {
             next[key] = val.status === 'uploading'
-              ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1 }
+              ? { ...val, status: 'failed', retryCount: (val.retryCount || 0) + 1, errorMsg: 'Upload was interrupted. Tap retry to try again.' }
               : val;
           }
-          setError('Upload may have been interrupted — tap to retry.');
           return next;
         });
       }
@@ -519,7 +518,7 @@ export default function App() {
         const sets = (response.sets || []).map((s) => ({ ...s, preference: 'flexible' }));
         setDayStates((prev) => ({
           ...prev,
-          [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
+          [dayIndex]: { ...prev[dayIndex], status: 'done', sets, errorMsg: null },
         }));
       })
       .catch((e) => {
@@ -554,7 +553,7 @@ export default function App() {
         const sets = (response.sets || []).map((s) => ({ ...s, preference: 'flexible' }));
         setDayStates((prev) => ({
           ...prev,
-          [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
+          [dayIndex]: { ...prev[dayIndex], status: 'done', sets, errorMsg: null },
         }));
       })
       .catch((e) => {

@@ -262,7 +262,9 @@ export function DayTabReview({
         ) : current.status === 'failed' ? (
           <View style={styles.failedBlock}>
             <Text style={styles.failedText}>
-              {current.errorMsg || 'Could not parse this screenshot.'}
+              {current.retryCount >= 3
+                ? `${current.errorMsg || 'Could not parse this screenshot.'} (No more retries — add artists manually.)`
+                : (current.errorMsg || 'Could not parse this screenshot.')}
             </Text>
             {current.retryCount < 3 ? (
               <Pressable onPress={() => onRetry(activeDay)} style={styles.primaryBtn}>
