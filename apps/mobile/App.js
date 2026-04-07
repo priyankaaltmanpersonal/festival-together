@@ -1368,6 +1368,7 @@ export default function App() {
       {activeView === 'individual' ? (
         <IndividualSchedulesScreen
           individualSnapshot={individualSnapshot}
+          festivalDays={festivalDays}
           onLoadIndividual={loadIndividual}
           onBack={() => setActiveView('group')}
         />

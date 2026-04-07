@@ -1,11 +1,16 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DaySelector } from '../components/DaySelector';
 import { useTheme } from '../theme';
 
-export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual, onBack }) {
+export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, onLoadIndividual, onBack }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const members = individualSnapshot?.members || [];
+
+  const availableDays = festivalDays || [];
+  const [selectedDay, setSelectedDay] = useState(availableDays[0]?.dayIndex ?? null);
+  const effectiveDay = selectedDay !== null ? selectedDay : (availableDays[0]?.dayIndex ?? null);
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
@@ -18,30 +23,47 @@ export function IndividualSchedulesScreen({ individualSnapshot, onLoadIndividual
           ) : null}
           <Text style={styles.label}>Individual Schedules</Text>
         </View>
+        {availableDays.length > 1 ? (
+          <DaySelector
+            days={availableDays}
+            selectedDay={effectiveDay}
+            onSelect={setSelectedDay}
+          />
+        ) : null}
         <Pressable onPress={onLoadIndividual} style={styles.buttonSecondary}>
           <Text style={styles.buttonText}>Refresh Individual Schedules</Text>
         </Pressable>
         {!members.length ? <Text style={styles.helper}>No data yet. Run member setup and refresh.</Text> : null}
       </View>
 
-      {members.map((member) => (
-        <View key={member.member_id} style={styles.card}>
-          <Text style={styles.memberName}>{member.display_name}</Text>
-          <Text style={styles.helper}>Setup: {member.setup_status}</Text>
-          {(member.sets || []).length ? (
-            (member.sets || []).slice(0, 12).map((setItem) => (
-              <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
-                <Text style={styles.setTitle}>{setItem.artist_name}</Text>
-                <Text style={styles.helper}>
-                  {setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT • {setItem.preference}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.helper}>No mapped sets yet for this member.</Text>
-          )}
-        </View>
-      ))}
+      {members.map((member) => {
+        const daySets = effectiveDay !== null
+          ? (member.sets || []).filter((s) => s.day_index === effectiveDay)
+          : (member.sets || []);
+        const dayLabel = availableDays.find((d) => d.dayIndex === effectiveDay)?.label || '';
+        return (
+          <View key={member.member_id} style={styles.card}>
+            <Text style={styles.memberName}>{member.display_name}</Text>
+            <Text style={styles.helper}>Setup: {member.setup_status}</Text>
+            {daySets.length ? (
+              daySets.map((setItem) => (
+                <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
+                  <Text style={styles.setTitle}>{setItem.artist_name}</Text>
+                  <Text style={styles.helper}>
+                    {setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT • {setItem.preference}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.helper}>
+                {(member.sets || []).length > 0
+                  ? `No sets on ${dayLabel}.`
+                  : 'No mapped sets yet for this member.'}
+              </Text>
+            )}
+          </View>
+        );
+      })}
     </ScrollView>
   );
 }
