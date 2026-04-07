@@ -2,54 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../theme';
-
-function formatTime(t) {
-  if (!t) return '';
-  const [hStr, mStr] = t.split(':');
-  let h = parseInt(hStr, 10);
-  const m = mStr || '00';
-  if (h >= 24) h -= 24;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m}${ampm}`;
-}
-
-function timeStringToDate(timeStr) {
-  if (!timeStr) return makeDefaultDate(20);
-  const [hStr, mStr] = timeStr.split(':');
-  let h = parseInt(hStr, 10);
-  const m = parseInt(mStr || '0', 10);
-  if (h >= 24) h -= 24;
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  return d;
-}
-
-function makeDefaultDate(hour) {
-  const d = new Date();
-  d.setHours(hour, 0, 0, 0);
-  return d;
-}
-
-function formatHHMM(date) {
-  const h = date.getHours().toString().padStart(2, '0');
-  const m = date.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
-
-function timeToTotalMinutes(date) {
-  const h = date.getHours();
-  const m = date.getMinutes();
-  return (h < 6 ? h + 24 : h) * 60 + m;
-}
-
-function formatDisplayTime(date) {
-  let h = date.getHours();
-  const m = date.getMinutes().toString().padStart(2, '0');
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${h}:${m} ${ampm}`;
-}
+import { timeStringToDate, formatHHMM, timeToTotalMinutes, formatDisplayTime } from '../utils';
 
 /**
  * EditableSetCard — artist card with inline edit expand, delete, and preference toggle.
@@ -117,8 +70,8 @@ export function EditableSetCard({
   };
 
   const timeLabel = setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt
-    ? `${formatTime(setItem.start_time_pt)}–${formatTime(setItem.end_time_pt)}`
-    : formatTime(setItem.start_time_pt);
+    ? `${formatDisplayTime(timeStringToDate(setItem.start_time_pt))}–${formatDisplayTime(timeStringToDate(setItem.end_time_pt))}`
+    : formatDisplayTime(timeStringToDate(setItem.start_time_pt));
 
   if (isEditing) {
     return (
