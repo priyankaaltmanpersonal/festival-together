@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
+import { DaySelector } from '../components/DaySelector';
 
 const GRID_HEADER_HEIGHT = 33; // header row height (padding 6+6 + font ~12 + border 1)
 
@@ -86,23 +87,14 @@ export function GroupScheduleScreen({
             ) : null}
           </View>
           {availableDays.length > 1 ? (
-            <View style={styles.segmentedControl}>
-              {availableDays.map((dayIdx) => {
-                const dayLabel = (festivalDays || []).find((d) => d.dayIndex === dayIdx)?.label || `Day ${dayIdx}`;
-                const isActive = dayIdx === effectiveDay;
-                return (
-                  <Pressable
-                    key={dayIdx}
-                    onPress={() => setSelectedDay(dayIdx)}
-                    style={[styles.segmentedOption, isActive && styles.segmentedOptionActive]}
-                  >
-                    <Text style={[styles.segmentedText, isActive && styles.segmentedTextActive]}>
-                      {dayLabel}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <DaySelector
+              days={availableDays.map((dayIdx) => ({
+                dayIndex: dayIdx,
+                label: (festivalDays || []).find((d) => d.dayIndex === dayIdx)?.label || `Day ${dayIdx}`,
+              }))}
+              selectedDay={effectiveDay}
+              onSelect={setSelectedDay}
+            />
           ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
             {members.map((member) => {
@@ -591,36 +583,6 @@ const makeStyles = (C) => StyleSheet.create({
   inviteText: { fontSize: 12, color: C.inviteRowText },
   inviteCode: { fontWeight: '800', color: C.inviteRowCode, letterSpacing: 1 },
   inviteCopyIcon: { fontSize: 14 },
-  segmentedControl: {
-    flexDirection: 'row',
-    backgroundColor: C.inputBg,
-    borderRadius: 8,
-    padding: 2,
-    gap: 2,
-  },
-  segmentedOption: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  segmentedOptionActive: {
-    backgroundColor: C.cardBg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  segmentedText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: C.textMuted,
-  },
-  segmentedTextActive: {
-    color: C.text,
-    fontWeight: '700',
-  },
 });
 
 function tierStyle(tier, C) {
