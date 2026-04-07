@@ -54,7 +54,6 @@ export function GroupScheduleScreen({
     : sets;
 
   const stageColumns = stages
-    .filter((stage) => filteredSets.some((s) => s.stage_name === stage))
     .map((stage) => ({
       stage,
       sets: filteredSets
