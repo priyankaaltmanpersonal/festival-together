@@ -652,13 +652,17 @@ export default function App() {
       day_index: dayIndex,
       preference: 'flexible',
     };
-    setDayStates((prev) => ({
-      ...prev,
-      [dayIndex]: {
-        ...prev[dayIndex],
-        sets: [...(prev[dayIndex]?.sets || []), newSet],
-      },
-    }));
+    setDayStates((prev) => {
+      const prevDay = prev[dayIndex] || {};
+      return {
+        ...prev,
+        [dayIndex]: {
+          ...prevDay,
+          status: prevDay.status === 'failed' ? 'done' : prevDay.status,
+          sets: [...(prevDay.sets || []), newSet],
+        },
+      };
+    });
   };
 
   const confirmDay = (dayIndex) => {
