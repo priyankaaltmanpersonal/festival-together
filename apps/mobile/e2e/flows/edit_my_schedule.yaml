@@ -1,0 +1,16 @@
+# Pre-condition: user has at least one set on their schedule.
+appId: com.festivaltogether.app
+---
+- tapOn: "My Schedule"
+- assertVisible: "My Schedule"
+- tapOn: "Edit ✏"
+- assertVisible: "Editing"
+- tapOn:
+    id: "artist_name_input"
+- clearText
+- inputText: "Updated Artist Name"
+- tapOn: "Save"
+- assertVisible: "Updated Artist Name"
+- tapOn: "Must-See"
+- tapOn: "✕"
+- assertNotVisible: "Updated Artist Name"

@@ -1,0 +1,19 @@
+# REGRESSION GUARD: 2026-04-07 bug — artist added on failed day appeared to vanish.
+# Pre-condition: App is at "Review Your Schedule" with Day 1 in failed state.
+# Run this after manually triggering an upload failure on Day 1 during onboarding.
+appId: com.festivaltogether.app
+---
+- assertVisible: "Review Your Schedule"
+- assertVisible: "Could not parse"
+- tapOn: "+ Add Manually"
+- assertVisible: "Add Artist"
+- tapOn:
+    id: "Artist name"
+- inputText: "Kendrick Lamar"
+- tapOn: "Select stage…"
+- tapOn: "Coachella Stage"
+- tapOn: "Add"
+# CRITICAL: artist must appear in list after add
+# If this fails, the day status is not transitioning from 'failed' to 'done'
+- assertVisible: "Kendrick Lamar"
+- assertVisible: "Confirm"

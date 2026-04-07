@@ -1,0 +1,34 @@
+appId: com.festivaltogether.app
+---
+- launchApp:
+    clearState: true
+
+# Welcome screen
+- assertVisible: "Plan your festival day with your crew"
+- tapOn: "Create a Group"
+
+# Profile creation
+- assertVisible: "Create Group"
+- tapOn:
+    id: "Your name"
+- inputText: "Test User"
+- tapOn:
+    id: "Group name"
+- inputText: "Test Crew"
+# Pick a color swatch (first one, top-left area)
+- tapOn:
+    point: "10%, 55%"
+- tapOn: "Continue"
+
+# Festival day setup
+- assertVisible: "Festival Days"
+- tapOn: "＋ Add Day"
+- tapOn: "Continue"
+
+# Upload step — skip both days
+- assertVisible: "schedule"
+- tapOn: "Skip This Day"
+- tapOn: "Skip This Day"
+
+# Review step
+- assertVisible: "Review Your Schedule"

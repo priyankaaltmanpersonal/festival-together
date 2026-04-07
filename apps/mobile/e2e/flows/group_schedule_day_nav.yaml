@@ -1,0 +1,11 @@
+# Pre-condition: group schedule has sets on Day 1 and Day 2.
+appId: com.festivaltogether.app
+---
+- tapOn: "Group"
+- assertVisible: "Time"
+- assertVisible: "Friday"
+- assertVisible: "Saturday"
+- tapOn: "Saturday"
+- assertVisible: "Time"
+- tapOn: "Friday"
+- assertVisible: "Time"

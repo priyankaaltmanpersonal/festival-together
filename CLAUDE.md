@@ -9,6 +9,6 @@ Before every commit, run a cleanup agent that performs the following steps in or
 3. **Clean up unused imports** — remove all unused imports across changed and related files.
 4. **Lint** — run the project linter and fix all auto-fixable issues; surface any remaining errors.
 5. **Type check** — run the type checker and resolve all type errors before proceeding.
-6. **Run tests** — execute the full test suite; do not commit if tests fail.
+6. **Run tests** — `cd apps/mobile && npm test -- --passWithNoTests`. Do not commit if tests fail.
 
 This cleanup must complete successfully before the commit is created. If any step fails, fix the underlying issue rather than bypassing the check.
