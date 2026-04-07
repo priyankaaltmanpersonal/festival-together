@@ -660,6 +660,13 @@ export default function App() {
     }));
   };
 
+  const confirmDay = (dayIndex) => {
+    setDayStates((prev) => ({
+      ...prev,
+      [dayIndex]: { ...prev[dayIndex], confirmed: true },
+    }));
+  };
+
   const setDaySetPreference = (canonicalSetId, preference, dayIndex) => {
     let previousPref;
     setDayStates((prev) => {
@@ -1136,6 +1143,36 @@ export default function App() {
   };
 
   const canOpenMenu = onboardingStep === 'complete';
+
+  const allDaysReady = onboardingStep === 'review_days' && festivalDays.length > 0
+    && festivalDays.every((day) => {
+      const state = dayStates[day.dayIndex] || { status: 'idle' };
+      return state.status === 'idle' || (state.status === 'done' && state.confirmed);
+    });
+
+  const handleContinueFromReview = () => {
+    if (allDaysReady) {
+      finishUploadFlow();
+      return;
+    }
+
+    const unreadyLabels = festivalDays
+      .filter((day) => {
+        const state = dayStates[day.dayIndex] || { status: 'idle' };
+        return !(state.status === 'idle' || (state.status === 'done' && state.confirmed));
+      })
+      .map((day) => day.label || `Day ${day.dayIndex}`);
+
+    Alert.alert(
+      'Not all days confirmed',
+      `${unreadyLabels.join(', ')} ${unreadyLabels.length === 1 ? 'hasn\'t' : 'haven\'t'} been confirmed yet. You can always edit your schedule or re-upload screenshots after continuing.`,
+      [
+        { text: 'Go back', style: 'cancel' },
+        { text: 'Continue anyway', onPress: () => finishUploadFlow() },
+      ]
+    );
+  };
+
   const title = useMemo(() => {
     if (activeView === 'group') return homeSnapshot?.group?.name || 'Group Schedule';
     if (activeView === 'individual') return 'Individual Schedules';
@@ -1158,6 +1195,11 @@ export default function App() {
             <View style={styles.pendingDot} />
           ) : null}
         </View>
+        {activeView === 'onboarding' && onboardingStep === 'review_days' ? (
+          <Pressable onPress={handleContinueFromReview} disabled={loading} style={styles.continueBtn}>
+            <Text style={styles.continueBtnText}>›</Text>
+          </Pressable>
+        ) : null}
       </LinearGradient>
 
       {/* Privacy screen shown once per install. Intentionally outside the onboardingStep
@@ -1202,6 +1244,7 @@ export default function App() {
           onSetDayPreference={setDaySetPreference}
           onEditDaySet={editCanonicalSet}
           onFinishUploadFlow={finishUploadFlow}
+          onConfirmDay={confirmDay}
         />
       ) : null}
 
@@ -1327,5 +1370,19 @@ const makeStyles = (C) => StyleSheet.create({
     paddingVertical: 8,
     color: C.error,
     fontWeight: '600'
+  },
+  continueBtn: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    minWidth: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueBtnText: {
+    fontSize: 26,
+    color: C.headerText,
+    fontWeight: '300',
+    lineHeight: 28,
   },
 });

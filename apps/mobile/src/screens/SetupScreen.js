@@ -51,6 +51,7 @@ export function SetupScreen({
   onSetDayPreference,
   onEditDaySet,
   onFinishUploadFlow,
+  onConfirmDay,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -206,12 +207,7 @@ export function SetupScreen({
             onSetPreference={onSetDayPreference}
             onEditSet={onEditDaySet}
             onAddOpen={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)}
-          />
-          <ActionButton
-            label="Finish →"
-            onPress={onFinishUploadFlow}
-            primary
-            disabled={loading || Object.values(dayStates || {}).some((d) => d.status === 'uploading')}
+            onConfirmDay={onConfirmDay}
           />
         </View>
       ) : null}

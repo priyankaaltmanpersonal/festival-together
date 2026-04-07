@@ -192,6 +192,7 @@ export function DayTabReview({
   onEditSet,
   onReUpload,
   onAddOpen,
+  onConfirmDay,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -325,6 +326,22 @@ export function DayTabReview({
               <Pressable onPress={() => onReUpload(activeDay)} style={styles.secondaryBtn}>
                 <Text style={styles.secondaryBtnText}>Re-upload Screenshot</Text>
               </Pressable>
+            ) : null}
+            {onConfirmDay ? (
+              current.confirmed ? (
+                <View style={styles.confirmedRow}>
+                  <Text style={styles.confirmedText}>✓ Confirmed</Text>
+                </View>
+              ) : (
+                <Pressable
+                  onPress={() => onConfirmDay(activeDay)}
+                  style={styles.confirmBtn}
+                >
+                  <Text style={styles.confirmBtnText}>
+                    Confirm {festivalDays.find((d) => d.dayIndex === activeDay)?.label || 'Day'}'s selections →
+                  </Text>
+                </Pressable>
+              )
             ) : null}
           </>
         )}
@@ -503,4 +520,26 @@ const makeStyles = (C) => StyleSheet.create({
     borderTopColor: C.inputBorder,
   },
   pickerDoneText: { color: C.primary, fontWeight: '700', fontSize: 14 },
+  confirmBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  confirmBtnText: {
+    color: C.primaryText,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  confirmedRow: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  confirmedText: {
+    color: C.success || C.primary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
 });
