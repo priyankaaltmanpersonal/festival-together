@@ -37,6 +37,12 @@ function formatHHMM(date) {
   return `${h}:${m}`;
 }
 
+function timeToTotalMinutes(date) {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  return (h < 6 ? h + 24 : h) * 60 + m;
+}
+
 function formatDisplayTime(date) {
   let h = date.getHours();
   const m = date.getMinutes().toString().padStart(2, '0');
@@ -93,6 +99,10 @@ export function EditableSetCard({
 
   const handleSave = async () => {
     setSaveError('');
+    if (timeToTotalMinutes(editStart) >= timeToTotalMinutes(editEnd)) {
+      setSaveError('End time must be after start time.');
+      return;
+    }
     try {
       await onSave({
         artist_name: editName.trim(),

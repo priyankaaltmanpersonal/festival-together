@@ -28,6 +28,12 @@ function makeDefaultTime(hour) {
   return d;
 }
 
+function timeToTotalMinutes(date) {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  return (h < 6 ? h + 24 : h) * 60 + m;
+}
+
 function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
@@ -44,6 +50,10 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
   const handleAdd = async () => {
     if (!name.trim() || !stage.trim()) {
       setFormError('Artist name and stage are required.');
+      return;
+    }
+    if (timeToTotalMinutes(startDate) >= timeToTotalMinutes(endDate)) {
+      setFormError('End time must be after start time.');
       return;
     }
     setSaving(true);
