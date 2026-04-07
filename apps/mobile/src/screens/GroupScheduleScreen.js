@@ -3,11 +3,9 @@ import { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 import { DaySelector } from '../components/DaySelector';
+import { timeToMinutes, formatTime, minuteToY, buildTimeline, initials, withAlpha, SLOT_MINUTES, SLOT_HEIGHT } from '../utils';
 
 const GRID_HEADER_HEIGHT = 33; // header row height (padding 6+6 + font ~12 + border 1)
-
-const SLOT_MINUTES = 30;
-const SLOT_HEIGHT = 44;
 const BUBBLES_PER_ROW = 6;
 
 export function GroupScheduleScreen({
@@ -598,78 +596,3 @@ function tierStyle(tier, C) {
   return { borderColor: C.setCardBorder, backgroundColor: C.setCardBg };
 }
 
-function initials(name) {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] || '';
-  const second = parts[1]?.[0] || parts[0]?.[1] || '';
-  return `${first}${second}`.toUpperCase();
-}
-
-function withAlpha(hexColor, alpha) {
-  const raw = (hexColor || '').replace('#', '');
-  if (!/^[0-9A-Fa-f]{6}$/.test(raw)) {
-    return `rgba(0, 0, 0, ${alpha})`;
-  }
-  const intValue = Number.parseInt(raw, 16);
-  const r = (intValue >> 16) & 255;
-  const g = (intValue >> 8) & 255;
-  const b = intValue & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function timeToMinutes(timePt) {
-  const [h, m] = (timePt || '00:00').split(':').map((n) => Number.parseInt(n, 10));
-  const adjustedHour = h < 6 ? h + 24 : h;
-  return (adjustedHour * 60) + m;
-}
-
-function formatTime(totalMinutes) {
-  const h24 = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  const normalizedHour = h24 % 24;
-  const suffix = normalizedHour >= 12 ? 'PM' : 'AM';
-  const h12 = ((normalizedHour + 11) % 12) + 1;
-  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
-}
-
-function minuteToY(minute, startMinute) {
-  return ((minute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT;
-}
-
-function buildTimeline(sets, minBodyHeight = 0) {
-  if (!sets.length) return null;
-
-  let minStart = Number.POSITIVE_INFINITY;
-  let maxEnd = Number.NEGATIVE_INFINITY;
-  for (const setItem of sets) {
-    const start = timeToMinutes(setItem.start_time_pt);
-    const rawEnd = timeToMinutes(setItem.end_time_pt);
-    const rawDuration = rawEnd - start;
-    // Use the same 90-min default as the card renderer so column height matches
-    const effectiveEnd = start + (rawDuration > 0 ? rawDuration : 90);
-    minStart = Math.min(minStart, start);
-    maxEnd = Math.max(maxEnd, effectiveEnd);
-  }
-
-  const startMinute = Math.floor(minStart / SLOT_MINUTES) * SLOT_MINUTES;
-  let endMinute = Math.ceil(maxEnd / SLOT_MINUTES) * SLOT_MINUTES;
-
-  // Extend row lines to fill the available screen height so the grid
-  // doesn't stop short when content is shorter than the visible area.
-  while (((endMinute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT < minBodyHeight) {
-    endMinute += SLOT_MINUTES;
-  }
-
-  const labels = [];
-  for (let minute = startMinute; minute <= endMinute; minute += SLOT_MINUTES) {
-    labels.push(minute);
-  }
-
-  return {
-    startMinute,
-    endMinute,
-    labels,
-    totalHeight: ((endMinute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT
-  };
-}
