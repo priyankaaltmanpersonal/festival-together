@@ -284,6 +284,11 @@ export function DayTabReview({
                 </Text>
               </Pressable>
             ) : null}
+            {onReUpload ? (
+              <Pressable onPress={() => onReUpload(activeDay)} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>Choose New Image</Text>
+              </Pressable>
+            ) : null}
             {isAdding ? (
               <AddArtistForm
                 dayIndex={activeDay}

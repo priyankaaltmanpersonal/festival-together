@@ -536,6 +536,51 @@ export default function App() {
       });
   };
 
+  const rePickAndUploadDay = async (dayIndex) => {
+    if (!memberSession || !isOnline) {
+      setError(isOnline ? 'Start onboarding first' : 'Upload requires a connection');
+      return;
+    }
+    let uris;
+    try {
+      uris = await pickImages(5);
+    } catch (e) {
+      setError('Photo library permission denied');
+      return;
+    }
+    if (!uris || uris.length === 0) return;
+
+    const currentDay = festivalDays.find((d) => d.dayIndex === dayIndex);
+    const dayLabel = currentDay?.label || '';
+
+    setDayStates((prev) => ({
+      ...prev,
+      [dayIndex]: { status: 'uploading', sets: [], retryCount: 0, imageUris: uris },
+    }));
+    setError('');
+
+    uploadImages(apiUrl, '/v1/members/me/personal/upload', memberSession, uris, null, dayLabel)
+      .then((response) => {
+        const sets = (response.sets || []).map((s) => ({ ...s, preference: 'flexible' }));
+        setDayStates((prev) => ({
+          ...prev,
+          [dayIndex]: { ...prev[dayIndex], status: 'done', sets, errorMsg: null },
+        }));
+      })
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        setDayStates((prev) => ({
+          ...prev,
+          [dayIndex]: {
+            ...prev[dayIndex],
+            status: 'failed',
+            retryCount: (prev[dayIndex]?.retryCount || 0) + 1,
+            errorMsg: friendlyError(msg),
+          },
+        }));
+      });
+  };
+
   const retryDayUpload = (dayIndex) => {
     const dayState = dayStates[dayIndex];
     if (!dayState?.imageUris || dayState.status === 'uploading') return;
@@ -1339,6 +1384,7 @@ export default function App() {
           onChooseDayScreenshot={chooseAndUploadDayScreenshot}
           onSkipDay={skipPickDay}
           onRetryDay={retryDayUpload}
+          onChooseNewImage={rePickAndUploadDay}
           onDeleteDaySet={deleteDaySet}
           onAddDaySet={addDaySet}
           onSetDayPreference={setDaySetPreference}

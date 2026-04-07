@@ -35,6 +35,7 @@ export function SetupScreen({
   onSkipDay,
   // review_days step
   onRetryDay,
+  onChooseNewImage,
   onDeleteDaySet,
   onAddDaySet,
   onSetDayPreference,
@@ -190,6 +191,7 @@ export function SetupScreen({
             festivalDays={festivalDays || []}
             dayStates={dayStates || {}}
             onRetry={onRetryDay}
+            onReUpload={onChooseNewImage}
             onDeleteSet={onDeleteDaySet}
             onAddSet={onAddDaySet}
             onSetPreference={onSetDayPreference}
