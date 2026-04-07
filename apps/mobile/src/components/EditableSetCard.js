@@ -1,5 +1,6 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../theme';
 
 function formatTime(t) {
@@ -11,6 +12,37 @@ function formatTime(t) {
   const ampm = h >= 12 ? 'PM' : 'AM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${m}${ampm}`;
+}
+
+function timeStringToDate(timeStr) {
+  if (!timeStr) return makeDefaultDate(20);
+  const [hStr, mStr] = timeStr.split(':');
+  let h = parseInt(hStr, 10);
+  const m = parseInt(mStr || '0', 10);
+  if (h >= 24) h -= 24;
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+function makeDefaultDate(hour) {
+  const d = new Date();
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
+
+function formatHHMM(date) {
+  const h = date.getHours().toString().padStart(2, '0');
+  const m = date.getMinutes().toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function formatDisplayTime(date) {
+  let h = date.getHours();
+  const m = date.getMinutes().toString().padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
 }
 
 /**
@@ -42,18 +74,19 @@ export function EditableSetCard({
   const styles = useMemo(() => makeStyles(C), [C]);
   const [editName, setEditName] = useState(setItem.artist_name);
   const [editStage, setEditStage] = useState(setItem.stage_name);
-  const [editStart, setEditStart] = useState(setItem.start_time_pt);
-  const [editEnd, setEditEnd] = useState(setItem.end_time_pt);
+  const [editStart, setEditStart] = useState(() => timeStringToDate(setItem.start_time_pt));
+  const [editEnd, setEditEnd] = useState(() => timeStringToDate(setItem.end_time_pt));
+  const [activeTimePicker, setActiveTimePicker] = useState(null); // 'start' | 'end' | null
   const [saveError, setSaveError] = useState('');
 
   if (deleting) return null;
 
   const handleStartEdit = () => {
-    // Reset form to current values each time edit opens
     setEditName(setItem.artist_name);
     setEditStage(setItem.stage_name);
-    setEditStart(setItem.start_time_pt);
-    setEditEnd(setItem.end_time_pt);
+    setEditStart(timeStringToDate(setItem.start_time_pt));
+    setEditEnd(timeStringToDate(setItem.end_time_pt));
+    setActiveTimePicker(null);
     setSaveError('');
     onStartEdit();
   };
@@ -64,8 +97,8 @@ export function EditableSetCard({
       await onSave({
         artist_name: editName.trim(),
         stage_name: editStage.trim(),
-        start_time_pt: editStart.trim(),
-        end_time_pt: editEnd.trim(),
+        start_time_pt: formatHHMM(editStart),
+        end_time_pt: formatHHMM(editEnd),
       });
       onCancelEdit();
     } catch (err) {
@@ -97,14 +130,51 @@ export function EditableSetCard({
         </View>
         <View style={styles.timeRow}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>Start (HH:MM)</Text>
-            <TextInput value={editStart} onChangeText={setEditStart} style={styles.input} placeholder="e.g. 21:00" />
+            <Text style={styles.fieldLabel}>Start time</Text>
+            <Pressable
+              onPress={() => setActiveTimePicker(activeTimePicker === 'start' ? null : 'start')}
+              style={[styles.timePickerBtn, activeTimePicker === 'start' && styles.timePickerBtnActive]}
+            >
+              <Text style={styles.timePickerText}>{formatDisplayTime(editStart)}</Text>
+            </Pressable>
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>End (HH:MM)</Text>
-            <TextInput value={editEnd} onChangeText={setEditEnd} style={styles.input} placeholder="e.g. 23:00" />
+            <Text style={styles.fieldLabel}>End time</Text>
+            <Pressable
+              onPress={() => setActiveTimePicker(activeTimePicker === 'end' ? null : 'end')}
+              style={[styles.timePickerBtn, activeTimePicker === 'end' && styles.timePickerBtnActive]}
+            >
+              <Text style={styles.timePickerText}>{formatDisplayTime(editEnd)}</Text>
+            </Pressable>
           </View>
         </View>
+
+        {activeTimePicker ? (
+          <View style={styles.pickerContainer}>
+            <DateTimePicker
+              value={activeTimePicker === 'start' ? editStart : editEnd}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minuteInterval={5}
+              onChange={(event, selectedDate) => {
+                if (Platform.OS === 'android') {
+                  setActiveTimePicker(null);
+                }
+                if (selectedDate) {
+                  if (activeTimePicker === 'start') setEditStart(selectedDate);
+                  else setEditEnd(selectedDate);
+                }
+              }}
+              style={styles.picker}
+              textColor={C.text}
+            />
+            {Platform.OS === 'ios' ? (
+              <Pressable onPress={() => setActiveTimePicker(null)} style={styles.pickerDoneBtn}>
+                <Text style={styles.pickerDoneText}>Done</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={styles.saveRow}>
           {saving ? (
@@ -219,6 +289,36 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.inputBg,
   },
   timeRow: { flexDirection: 'row', gap: 8 },
+  timePickerBtn: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 10,
+    backgroundColor: C.inputBg,
+    alignItems: 'center',
+  },
+  timePickerBtnActive: {
+    borderColor: C.primary,
+    backgroundColor: C.primaryBg,
+  },
+  timePickerText: { fontSize: 14, fontWeight: '600', color: C.text },
+  pickerContainer: {
+    backgroundColor: C.inputBg,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    overflow: 'hidden',
+  },
+  picker: { width: '100%' },
+  pickerDoneBtn: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: C.inputBorder,
+  },
+  pickerDoneText: { color: C.primary, fontWeight: '700', fontSize: 14 },
   saveRow: { flexDirection: 'row', gap: 8, marginTop: 2 },
   saveBtn: {
     flex: 1,
