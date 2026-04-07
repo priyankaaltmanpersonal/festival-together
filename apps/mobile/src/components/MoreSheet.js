@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -74,8 +76,12 @@ export function MoreSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.handle} />
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={20}
+          >
+            <View style={styles.handle} />
+            <ScrollView showsVerticalScrollIndicator={false}>
 
             {inviteCode ? (
               <Pressable onPress={onCopyInvite} style={styles.inviteCard}>
@@ -152,6 +158,7 @@ export function MoreSheet({
             ) : null}
 
           </ScrollView>
+          </KeyboardAvoidingView>
         </Pressable>
       </Pressable>
     </Modal>
