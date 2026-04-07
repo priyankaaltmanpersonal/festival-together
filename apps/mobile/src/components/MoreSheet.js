@@ -78,7 +78,8 @@ export function MoreSheet({
         <Pressable style={styles.sheet} onPress={() => {}}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={20}
+            keyboardVerticalOffset={0}
+            style={{ flex: 1 }}
           >
             <View style={styles.handle} />
             <ScrollView showsVerticalScrollIndicator={false}>
