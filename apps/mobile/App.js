@@ -917,9 +917,41 @@ export default function App() {
     });
 
   const deletePersonalSet = async (canonicalSetId) => {
-    // Optimistic: remove immediately from local state
-    const previous = personalSets;
+    const previousPersonalSets = personalSets;
+    const previousScheduleSnapshot = scheduleSnapshot;
+    const previousIndividualSnapshot = individualSnapshot;
+    const myId = homeSnapshot?.me?.id;
+
     setPersonalSets((prev) => prev.filter((s) => s.canonical_set_id !== canonicalSetId));
+
+    if (myId && scheduleSnapshot) {
+      setScheduleSnapshot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sets: (prev.sets || []).map((setItem) => {
+            if (setItem.canonical_set_id !== canonicalSetId) return setItem;
+            const newAttendees = (setItem.attendees || []).filter((a) => a.member_id !== myId);
+            return { ...setItem, attendees: newAttendees, attendee_count: newAttendees.length };
+          }),
+        };
+      });
+    }
+
+    if (myId && individualSnapshot) {
+      setIndividualSnapshot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: (prev.members || []).map((member) =>
+            member.member_id !== myId
+              ? member
+              : { ...member, sets: (member.sets || []).filter((s) => s.canonical_set_id !== canonicalSetId) }
+          ),
+        };
+      });
+    }
+
     try {
       await apiRequest({
         baseUrl: apiUrl,
@@ -928,8 +960,9 @@ export default function App() {
         sessionToken: memberSession,
       });
     } catch (err) {
-      // Rollback
-      setPersonalSets(previous);
+      setPersonalSets(previousPersonalSets);
+      setScheduleSnapshot(previousScheduleSnapshot);
+      setIndividualSnapshot(previousIndividualSnapshot);
       setError(friendlyError(err instanceof Error ? err.message : String(err)));
     }
   };
@@ -986,7 +1019,6 @@ export default function App() {
   };
 
   const editCanonicalSet = async (canonicalSetId, fields) => {
-    // fields: { artist_name?, stage_name?, start_time_pt?, end_time_pt? }
     await apiRequest({
       baseUrl: apiUrl,
       path: `/v1/canonical-sets/${canonicalSetId}`,
@@ -999,6 +1031,17 @@ export default function App() {
         s.canonical_set_id === canonicalSetId ? { ...s, ...fields } : s
       )
     );
+    setScheduleSnapshot((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sets: (prev.sets || []).map((setItem) =>
+          setItem.canonical_set_id !== canonicalSetId
+            ? setItem
+            : { ...setItem, ...fields }
+        ),
+      };
+    });
   };
 
   const applyScheduleFilters = (nextSelectedMemberIds, options = {}) => {
