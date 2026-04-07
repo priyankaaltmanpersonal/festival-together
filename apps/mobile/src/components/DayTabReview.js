@@ -3,44 +3,19 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EditableSetCard } from './EditableSetCard';
 import { useTheme } from '../theme';
+import { formatHHMM, formatDisplayTime, timeToTotalMinutes } from '../utils';
 
 const STAGE_OPTIONS = [
   'Coachella Stage', 'Outdoor Theatre', 'Sahara', 'Mojave', 'Gobi', 'Quasar', 'Sonora', 'DoLaB',
 ];
-
-function formatHHMM(date) {
-  const h = date.getHours().toString().padStart(2, '0');
-  const m = date.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
-
-function formatDisplayTime(date) {
-  let h = date.getHours();
-  const m = date.getMinutes().toString().padStart(2, '0');
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${h}:${m} ${ampm}`;
-}
-
-function makeDefaultTime(hour) {
-  const d = new Date();
-  d.setHours(hour, 0, 0, 0);
-  return d;
-}
-
-function timeToTotalMinutes(date) {
-  const h = date.getHours();
-  const m = date.getMinutes();
-  return (h < 6 ? h + 24 : h) * 60 + m;
-}
 
 function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
   const [stageOpen, setStageOpen] = useState(false);
   const [stageCustom, setStageCustom] = useState(false);
-  const [startDate, setStartDate] = useState(() => makeDefaultTime(20));
-  const [endDate, setEndDate] = useState(() => makeDefaultTime(21));
+  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setHours(20, 0, 0, 0); return d; });
+  const [endDate, setEndDate] = useState(() => { const d = new Date(); d.setHours(21, 0, 0, 0); return d; });
   const [activeTimePicker, setActiveTimePicker] = useState(null); // 'start' | 'end' | null
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
