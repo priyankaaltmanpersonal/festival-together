@@ -6,7 +6,8 @@ import { useTheme } from '../theme';
 const GRID_HEADER_HEIGHT = 33; // header row height (padding 6+6 + font ~12 + border 1)
 
 const SLOT_MINUTES = 30;
-const SLOT_HEIGHT = 28;
+const SLOT_HEIGHT = 44;
+const BUBBLES_PER_ROW = 6;
 
 export function GroupScheduleScreen({
   homeSnapshot,
@@ -127,25 +128,36 @@ export function GroupScheduleScreen({
                       const rawDuration = endMin - startMin;
                       const duration = rawDuration > 0 ? rawDuration : 90;
                       const height = Math.max(26, (duration / SLOT_MINUTES) * SLOT_HEIGHT - 2);
-                      const compact = height < 56;
-                      const iconLimit = compact ? 2 : 4;
                       const definite = (setItem.attendees || []).filter((a) => a.preference === 'must_see');
                       const maybe = (setItem.attendees || []).filter((a) => a.preference !== 'must_see');
                       const maybeCount = Math.max(0, (setItem.attendee_count || 0) - definite.length);
+                      // Row cap: 1 row (6 bubbles) for cards < 43px, 2 rows (12) otherwise
+                      const maxRows = height < 43 ? 1 : 2;
+                      const maxBubbles = maxRows * BUBBLES_PER_ROW;
+                      const hasOverflow = definite.length > maxBubbles;
+                      const shownBubbles = hasOverflow
+                        ? definite.slice(0, maxBubbles - 1)
+                        : definite.slice(0, maxBubbles);
+                      const overflowCount = hasOverflow ? definite.length - (maxBubbles - 1) : 0;
+                      // Summary visible only when there's room: threshold = bubblesHeight + 40
+                      // (40 = topContent 23 + minGap 4 + summaryGap 2 + summary 9 + bottomPad 2)
+                      const actualRows = Math.ceil(shownBubbles.length / BUBBLES_PER_ROW) || 1;
+                      const bubblesHeight = actualRows === 1 ? 16 : 35;
+                      const showSummary = height >= bubblesHeight + 40;
 
                       return (
                         <View key={setItem.id} style={[styles.setCardWrap, { top, height }]}>
                           <Pressable
                             onPress={() => setExpandedSet({ ...setItem, definite, maybe })}
-                            style={[styles.setTag, compact && styles.setTagCompact, tierStyle(setItem.popularity_tier, C)]}
+                            style={[styles.setTag, tierStyle(setItem.popularity_tier, C)]}
                           >
-                            <View style={styles.setMain}>
-                              <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
-                              <Text style={styles.timeRangeText} numberOfLines={1}>
-                                {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
-                              </Text>
-                                <View style={styles.attendeeRow}>
-                                {definite.slice(0, iconLimit).map((attendee) => (
+                            <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
+                            <Text style={styles.timeRangeText} numberOfLines={1}>
+                              {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
+                            </Text>
+                            <View style={styles.pin}>
+                              <View style={styles.attendeeRow}>
+                                {shownBubbles.map((attendee) => (
                                   <View
                                     key={attendee.member_id}
                                     style={[
@@ -156,12 +168,18 @@ export function GroupScheduleScreen({
                                     <Text style={styles.attendeeText}>{initials(attendee.display_name)}</Text>
                                   </View>
                                 ))}
-                                {definite.length > iconLimit ? <Text style={styles.countText}>+{definite.length - iconLimit}</Text> : null}
+                                {overflowCount > 0 ? (
+                                  <View style={styles.overflowBubble}>
+                                    <Text style={styles.overflowText}>+{overflowCount}</Text>
+                                  </View>
+                                ) : null}
                               </View>
+                              {showSummary ? (
+                                <Text style={styles.summaryText} numberOfLines={1}>
+                                  {definite.length} definitely · {maybeCount} maybe
+                                </Text>
+                              ) : null}
                             </View>
-                            <Text style={[styles.summaryText, compact && styles.summaryTextCompact]} numberOfLines={1}>
-                              {definite.length} definitely · {maybeCount} maybe
-                            </Text>
                           </Pressable>
                         </View>
                       );
@@ -379,32 +397,42 @@ const makeStyles = (C) => StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 3,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
     backgroundColor: C.setCardBg,
-    overflow: 'hidden'
-  },
-  setTagCompact: {
-    paddingVertical: 2
-  },
-  setMain: {
-    gap: 1
+    overflow: 'hidden',
+    position: 'relative',
   },
   artistText: { fontWeight: '800', color: C.setCardText, fontSize: 10, lineHeight: 11 },
   timeRangeText: { color: C.setCardTimeTxt, fontSize: 8, marginTop: 1, lineHeight: 9 },
-  attendeeRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  pin: {
+    position: 'absolute',
+    bottom: 2,
+    left: 3,
+    right: 3,
+    flexDirection: 'column',
+    gap: 2,
+  },
+  attendeeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
   attendeeBubble: {
-    width: 14,
-    height: 14,
+    width: 16,
+    height: 16,
     borderRadius: 999,
     backgroundColor: C.attendeeBg,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
-  attendeeText: { color: C.attendeeText, fontSize: 8, fontWeight: '800' },
-  summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 9, marginTop: 1 },
-  summaryTextCompact: { fontSize: 7, lineHeight: 8, marginTop: 1 },
-  countText: { color: C.setCardTimeTxt, fontSize: 8 },
+  attendeeText: { color: C.attendeeText, fontSize: 7, fontWeight: '800' },
+  overflowBubble: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: C.textMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overflowText: { color: '#fff', fontSize: 6.5, fontWeight: '800' },
+  summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 9 },
   modalOverlay: {
     flex: 1,
     backgroundColor: C.modalOverlay,
