@@ -262,9 +262,7 @@ export function DayTabReview({
         ) : current.status === 'failed' ? (
           <View style={styles.failedBlock}>
             <Text style={styles.failedText}>
-              {current.retryCount >= 3
-                ? 'Could not parse this screenshot after 3 attempts.'
-                : 'Could not parse this screenshot.'}
+              {current.errorMsg || 'Could not parse this screenshot.'}
             </Text>
             {current.retryCount < 3 ? (
               <Pressable onPress={() => onRetry(activeDay)} style={styles.primaryBtn}>

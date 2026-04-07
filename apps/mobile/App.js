@@ -522,13 +522,15 @@ export default function App() {
           [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
         }));
       })
-      .catch(() => {
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
         setDayStates((prev) => ({
           ...prev,
           [dayIndex]: {
             ...prev[dayIndex],
             status: 'failed',
             retryCount: (prev[dayIndex]?.retryCount || 0) + 1,
+            errorMsg: friendlyError(msg),
           },
         }));
       });
@@ -555,13 +557,15 @@ export default function App() {
           [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
         }));
       })
-      .catch(() => {
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : String(e);
         setDayStates((prev) => ({
           ...prev,
           [dayIndex]: {
             ...prev[dayIndex],
             status: 'failed',
             retryCount: (prev[dayIndex]?.retryCount || 0) + 1,
+            errorMsg: friendlyError(msg),
           },
         }));
       });
