@@ -287,6 +287,7 @@ const makeStyles = (C) => StyleSheet.create({
     paddingVertical: 7,
     fontSize: 13,
     backgroundColor: C.inputBg,
+    color: C.text,
   },
   timeRow: { flexDirection: 'row', gap: 8 },
   timePickerBtn: {
