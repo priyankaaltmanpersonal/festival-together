@@ -1144,11 +1144,16 @@ export default function App() {
 
   const canOpenMenu = onboardingStep === 'complete';
 
-  const allDaysReady = onboardingStep === 'review_days' && festivalDays.length > 0
-    && festivalDays.every((day) => {
-      const state = dayStates[day.dayIndex] || { status: 'idle' };
-      return state.status === 'idle' || (state.status === 'done' && state.confirmed);
-    });
+  const allDaysReady = useMemo(
+    () =>
+      onboardingStep === 'review_days' &&
+      festivalDays.length > 0 &&
+      festivalDays.every((day) => {
+        const state = dayStates[day.dayIndex] || { status: 'idle' };
+        return state.status === 'idle' || (state.status === 'done' && state.confirmed);
+      }),
+    [onboardingStep, festivalDays, dayStates]
+  );
 
   const handleContinueFromReview = () => {
     if (allDaysReady) {
@@ -1156,16 +1161,27 @@ export default function App() {
       return;
     }
 
-    const unreadyLabels = festivalDays
+    const failedLabels = festivalDays
       .filter((day) => {
-        const state = dayStates[day.dayIndex] || { status: 'idle' };
-        return !(state.status === 'idle' || (state.status === 'done' && state.confirmed));
+        const s = (dayStates[day.dayIndex] || {}).status;
+        return s === 'failed' || s === 'uploading';
       })
       .map((day) => day.label || `Day ${day.dayIndex}`);
 
+    const unconfirmedLabels = festivalDays
+      .filter((day) => {
+        const state = dayStates[day.dayIndex] || { status: 'idle' };
+        return state.status === 'done' && !state.confirmed;
+      })
+      .map((day) => day.label || `Day ${day.dayIndex}`);
+
+    const parts = [];
+    if (failedLabels.length) parts.push(`${failedLabels.join(', ')} ${failedLabels.length === 1 ? 'failed to parse' : 'failed to parse'}.`);
+    if (unconfirmedLabels.length) parts.push(`${unconfirmedLabels.join(', ')} ${unconfirmedLabels.length === 1 ? 'hasn\'t been confirmed yet' : 'haven\'t been confirmed yet'}.`);
+
     Alert.alert(
-      'Not all days confirmed',
-      `${unreadyLabels.join(', ')} ${unreadyLabels.length === 1 ? 'hasn\'t' : 'haven\'t'} been confirmed yet. You can always edit your schedule or re-upload screenshots after continuing.`,
+      'Not all days are ready',
+      `${parts.join(' ')} You can always edit your schedule or re-upload screenshots after continuing.`,
       [
         { text: 'Go back', style: 'cancel' },
         { text: 'Continue anyway', onPress: () => finishUploadFlow() },
@@ -1243,7 +1259,6 @@ export default function App() {
           onAddDaySet={addDaySet}
           onSetDayPreference={setDaySetPreference}
           onEditDaySet={editCanonicalSet}
-          onFinishUploadFlow={finishUploadFlow}
           onConfirmDay={confirmDay}
         />
       ) : null}

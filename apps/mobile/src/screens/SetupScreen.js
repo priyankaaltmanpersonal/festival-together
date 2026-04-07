@@ -1,20 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
-function formatTime(t) {
-  if (!t) return '';
-  const [hStr, mStr] = t.split(':');
-  let h = parseInt(hStr, 10);
-  const m = mStr || '00';
-  // Extended hours (24-29) = next-day early morning
-  if (h >= 24) h -= 24;
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${m}${ampm}`;
-}
 
 export function SetupScreen({
   userRole,
@@ -50,7 +39,6 @@ export function SetupScreen({
   onAddDaySet,
   onSetDayPreference,
   onEditDaySet,
-  onFinishUploadFlow,
   onConfirmDay,
 }) {
   const C = useTheme();
@@ -218,84 +206,6 @@ export function SetupScreen({
   );
 }
 
-function AddArtistCard({ onAdd, onCancel, defaultDayIndex }) {
-  const C = useTheme();
-  const addCardStyles = useMemo(() => makeAddCardStyles(C), [C]);
-  const [name, setName] = useState('');
-  const [stage, setStage] = useState('');
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleAdd = async () => {
-    if (!name.trim() || !stage.trim() || !start.trim() || !end.trim()) {
-      setError('All fields are required.');
-      return;
-    }
-    setSaving(true);
-    setError('');
-    try {
-      await onAdd({
-        artist_name: name.trim(),
-        stage_name: stage.trim(),
-        start_time_pt: start.trim(),
-        end_time_pt: end.trim(),
-        day_index: defaultDayIndex || 1,
-      });
-      onCancel();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <View style={addCardStyles.addCard}>
-      <Text style={addCardStyles.addCardLabel}>Add Artist</Text>
-      <Text style={addCardStyles.fieldLabel}>Artist name</Text>
-      <TextInput value={name} onChangeText={setName} style={addCardStyles.input} placeholder="e.g. Bad Bunny" />
-      <Text style={addCardStyles.fieldLabel}>Stage</Text>
-      <TextInput value={stage} onChangeText={setStage} style={addCardStyles.input} placeholder="e.g. Coachella Stage" />
-      <View style={addCardStyles.timeRow}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={addCardStyles.fieldLabel}>Start (HH:MM)</Text>
-          <TextInput value={start} onChangeText={setStart} style={addCardStyles.input} placeholder="21:00" />
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={addCardStyles.fieldLabel}>End (HH:MM)</Text>
-          <TextInput value={end} onChangeText={setEnd} style={addCardStyles.input} placeholder="23:00" />
-        </View>
-      </View>
-      <View style={addCardStyles.saveRow}>
-        {saving ? <ActivityIndicator color={C.primary} /> : (
-          <Pressable onPress={handleAdd} style={addCardStyles.saveBtn}>
-            <Text style={addCardStyles.saveBtnText}>Add</Text>
-          </Pressable>
-        )}
-        <Pressable onPress={onCancel} style={addCardStyles.cancelBtn}>
-          <Text style={addCardStyles.cancelBtnText}>Cancel</Text>
-        </Pressable>
-      </View>
-      {error ? <Text style={addCardStyles.saveError}>{error}</Text> : null}
-    </View>
-  );
-}
-
-const makeAddCardStyles = (C) => StyleSheet.create({
-  addCard: { borderWidth: 1, borderColor: C.addCardBorder, borderRadius: 10, padding: 10, backgroundColor: C.addCardBg, gap: 6 },
-  addCardLabel: { fontWeight: '700', color: C.addCardLabel, fontSize: 13 },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: C.fieldLabelText },
-  input: { borderWidth: 1, borderColor: C.inputBorder, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 7, fontSize: 13, backgroundColor: C.inputBg },
-  timeRow: { flexDirection: 'row', gap: 8 },
-  saveRow: { flexDirection: 'row', gap: 8 },
-  saveBtn: { flex: 1, backgroundColor: C.primary, borderRadius: 8, paddingVertical: 9, alignItems: 'center' },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  cancelBtn: { backgroundColor: C.inputBg, borderWidth: 1, borderColor: C.inputBorder, borderRadius: 8, paddingVertical: 9, paddingHorizontal: 16, alignItems: 'center' },
-  cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
-  saveError: { color: C.error, fontWeight: '600', fontSize: 12 },
-});
 
 function ActionButton({ label, onPress, primary = false, disabled = false, large = false }) {
   const C = useTheme();
