@@ -522,8 +522,7 @@ export default function App() {
           [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
         }));
       })
-      .catch((e) => {
-        const msg = e instanceof Error ? e.message : String(e);
+      .catch(() => {
         setDayStates((prev) => ({
           ...prev,
           [dayIndex]: {
@@ -532,7 +531,6 @@ export default function App() {
             retryCount: (prev[dayIndex]?.retryCount || 0) + 1,
           },
         }));
-        setError(friendlyError(msg));
       });
   };
 
@@ -557,8 +555,7 @@ export default function App() {
           [dayIndex]: { ...prev[dayIndex], status: 'done', sets },
         }));
       })
-      .catch((e) => {
-        const msg = e instanceof Error ? e.message : String(e);
+      .catch(() => {
         setDayStates((prev) => ({
           ...prev,
           [dayIndex]: {
@@ -567,7 +564,6 @@ export default function App() {
             retryCount: (prev[dayIndex]?.retryCount || 0) + 1,
           },
         }));
-        setError(friendlyError(msg));
       });
   };
 
