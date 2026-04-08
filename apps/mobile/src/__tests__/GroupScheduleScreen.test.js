@@ -102,3 +102,48 @@ describe('GroupScheduleScreen — day filtering', () => {
     expect(getByText('No schedule loaded yet.')).toBeTruthy();
   });
 });
+
+describe('GroupScheduleScreen — hide-unattended toggle', () => {
+  it('filters out sets with attendee_count 0 when toggle is active', () => {
+    const sets = [
+      {
+        id: 'set-1',
+        artist_name: 'Attended Artist',
+        stage_name: STAGE,
+        start_time_pt: '20:00',
+        end_time_pt: '21:00',
+        day_index: 1,
+        attendee_count: 1,
+        attendees: [{ member_id: 'me', display_name: 'Me', preference: 'must_see', chip_color: '#f00' }],
+        popularity_tier: 'low',
+      },
+      {
+        id: 'set-2',
+        artist_name: 'Unattended Artist',
+        stage_name: STAGE,
+        start_time_pt: '21:30',
+        end_time_pt: '22:30',
+        day_index: 1,
+        attendee_count: 0,
+        attendees: [],
+        popularity_tier: 'none',
+      },
+    ];
+    const { getByText, queryByText } = render(<GroupScheduleScreen {...makeProps(sets)} />);
+
+    // Both visible before toggle
+    expect(getByText('Attended Artist')).toBeTruthy();
+    expect(getByText('Unattended Artist')).toBeTruthy();
+
+    // Tap the "Group only" toggle
+    fireEvent.press(getByText('Group only'));
+
+    // Unattended now hidden
+    expect(getByText('Attended Artist')).toBeTruthy();
+    expect(queryByText('Unattended Artist')).toBeNull();
+
+    // Tap again to disable toggle
+    fireEvent.press(getByText('Group only'));
+    expect(getByText('Unattended Artist')).toBeTruthy();
+  });
+});

@@ -42,6 +42,7 @@ export function GroupScheduleScreen({
   );
 
   const [selectedDay, setSelectedDay] = useState(null);
+  const [hideUnattended, setHideUnattended] = useState(false);
 
   // Default to first available day; stay on selected if it's still valid
   const effectiveDay = selectedDay !== null && availableDays.includes(selectedDay)
@@ -52,15 +53,21 @@ export function GroupScheduleScreen({
     ? sets.filter((s) => s.day_index === effectiveDay)
     : sets;
 
+  const hasUnattendedSets = filteredSets.some((s) => s.attendee_count === 0);
+
+  const visibleSets = hideUnattended
+    ? filteredSets.filter((s) => s.attendee_count > 0)
+    : filteredSets;
+
   const stageColumns = stages
     .map((stage) => ({
       stage,
-      sets: filteredSets
+      sets: visibleSets
         .filter((item) => item.stage_name === stage)
         .sort((a, b) => timeToMinutes(a.start_time_pt) - timeToMinutes(b.start_time_pt)),
     }));
 
-  const timeline = buildTimeline(filteredSets, gridBodyHeight || 0);
+  const timeline = buildTimeline(visibleSets, gridBodyHeight || 0);
   const memberColorById = useMemo(
     () => Object.fromEntries(members.map((member) => [member.id, member.chip_color])),
     [members]
@@ -93,6 +100,18 @@ export function GroupScheduleScreen({
               selectedDay={effectiveDay}
               onSelect={setSelectedDay}
             />
+          ) : null}
+          {hasUnattendedSets ? (
+            <View style={styles.toggleRow}>
+              <Pressable
+                onPress={() => setHideUnattended((v) => !v)}
+                style={[styles.togglePill, hideUnattended && styles.togglePillActive]}
+              >
+                <Text style={[styles.togglePillText, hideUnattended && styles.togglePillTextActive]}>
+                  Group only
+                </Text>
+              </Pressable>
+            </View>
           ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
             {members.map((member) => {
@@ -442,6 +461,21 @@ const makeStyles = (C) => StyleSheet.create({
     textDecorationColor: C.resetBtnUnderline
   },
   helperPad: { color: C.textMuted, fontSize: 12, paddingHorizontal: 2, paddingTop: 2 },
+  toggleRow: { flexDirection: 'row', justifyContent: 'flex-end' },
+  togglePill: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: C.inputBg,
+  },
+  togglePillActive: {
+    backgroundColor: C.primaryBg,
+    borderColor: C.primary,
+  },
+  togglePillText: { fontSize: 12, fontWeight: '600', color: C.textMuted },
+  togglePillTextActive: { color: C.primary, fontWeight: '700' },
   gridHeader: {
     flexDirection: 'row',
     borderBottomWidth: 1,
