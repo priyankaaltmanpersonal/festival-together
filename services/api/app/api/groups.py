@@ -1,16 +1,21 @@
 from datetime import datetime, timedelta, timezone
 import json
+import logging
 import sqlite3
 from secrets import token_urlsafe
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi import Header
 from fastapi import Request
 
 from app.core.auth import require_session
 from app.core.colors import CHIP_COLOR_PALETTE, normalize_chip_color, validate_chip_color
 from app.core.db import get_conn
+from app.core.image_utils import validate_and_compress, ImageValidationError
+from app.core.llm_parser import parse_official_lineup_from_image
+
+logger = logging.getLogger(__name__)
 from app.schemas.groups import (
     DeleteMemberRequest,
     FestivalDay,
@@ -524,3 +529,101 @@ def delete_member_data(payload: DeleteMemberRequest, session=Depends(require_ses
         conn.execute("DELETE FROM members WHERE id = ?", (member["id"],))
 
     return {"ok": True, "group_deleted": False}
+
+
+@router.post("/groups/{group_id}/lineup/import")
+async def import_official_lineup(
+    group_id: str,
+    images: list[UploadFile] = File(...),
+    session=Depends(require_session),
+) -> dict:
+    """Import the official festival lineup from graphic images (founder only).
+
+    Accepts up to 3 official day lineup images. Parses all artists using
+    Claude Vision and seeds canonical_sets with source='official'.
+    Skips duplicates (same artist + day already exists for group).
+    """
+    if session["group_id"] != group_id or session["role"] != "founder":
+        raise HTTPException(status_code=403, detail="founder_only")
+
+    with get_conn() as conn:
+        group = conn.execute(
+            "SELECT id, festival_days FROM groups WHERE id = ?",
+            (group_id,),
+        ).fetchone()
+        if group is None:
+            raise HTTPException(status_code=404, detail="group_not_found")
+        festival_days = json.loads(group["festival_days"]) if group["festival_days"] else [
+            {"day_index": 1, "label": "Friday"},
+            {"day_index": 2, "label": "Saturday"},
+            {"day_index": 3, "label": "Sunday"},
+        ]
+
+    all_parsed: list[dict] = []
+    days_processed: set[int] = set()
+
+    for image in images:
+        raw = await image.read()
+        try:
+            compressed = validate_and_compress(raw)
+        except ImageValidationError as e:
+            logger.warning(f"Official lineup image validation failed: {e}")
+            continue
+
+        try:
+            parsed = parse_official_lineup_from_image(compressed, festival_days)
+            logger.info(f"Official lineup parse: {len(parsed)} sets from {image.filename}")
+            all_parsed.extend(parsed)
+            for entry in parsed:
+                days_processed.add(entry["day_index"])
+        except Exception as e:
+            logger.error(f"Official lineup parse failed for {image.filename}: {e}")
+            raise HTTPException(status_code=500, detail=f"Parse failed: {e}")
+
+    if not all_parsed:
+        raise HTTPException(status_code=400, detail="no_sets_parsed")
+
+    now = _now_iso()
+    sets_created = 0
+
+    with get_conn() as conn:
+        for entry in all_parsed:
+            existing = conn.execute(
+                """
+                SELECT id FROM canonical_sets
+                WHERE group_id = ?
+                  AND LOWER(TRIM(artist_name)) = ?
+                  AND day_index = ?
+                """,
+                (group_id, entry["artist_name"].lower().strip(), entry["day_index"]),
+            ).fetchone()
+
+            if existing:
+                continue
+
+            conn.execute(
+                """
+                INSERT INTO canonical_sets
+                (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                 day_index, status, source_confidence, source, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 1.0, 'official', ?)
+                """,
+                (
+                    str(uuid4()),
+                    group_id,
+                    entry["artist_name"],
+                    entry["stage_name"],
+                    entry["start_time"],
+                    entry["end_time"] or entry["start_time"],
+                    entry["day_index"],
+                    now,
+                ),
+            )
+            sets_created += 1
+
+    day_labels = [
+        next((d["label"] for d in festival_days if d["day_index"] == di), f"Day {di}")
+        for di in sorted(days_processed)
+    ]
+
+    return {"sets_created": sets_created, "days_processed": day_labels}
