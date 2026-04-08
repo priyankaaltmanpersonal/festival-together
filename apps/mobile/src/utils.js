@@ -48,9 +48,9 @@ export function buildTimeline(sets, minBodyHeight = 0) {
   let maxEnd = Number.NEGATIVE_INFINITY;
   for (const setItem of sets) {
     const start = timeToMinutes(setItem.start_time_pt);
-    const rawEnd = timeToMinutes(setItem.end_time_pt);
+    const rawEnd = setItem.end_time_pt ? timeToMinutes(setItem.end_time_pt) : start;
     const rawDuration = rawEnd - start;
-    const effectiveEnd = start + (rawDuration > 0 ? rawDuration : 90);
+    const effectiveEnd = start + (rawDuration > 0 ? rawDuration : 120);
     minStart = Math.min(minStart, start);
     maxEnd = Math.max(maxEnd, effectiveEnd);
   }

@@ -97,12 +97,23 @@ describe('buildTimeline', () => {
     expect(result.totalHeight).toBe(88);
   });
 
-  it('uses 90-min default duration when end < start', () => {
+  it('uses 120-min default duration when end_time_pt is null', () => {
+    // Backend omits end time for last artist on a stage — should span 2 hours
+    const sets = [{ start_time_pt: '21:00', end_time_pt: null }];
+    const result = buildTimeline(sets, 0);
+    // effectiveEnd = 1260 + 120 = 1380
+    expect(result.startMinute).toBe(1260);
+    expect(result.endMinute).toBe(1380);
+    expect(result.totalHeight).toBe(176); // (1380-1260)/30*44
+  });
+
+  it('uses 120-min default duration when end < start', () => {
     const sets = [{ start_time_pt: '22:00', end_time_pt: '21:00' }];
     const result = buildTimeline(sets, 0);
+    // effectiveEnd = 1320 + 120 = 1440
     expect(result.startMinute).toBe(1320);
-    expect(result.endMinute).toBe(1410);
-    expect(result.totalHeight).toBe(132);
+    expect(result.endMinute).toBe(1440);
+    expect(result.totalHeight).toBe(176); // (1440-1320)/30*44
   });
 
   it('spans multiple sets correctly', () => {

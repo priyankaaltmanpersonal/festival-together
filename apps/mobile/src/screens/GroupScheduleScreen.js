@@ -180,7 +180,7 @@ export function GroupScheduleScreen({
                         const startMin = timeToMinutes(setItem.start_time_pt);
                         const endMin = setItem.end_time_pt ? timeToMinutes(setItem.end_time_pt) : startMin;
                         const rawDuration = endMin - startMin;
-                        const duration = rawDuration > 0 ? rawDuration : 90;
+                        const duration = rawDuration > 0 ? rawDuration : 120;
                         const height = Math.max(26, (duration / SLOT_MINUTES) * SLOT_HEIGHT - 2);
                         const definite = (setItem.attendees || []).filter((a) => a.preference === 'must_see');
                         const maybe = (setItem.attendees || []).filter((a) => a.preference !== 'must_see');
