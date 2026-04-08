@@ -52,7 +52,7 @@ def group_schedule(
 
         canonical_sets = conn.execute(
             """
-            SELECT id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status
+            SELECT id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status, source
             FROM canonical_sets
             WHERE group_id = ?
             ORDER BY day_index, start_time_pt, stage_name
@@ -116,6 +116,7 @@ def group_schedule(
                 "attendee_count": len(set_attendees),
                 "must_see_count": sum(1 for item in set_attendees if item["preference"] == "must_see"),
                 "popularity_tier": _popularity_tier(len(set_attendees)),
+                "source": row["source"] if "source" in row.keys() else "member",
             }
         )
 
