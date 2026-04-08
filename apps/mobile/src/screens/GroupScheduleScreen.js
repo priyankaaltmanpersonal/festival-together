@@ -121,9 +121,7 @@ export function GroupScheduleScreen({
         <View style={styles.gridOuter}>
           {/* Fixed left: time header + time body */}
           <View style={styles.timePanel}>
-            <View style={styles.timePanelHeader}>
-              <Text style={styles.headerText}>Time</Text>
-            </View>
+            <View style={styles.timePanelHeader} />
             <ScrollView
               ref={timeScrollRef}
               scrollEnabled={false}
@@ -444,7 +442,13 @@ const makeStyles = (C) => StyleSheet.create({
     textDecorationColor: C.resetBtnUnderline
   },
   helperPad: { color: C.textMuted, fontSize: 12, paddingHorizontal: 2, paddingTop: 2 },
-  gridHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: C.gridBorder },
+  gridHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: C.gridBorder,
+    height: GRID_HEADER_HEIGHT,
+    alignItems: 'center',
+  },
   headerCell: {
     paddingHorizontal: 6,
     paddingVertical: 6,
