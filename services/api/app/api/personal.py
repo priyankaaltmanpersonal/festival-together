@@ -347,6 +347,32 @@ def upload_personal_images(
     all_parsed: list[dict] = []
     effective_day_label = day_label or (festival_days[0]["label"] if festival_days else "")
 
+    # Fetch official canonical sets for this day to use as parsing hints
+    effective_day_index = next(
+        (d["day_index"] for d in festival_days
+         if d.get("label", "").upper() == effective_day_label.upper()),
+        festival_days[0]["day_index"] if festival_days else 1,
+    )
+    with get_conn() as conn:
+        hint_rows = conn.execute(
+            """
+            SELECT artist_name, stage_name, start_time_pt, end_time_pt
+            FROM canonical_sets
+            WHERE group_id = ? AND day_index = ? AND source = 'official'
+            ORDER BY start_time_pt
+            """,
+            (member["group_id"], effective_day_index),
+        ).fetchall()
+    canonical_hints = [
+        {
+            "artist_name": row["artist_name"],
+            "stage_name": row["stage_name"],
+            "start_time_pt": row["start_time_pt"],
+            "end_time_pt": row["end_time_pt"],
+        }
+        for row in hint_rows
+    ] or None
+
     for idx, upload in enumerate(images):
         upload.file.seek(0)
         raw = upload.file.read()
@@ -357,7 +383,9 @@ def upload_personal_images(
             continue
 
         try:
-            parsed = parse_schedule_from_image(compressed, effective_day_label, festival_days)
+            parsed = parse_schedule_from_image(
+                compressed, effective_day_label, festival_days, canonical_hints=canonical_hints
+            )
             logger.info(f"Vision parse for image {idx + 1}: {len(parsed)} sets")
             all_parsed.extend(parsed)
         except Exception as e:
