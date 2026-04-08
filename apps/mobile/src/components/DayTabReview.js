@@ -226,6 +226,8 @@ export function DayTabReview({
               </Text>
               {state.status === 'uploading' ? (
                 <ActivityIndicator size="small" color={C.primary} style={{ marginLeft: 4 }} />
+              ) : state.confirmed ? (
+                <Text style={styles.tabConfirmedMark}>✓</Text>
               ) : state.status === 'done' && (state.sets || []).length > 0 ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{(state.sets || []).length}</Text>
@@ -379,6 +381,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
   badgeText: { color: C.primaryText, fontSize: 10, fontWeight: '700' },
   tabErrorMark: { color: C.error, fontWeight: '800', fontSize: 13 },
+  tabConfirmedMark: { color: C.success || '#22c55e', fontWeight: '800', fontSize: 13 },
   content: { gap: 8 },
   loadingBlock: {
     flexDirection: 'row',

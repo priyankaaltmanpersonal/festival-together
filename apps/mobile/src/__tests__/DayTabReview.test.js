@@ -161,6 +161,38 @@ describe('DayTabReview — tab indicators', () => {
     );
     expect(getByText('!')).toBeTruthy();
   });
+
+  it('shows ✓ on tab when day is confirmed', () => {
+    const { getAllByText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: {
+            1: { status: 'done', sets: [SET_ITEM], retryCount: 0, confirmed: true },
+            2: { status: 'idle', sets: [], retryCount: 0 },
+          },
+        })}
+      />
+    );
+    // ✓ appears in the tab indicator
+    expect(getAllByText('✓').length).toBeGreaterThan(0);
+  });
+
+  it('does not show count badge when day is confirmed', () => {
+    const { queryByText, getAllByText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: {
+            1: { status: 'done', sets: [SET_ITEM], retryCount: 0, confirmed: true },
+            2: { status: 'idle', sets: [], retryCount: 0 },
+          },
+        })}
+      />
+    );
+    // Badge would show '1' for 1 set — should not appear when confirmed
+    expect(queryByText('1')).toBeNull();
+    // ✓ shown instead
+    expect(getAllByText('✓').length).toBeGreaterThan(0);
+  });
 });
 
 describe('DayTabReview — tab switching', () => {
