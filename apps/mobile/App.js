@@ -1159,13 +1159,13 @@ export default function App() {
     execute();
   };
 
-  const loadIndividual = () =>
+  const loadIndividual = () => {
+    setActiveView('individual');
+    setMoreSheetOpen(false);
     run('load individual schedules', async () => {
       if (!memberSession || !groupId) throw new Error('Need group and member session first');
       if (!isOnline) {
         if (individualSnapshot) {
-          setActiveView('individual');
-          setMoreSheetOpen(false);
           appendLog('OFFLINE: using cached individual schedules');
           return;
         }
@@ -1175,13 +1175,12 @@ export default function App() {
         baseUrl: apiUrl,
         path: `/v1/groups/${groupId}/individual-schedules`,
         method: 'GET',
-        sessionToken: memberSession
+        sessionToken: memberSession,
       });
       setIndividualSnapshot(payload);
       setLastSyncAt(new Date().toISOString());
-      setActiveView('individual');
-      setMoreSheetOpen(false);
     });
+  };
 
   const openEditSchedule = () => {
     setActiveView('edit');
