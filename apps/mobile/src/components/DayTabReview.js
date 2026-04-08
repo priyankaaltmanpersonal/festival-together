@@ -6,7 +6,8 @@ import { useTheme } from '../theme';
 import { formatHHMM, formatDisplayTime, timeToTotalMinutes } from '../utils';
 
 const STAGE_OPTIONS = [
-  'Coachella Stage', 'Outdoor Theatre', 'Sahara', 'Mojave', 'Gobi', 'Quasar', 'Sonora', 'DoLaB',
+  'Coachella Stage', 'Outdoor Theatre', 'Sonora', 'Gobi',
+  'Mojave', 'Sahara', 'Yuma', 'Quasar', 'Do Lab',
 ];
 
 function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
