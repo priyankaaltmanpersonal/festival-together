@@ -434,6 +434,11 @@ def member_home(session=Depends(require_session)) -> dict:
             (member["id"],),
         ).fetchone()
 
+        has_official_lineup = conn.execute(
+            "SELECT 1 FROM canonical_sets WHERE group_id = ? AND source = 'official' LIMIT 1",
+            (member["group_id"],),
+        ).fetchone() is not None
+
     return {
         "me": {
             "id": member["id"],
@@ -451,6 +456,7 @@ def member_home(session=Depends(require_session)) -> dict:
                 {"day_index": 2, "label": "Saturday"},
                 {"day_index": 3, "label": "Sunday"},
             ],
+            "has_official_lineup": has_official_lineup,
         },
         "members": [
             {
