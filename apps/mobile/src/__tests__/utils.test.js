@@ -88,32 +88,47 @@ describe('buildTimeline', () => {
     expect(buildTimeline([], 0)).toBeNull();
   });
 
+  it('pads 30 minutes before the earliest set', () => {
+    const sets = [{ start_time_pt: '17:30', end_time_pt: '18:20' }];
+    const result = buildTimeline(sets, 0);
+    // 17:30 = 1050 min → floor to 1050 → minus 30 = 1020 (17:00)
+    expect(result.startMinute).toBe(17 * 60);
+  });
+
+  it('pads 30 minutes even when set starts exactly on a slot boundary', () => {
+    const sets = [{ start_time_pt: '18:00', end_time_pt: '19:00' }];
+    const result = buildTimeline(sets, 0);
+    // 18:00 = 1080 → floor to 1080 → minus 30 = 1050 (17:30)
+    expect(result.startMinute).toBe(17 * 60 + 30);
+  });
+
   it('builds correct timeline for a single set', () => {
     const sets = [{ start_time_pt: '21:00', end_time_pt: '22:00' }];
     const result = buildTimeline(sets, 0);
-    expect(result.startMinute).toBe(1260);
+    // 21:00 = 1260 → minus 30 padding = 1230
+    expect(result.startMinute).toBe(1230);
     expect(result.endMinute).toBe(1320);
-    expect(result.labels).toEqual([1260, 1290, 1320]);
-    expect(result.totalHeight).toBe(88);
+    expect(result.labels).toEqual([1230, 1260, 1290, 1320]);
+    expect(result.totalHeight).toBe(132); // (1320-1230)/30*44
   });
 
   it('uses 120-min default duration when end_time_pt is null', () => {
     // Backend omits end time for last artist on a stage — should span 2 hours
     const sets = [{ start_time_pt: '21:00', end_time_pt: null }];
     const result = buildTimeline(sets, 0);
-    // effectiveEnd = 1260 + 120 = 1380
-    expect(result.startMinute).toBe(1260);
+    // effectiveEnd = 1260 + 120 = 1380; startMinute = 1260 - 30 = 1230
+    expect(result.startMinute).toBe(1230);
     expect(result.endMinute).toBe(1380);
-    expect(result.totalHeight).toBe(176); // (1380-1260)/30*44
+    expect(result.totalHeight).toBe(220); // (1380-1230)/30*44
   });
 
   it('uses 120-min default duration when end < start', () => {
     const sets = [{ start_time_pt: '22:00', end_time_pt: '21:00' }];
     const result = buildTimeline(sets, 0);
-    // effectiveEnd = 1320 + 120 = 1440
-    expect(result.startMinute).toBe(1320);
+    // effectiveEnd = 1320 + 120 = 1440; startMinute = 1320 - 30 = 1290
+    expect(result.startMinute).toBe(1290);
     expect(result.endMinute).toBe(1440);
-    expect(result.totalHeight).toBe(176); // (1440-1320)/30*44
+    expect(result.totalHeight).toBe(220); // (1440-1290)/30*44
   });
 
   it('spans multiple sets correctly', () => {
@@ -122,21 +137,25 @@ describe('buildTimeline', () => {
       { start_time_pt: '22:30', end_time_pt: '23:30' },
     ];
     const result = buildTimeline(sets, 0);
-    expect(result.startMinute).toBe(1260);
+    // startMinute = 1260 - 30 = 1230
+    expect(result.startMinute).toBe(1230);
     expect(result.endMinute).toBe(1410);
   });
 
   it('extends endMinute to fill minBodyHeight', () => {
     const sets = [{ start_time_pt: '21:00', end_time_pt: '22:00' }];
+    // startMinute=1230, endMinute after padding=1320, height=132 < 200
+    // extends: 1350→176, 1380→220 ≥ 200 → stop at 1380
     const result = buildTimeline(sets, 200);
-    expect(result.endMinute).toBe(1410);
+    expect(result.endMinute).toBe(1380);
     expect(result.totalHeight).toBe(220);
   });
 
-  it('snaps startMinute down to nearest 30-min slot', () => {
+  it('snaps startMinute down to nearest 30-min slot then pads', () => {
     const sets = [{ start_time_pt: '21:15', end_time_pt: '22:00' }];
     const result = buildTimeline(sets, 0);
-    expect(result.startMinute).toBe(1260);
+    // 21:15 = 1275 → floor(1275/30)*30 = 1260 → minus 30 = 1230
+    expect(result.startMinute).toBe(1230);
   });
 });
 

@@ -55,7 +55,7 @@ export function buildTimeline(sets, minBodyHeight = 0) {
     maxEnd = Math.max(maxEnd, effectiveEnd);
   }
 
-  const startMinute = Math.floor(minStart / SLOT_MINUTES) * SLOT_MINUTES;
+  const startMinute = Math.floor(minStart / SLOT_MINUTES) * SLOT_MINUTES - SLOT_MINUTES;
   let endMinute = Math.ceil(maxEnd / SLOT_MINUTES) * SLOT_MINUTES;
 
   while (((endMinute - startMinute) / SLOT_MINUTES) * SLOT_HEIGHT < minBodyHeight) {
