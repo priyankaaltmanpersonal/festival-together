@@ -21,6 +21,8 @@ export function MoreSheet({
   inviteCopied,
   onCopyInvite,
   onIndividualSchedules,
+  isFounder,
+  onFounderTools,
   onResetApp,
   onDeleteMyData,
   currentDisplayName,
@@ -146,6 +148,13 @@ export function MoreSheet({
               <Text style={styles.rowLabel}>Individual Schedules</Text>
               <Text style={styles.rowChevron}>›</Text>
             </Pressable>
+
+            {isFounder && onFounderTools ? (
+              <Pressable onPress={onFounderTools} style={styles.row}>
+                <Text style={styles.rowLabel}>Founder Tools</Text>
+                <Text style={styles.rowChevron}>›</Text>
+              </Pressable>
+            ) : null}
 
             <Pressable onPress={handleResetApp} style={styles.resetRow}>
               <Text style={styles.resetLabel}>Reset App</Text>

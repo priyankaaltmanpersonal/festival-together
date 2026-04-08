@@ -10,6 +10,7 @@ import { apiRequest } from './src/api/client';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { MoreSheet } from './src/components/MoreSheet';
 import { EditMyScheduleScreen } from './src/screens/EditMyScheduleScreen';
+import { FounderToolsScreen } from './src/screens/FounderToolsScreen';
 import { GroupScheduleScreen } from './src/screens/GroupScheduleScreen';
 import { IndividualSchedulesScreen } from './src/screens/IndividualSchedulesScreen';
 import { PrivacyScreen } from './src/screens/PrivacyScreen';
@@ -1159,6 +1160,39 @@ export default function App() {
     execute();
   };
 
+  const [lineupImportState, setLineupImportState] = useState('idle'); // 'idle' | 'uploading' | 'done' | 'error'
+  const [lineupImportResult, setLineupImportResult] = useState(null); // { sets_created, days_processed }
+
+  const importOfficialLineup = async () => {
+    try {
+      const uris = await pickImages(3);
+      if (!uris) return; // user cancelled
+      setLineupImportState('uploading');
+      const result = await uploadImages(
+        apiUrl,
+        `/v1/groups/${groupId}/lineup/import`,
+        memberSession,
+        uris,
+      );
+      setLineupImportResult(result);
+      setLineupImportState('done');
+      // Refresh home snapshot so has_official_lineup updates
+      const homePayload = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/home',
+        method: 'GET',
+        sessionToken: memberSession,
+      });
+      setHomeSnapshot(homePayload);
+      // Refresh schedule so newly seeded sets appear
+      const schedulePayload = await fetchSchedule(memberSession, groupId, { memberIds: [] });
+      setScheduleSnapshot(schedulePayload);
+    } catch (err) {
+      setLineupImportState('error');
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
+  };
+
   const loadIndividual = () => {
     setActiveView('individual');
     setMoreSheetOpen(false);
@@ -1403,6 +1437,8 @@ export default function App() {
           onSetDayPreference={setDaySetPreference}
           onEditDaySet={editCanonicalSet}
           onConfirmDay={confirmDay}
+          hasOfficialLineup={Boolean(homeSnapshot?.group?.has_official_lineup)}
+          onBrowseFullLineup={finishUploadFlow}
         />
       ) : null}
 
@@ -1425,6 +1461,17 @@ export default function App() {
           myMemberId={homeSnapshot?.me?.id}
           onAddToMySchedule={addSetFromGrid}
           festivalDays={festivalDays}
+        />
+      ) : null}
+
+      {activeView === 'founder' ? (
+        <FounderToolsScreen
+          inviteCode={inviteCode}
+          groupName={homeSnapshot?.group?.name}
+          onOpenSchedule={() => setActiveView('group')}
+          onImportLineup={importOfficialLineup}
+          lineupImportState={lineupImportState}
+          lineupImportResult={lineupImportResult}
         />
       ) : null}
 
@@ -1470,6 +1517,8 @@ export default function App() {
         inviteCopied={inviteCopied}
         onCopyInvite={copyInviteCode}
         onIndividualSchedules={loadIndividual}
+        isFounder={isFounder}
+        onFounderTools={() => { setMoreSheetOpen(false); setActiveView('founder'); }}
         onResetApp={resetFlow}
         onDeleteMyData={deleteMyData}
         currentDisplayName={homeSnapshot?.me?.display_name || ''}
