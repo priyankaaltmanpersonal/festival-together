@@ -41,6 +41,8 @@ export function SetupScreen({
   onSetDayPreference,
   onEditDaySet,
   onConfirmDay,
+  hasOfficialLineup,
+  onBrowseFullLineup,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -179,6 +181,23 @@ export function SetupScreen({
               onPress={onSkipDay}
               disabled={loading}
             />
+            {hasOfficialLineup ? (
+              <>
+                <View style={styles.orDivider}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>or</Text>
+                  <View style={styles.orLine} />
+                </View>
+                <ActionButton
+                  label="Browse Full Lineup →"
+                  onPress={onBrowseFullLineup}
+                  disabled={loading}
+                />
+                <Text style={styles.helper}>
+                  Skip photos — add artists directly from the full schedule
+                </Text>
+              </>
+            ) : null}
           </View>
         );
       })() : null}
@@ -366,6 +385,9 @@ const makeStyles = (C) => StyleSheet.create({
   removeButtonDisabled: { opacity: 0.3 },
   removeButtonText: { fontSize: 18, color: C.fieldLabelText, fontWeight: '700', lineHeight: 20 },
   error: { color: C.error, fontWeight: '600' },
+  orDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 2 },
+  orLine: { flex: 1, height: 1, backgroundColor: C.cardBorder },
+  orText: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
   addButton: {
     borderWidth: 1,
     borderColor: C.addCardBorder,
