@@ -1274,6 +1274,21 @@ export default function App() {
     [onboardingStep, festivalDays, dayStates]
   );
 
+  const autoAdvancedRef = useRef(false);
+
+  useEffect(() => {
+    if (allDaysReady && !autoAdvancedRef.current) {
+      autoAdvancedRef.current = true;
+      finishUploadFlow();
+    }
+  }, [allDaysReady]);
+
+  useEffect(() => {
+    if (onboardingStep !== 'review_days') {
+      autoAdvancedRef.current = false;
+    }
+  }, [onboardingStep]);
+
   const handleContinueFromReview = () => {
     if (allDaysReady) {
       finishUploadFlow();
