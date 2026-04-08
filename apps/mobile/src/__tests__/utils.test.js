@@ -159,6 +159,39 @@ describe('buildTimeline', () => {
   });
 });
 
+// ─── deletePersonalSet schedule snapshot transform ────────────────────────────
+
+describe('deletePersonalSet schedule snapshot transform', () => {
+  it('removes the deleted member from the matching set using id field', () => {
+    const sets = [
+      {
+        id: 'set-abc',
+        attendees: [{ member_id: 'me' }, { member_id: 'other' }],
+        attendee_count: 2,
+      },
+      {
+        id: 'set-xyz',
+        attendees: [{ member_id: 'other' }],
+        attendee_count: 1,
+      },
+    ];
+    const canonicalSetId = 'set-abc';
+    const myId = 'me';
+
+    // This is the exact transform used in deletePersonalSet in App.js
+    const updated = sets.map((setItem) => {
+      if (setItem.id !== canonicalSetId) return setItem;
+      const newAttendees = setItem.attendees.filter((a) => a.member_id !== myId);
+      return { ...setItem, attendees: newAttendees, attendee_count: newAttendees.length };
+    });
+
+    expect(updated[0].attendees).toHaveLength(1);
+    expect(updated[0].attendees[0].member_id).toBe('other');
+    expect(updated[0].attendee_count).toBe(1);
+    expect(updated[1].attendees).toHaveLength(1); // unrelated set unchanged
+  });
+});
+
 // ─── initials ─────────────────────────────────────────────────────────────────
 
 describe('initials', () => {

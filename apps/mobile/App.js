@@ -978,7 +978,7 @@ export default function App() {
         return {
           ...prev,
           sets: (prev.sets || []).map((setItem) => {
-            if (setItem.canonical_set_id !== canonicalSetId) return setItem;
+            if (setItem.id !== canonicalSetId) return setItem;
             const newAttendees = (setItem.attendees || []).filter((a) => a.member_id !== myId);
             return { ...setItem, attendees: newAttendees, attendee_count: newAttendees.length };
           }),
