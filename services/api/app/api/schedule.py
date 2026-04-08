@@ -6,6 +6,18 @@ from app.core.llm_parser import normalize_stage
 
 router = APIRouter(tags=["schedule"])
 
+_STAGE_ORDER = [
+    'Coachella Stage', 'Outdoor Theatre', 'Sonora', 'Gobi',
+    'Mojave', 'Sahara', 'Yuma', 'Quasar', 'Do Lab',
+]
+
+
+def _stage_sort_key(name: str) -> tuple[int, str]:
+    try:
+        return (_STAGE_ORDER.index(name), '')
+    except ValueError:
+        return (len(_STAGE_ORDER), name)
+
 
 def _popularity_tier(attendee_count: int) -> str:
     if attendee_count <= 0:
@@ -107,7 +119,10 @@ def group_schedule(
             }
         )
 
-    stages = sorted({item["stage_name"] for item in schedule_sets if item["stage_name"]})
+    stages = sorted(
+        {item["stage_name"] for item in schedule_sets if item["stage_name"]},
+        key=_stage_sort_key,
+    )
     row_groups: dict[tuple[int, str], list[dict]] = {}
     for set_item in schedule_sets:
         key = (set_item["day_index"], set_item["start_time_pt"])
