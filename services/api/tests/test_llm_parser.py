@@ -168,3 +168,14 @@ def test_parse_official_lineup_from_image_strips_markdown_fences():
     with patch("app.core.llm_parser._get_client", return_value=mock_client):
         result = parse_official_lineup_from_image(_make_test_image_bytes(), FESTIVAL_DAYS)
     assert len(result) == 2
+
+
+def test_official_lineup_prompt_contains_festival_hours_context():
+    """Prompt must include Coachella time-of-day context to prevent AM/PM confusion."""
+    from app.core.llm_parser import _OFFICIAL_LINEUP_PROMPT
+    prompt = _OFFICIAL_LINEUP_PROMPT.format(festival_days_json="[]")
+    assert "12:30 PM" in prompt or "12:30pm" in prompt.lower(), \
+        "Prompt must mention festival start time ~12:30 PM"
+    assert "1:00 AM" in prompt or "1:00am" in prompt.lower(), \
+        "Prompt must mention festival end time ~1:00 AM"
+    assert "PM" in prompt, "Prompt must reference PM times explicitly"

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DaySelector } from '../components/DaySelector';
 import { useTheme } from '../theme';
+import { formatTimeStr } from '../utils';
 
 export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, onLoadIndividual, onBack }) {
   const C = useTheme();
@@ -49,7 +50,7 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
                 <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
                   <Text style={styles.setTitle}>{setItem.artist_name}</Text>
                   <Text style={styles.helper}>
-                    {setItem.stage_name} • {setItem.start_time_pt}-{setItem.end_time_pt} PT • {setItem.preference}
+                    {setItem.stage_name} • {formatTimeStr(setItem.start_time_pt)}–{formatTimeStr(setItem.end_time_pt)} • {setItem.preference}
                   </Text>
                 </View>
               ))

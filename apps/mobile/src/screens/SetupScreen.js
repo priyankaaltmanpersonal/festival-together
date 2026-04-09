@@ -163,7 +163,7 @@ export function SetupScreen({
                   <ActivityIndicator color={C.primary} size="small" />
                   <Text style={styles.helper}>Parsing your schedule…</Text>
                 </View>
-                <Text style={styles.helper}>This usually takes 5–10 seconds. Hang tight!</Text>
+                <Text style={styles.helper}>This usually takes 15–30 seconds. Please keep the app open!</Text>
               </View>
             ) : dayState.status === 'done' ? (
               <Text style={styles.helper}>✓ {(dayState.sets || []).length} artists found</Text>

@@ -90,10 +90,19 @@ For each performer, extract:
 - end_time: same format, or null if not visible
 - day_index: integer from festival_days matching the day shown in the image
 
+Time reading rules for Coachella:
+- The festival runs approximately 12:30 PM to 1:00 AM each night
+- The grid layout places early afternoon (1 PM) near the BOTTOM and late night (1:00 AM) near the TOP
+- A time label "1:00" near the BOTTOM of a stage column means 13:00 (1:00 PM) — output as "13:00"
+- A time label "1:00" near the TOP of a stage column means 1:00 AM the next day — output as "25:00"
+- Times between 12:30 and 11:59 are ALWAYS PM (output as 12:30–23:59)
+- Times at 12:00 AM–1:30 AM are the late-night end-of-day headliner slots (output as 24:00–25:30)
+- When in doubt, prefer PM over AM — the vast majority of sets start in the afternoon/evening
+
 Rules:
 - Extract ALL performers shown in the grid — this is a complete schedule, not a personal selection
 - Stage names come from the column headers at the top of the grid image
-- Times are shown as bullets or in a time range (e.g. "9:05–10:35" → start=09:05, end=10:35)
+- Times are shown as bullets or in a time range (e.g. "9:05–10:35" → start=21:05, end=22:35)
 - Ignore decorative elements, logos, mountain/landscape art, and footer text
 - Return ONLY a valid JSON array, no markdown fences, no explanation
 - Omit any artist where you cannot determine start_time

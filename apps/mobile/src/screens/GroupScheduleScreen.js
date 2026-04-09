@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 import { DaySelector } from '../components/DaySelector';
-import { timeToMinutes, formatTime, minuteToY, buildTimeline, initials, withAlpha, SLOT_MINUTES, SLOT_HEIGHT } from '../utils';
+import { timeToMinutes, formatTime, formatTimeStr, minuteToY, buildTimeline, initials, withAlpha, SLOT_MINUTES, SLOT_HEIGHT } from '../utils';
 
 const GRID_HEADER_HEIGHT = 33; // header row height (padding 6+6 + font ~12 + border 1)
 const BUBBLES_PER_ROW = 6;
@@ -221,7 +221,7 @@ export function GroupScheduleScreen({
                             >
                               <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
                               <Text style={styles.timeRangeText} numberOfLines={1}>
-                                {setItem.start_time_pt}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${setItem.end_time_pt}` : ''}
+                                {formatTimeStr(setItem.start_time_pt)}{setItem.end_time_pt && setItem.end_time_pt !== setItem.start_time_pt ? `–${formatTimeStr(setItem.end_time_pt)}` : ''}
                               </Text>
                               <View style={styles.pin}>
                                 <View style={styles.attendeeRow}>
@@ -268,7 +268,7 @@ export function GroupScheduleScreen({
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.modalTitle}>{expandedSet.artist_name}</Text>
                 <Text style={styles.modalSubtitle}>
-                  {expandedSet.stage_name} • {expandedSet.start_time_pt}-{expandedSet.end_time_pt}
+                  {expandedSet.stage_name} • {formatTimeStr(expandedSet.start_time_pt)}–{formatTimeStr(expandedSet.end_time_pt)}
                 </Text>
 
                 <Text style={styles.modalSectionTitle}>Definitely ({expandedSet.definite.length})</Text>

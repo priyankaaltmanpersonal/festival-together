@@ -245,7 +245,7 @@ export function DayTabReview({
             <ActivityIndicator color={C.primary} />
             <View>
               <Text style={styles.loadingText}>Analyzing your schedule…</Text>
-              <Text style={styles.loadingHint}>This usually takes 5–10 seconds. Hang tight!</Text>
+              <Text style={styles.loadingHint}>This usually takes 15–30 seconds. Please keep the app open!</Text>
             </View>
           </View>
         ) : current.status === 'failed' ? (

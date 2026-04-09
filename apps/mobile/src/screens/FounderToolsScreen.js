@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 
 export function FounderToolsScreen({
@@ -7,6 +7,9 @@ export function FounderToolsScreen({
   groupName,
   onOpenSchedule,
   onImportLineup,
+  onCopyInvite,
+  inviteCopied,
+  onDeleteLineup,
   lineupImportState = 'idle',
   lineupImportResult = null,
 }) {
@@ -18,7 +21,16 @@ export function FounderToolsScreen({
       <View style={styles.card}>
         <Text style={styles.label}>Founder Controls</Text>
         <Text style={styles.helper}>Group: {groupName || 'n/a'}</Text>
-        <Text style={styles.helper}>Invite code: {inviteCode || 'n/a'}</Text>
+        <Pressable
+          testID="invite-copy-row"
+          onPress={onCopyInvite}
+          style={styles.inviteRow}
+        >
+          <Text style={styles.helper}>
+            Invite code: <Text style={styles.inviteCodeText}>{inviteCode || 'n/a'}</Text>
+          </Text>
+          <Text style={styles.copyHint}>{inviteCopied ? '✓ Copied!' : '📋 Copy'}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.card}>
@@ -31,7 +43,7 @@ export function FounderToolsScreen({
         {lineupImportState === 'uploading' ? (
           <View style={styles.statusRow}>
             <ActivityIndicator color={C.primary} size="small" />
-            <Text style={styles.helper}>Parsing lineup… this may take 15–30 seconds.</Text>
+            <Text style={styles.helper}>Parsing lineup… this may take 1–2 minutes. Please keep the app open.</Text>
           </View>
         ) : lineupImportState === 'done' && lineupImportResult ? (
           <View style={styles.successBox}>
@@ -53,20 +65,31 @@ export function FounderToolsScreen({
             {lineupImportState === 'done' ? 'Re-upload to Add Missing Sets' : 'Upload Official Lineup'}
           </Text>
         </Pressable>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Back to Group View</Text>
-        <Pressable onPress={onOpenSchedule} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>Open Group Schedule</Text>
-        </Pressable>
+        {lineupImportState === 'done' && onDeleteLineup ? (
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                'Delete All Official Sets',
+                "This will delete all imported sets and everyone's selections of them. Are you sure?",
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: onDeleteLineup },
+                ],
+              );
+            }}
+            style={styles.buttonDestructive}
+          >
+            <Text style={styles.buttonDestructiveText}>Delete All Official Sets</Text>
+          </Pressable>
+        ) : null}
       </View>
     </ScrollView>
   );
 }
 
 const makeStyles = (C) => StyleSheet.create({
-  wrap: { gap: 10, paddingHorizontal: 12, paddingBottom: 20 },
+  wrap: { gap: 10, paddingHorizontal: 12, paddingBottom: 20, paddingTop: 12 },
   card: {
     backgroundColor: C.cardBg,
     borderRadius: 14,
@@ -77,6 +100,9 @@ const makeStyles = (C) => StyleSheet.create({
   },
   label: { fontWeight: '700', color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },
+  inviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  inviteCodeText: { fontWeight: '800', letterSpacing: 1 },
+  copyHint: { fontSize: 12, fontWeight: '700', color: C.primary },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   successBox: {
     backgroundColor: C.successBg || '#f0fdf4',
@@ -95,12 +121,14 @@ const makeStyles = (C) => StyleSheet.create({
   },
   buttonPrimaryText: { color: '#fff', fontWeight: '700' },
   buttonDisabled: { opacity: 0.5 },
-  buttonSecondary: {
-    backgroundColor: C.primary,
+  buttonDestructive: {
+    backgroundColor: '#fee2e2',
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 10,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
   },
-  buttonText: { color: '#fff', fontWeight: '700' },
+  buttonDestructiveText: { color: '#dc2626', fontWeight: '700' },
 });

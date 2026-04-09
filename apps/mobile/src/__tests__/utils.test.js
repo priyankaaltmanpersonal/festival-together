@@ -1,6 +1,7 @@
 import {
   timeToMinutes,
   formatTime,
+  formatTimeStr,
   minuteToY,
   buildTimeline,
   initials,
@@ -316,5 +317,47 @@ describe('formatDisplayTime', () => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     expect(formatDisplayTime(d)).toBe('12:00 AM');
+  });
+});
+
+describe('formatTimeStr', () => {
+  it('formats a PM time correctly', () => {
+    expect(formatTimeStr('21:30')).toBe('9:30 PM');
+  });
+
+  it('formats noon correctly', () => {
+    expect(formatTimeStr('12:00')).toBe('12:00 PM');
+  });
+
+  it('formats 1 PM correctly', () => {
+    expect(formatTimeStr('13:00')).toBe('1:00 PM');
+  });
+
+  it('formats midnight correctly', () => {
+    expect(formatTimeStr('00:00')).toBe('12:00 AM');
+  });
+
+  it('formats 12:30 PM correctly', () => {
+    expect(formatTimeStr('12:30')).toBe('12:30 PM');
+  });
+
+  it('formats extended 25:00 (1 AM next day) correctly', () => {
+    expect(formatTimeStr('25:00')).toBe('1:00 AM');
+  });
+
+  it('formats extended 24:30 (12:30 AM next day) correctly', () => {
+    expect(formatTimeStr('24:30')).toBe('12:30 AM');
+  });
+
+  it('returns ? for null input', () => {
+    expect(formatTimeStr(null)).toBe('?');
+  });
+
+  it('returns ? for undefined input', () => {
+    expect(formatTimeStr(undefined)).toBe('?');
+  });
+
+  it('formats 9:00 AM correctly', () => {
+    expect(formatTimeStr('09:00')).toBe('9:00 AM');
   });
 });

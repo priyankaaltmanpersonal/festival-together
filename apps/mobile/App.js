@@ -1193,6 +1193,30 @@ export default function App() {
     }
   };
 
+  const deleteOfficialLineup = async () => {
+    try {
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: `/v1/groups/${groupId}/lineup`,
+        method: 'DELETE',
+        sessionToken: memberSession,
+      });
+      setLineupImportState('idle');
+      setLineupImportResult(null);
+      const schedulePayload = await fetchSchedule(memberSession, groupId, { memberIds: [] });
+      setScheduleSnapshot(schedulePayload);
+      const homePayload = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/home',
+        method: 'GET',
+        sessionToken: memberSession,
+      });
+      setHomeSnapshot(homePayload);
+    } catch (err) {
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
+  };
+
   const loadIndividual = () => {
     setActiveView('individual');
     setMoreSheetOpen(false);
@@ -1470,6 +1494,9 @@ export default function App() {
           groupName={homeSnapshot?.group?.name}
           onOpenSchedule={() => setActiveView('group')}
           onImportLineup={importOfficialLineup}
+          onCopyInvite={copyInviteCode}
+          inviteCopied={inviteCopied}
+          onDeleteLineup={deleteOfficialLineup}
           lineupImportState={lineupImportState}
           lineupImportResult={lineupImportResult}
         />

@@ -546,9 +546,11 @@ async def import_official_lineup(
     """Import the official festival lineup from graphic images (founder only).
 
     Accepts up to 3 official day lineup images. Parses all artists using
-    Claude Vision and seeds canonical_sets with source='official'.
+    Claude Vision concurrently and seeds canonical_sets with source='official'.
     Skips duplicates (same artist + day already exists for group).
     """
+    import asyncio
+
     if session["group_id"] != group_id or session["role"] != "founder":
         raise HTTPException(status_code=403, detail="founder_only")
 
@@ -565,26 +567,38 @@ async def import_official_lineup(
             {"day_index": 3, "label": "Sunday"},
         ]
 
-    all_parsed: list[dict] = []
-    days_processed: set[int] = set()
-
+    # Phase 1: read + validate all images (sequential, cheap)
+    compressed_images: list[bytes] = []
     for image in images:
         raw = await image.read()
         try:
             compressed = validate_and_compress(raw)
+            compressed_images.append(compressed)
         except ImageValidationError as e:
             logger.warning(f"Official lineup image validation failed: {e}")
-            continue
 
-        try:
-            parsed = parse_official_lineup_from_image(compressed, festival_days)
-            logger.info(f"Official lineup parse: {len(parsed)} sets from {image.filename}")
-            all_parsed.extend(parsed)
-            for entry in parsed:
-                days_processed.add(entry["day_index"])
-        except Exception as e:
-            logger.error(f"Official lineup parse failed for {image.filename}: {e}")
-            raise HTTPException(status_code=500, detail=f"Parse failed: {e}")
+    if not compressed_images:
+        raise HTTPException(status_code=400, detail="no_valid_images")
+
+    # Phase 2: parse all images concurrently (Anthropic client is sync → thread pool)
+    async def _parse_one(image_bytes: bytes) -> list[dict]:
+        return await asyncio.to_thread(
+            parse_official_lineup_from_image, image_bytes, festival_days
+        )
+
+    try:
+        results = await asyncio.gather(*[_parse_one(img) for img in compressed_images])
+    except Exception as e:
+        logger.error(f"Official lineup parse failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Parse failed: {e}")
+
+    all_parsed: list[dict] = []
+    days_processed: set[int] = set()
+    for parsed in results:
+        logger.info(f"Official lineup parse: {len(parsed)} sets")
+        all_parsed.extend(parsed)
+        for entry in parsed:
+            days_processed.add(entry["day_index"])
 
     if not all_parsed:
         raise HTTPException(status_code=400, detail="no_sets_parsed")
@@ -633,3 +647,35 @@ async def import_official_lineup(
     ]
 
     return {"sets_created": sets_created, "days_processed": day_labels}
+
+
+@router.delete("/groups/{group_id}/lineup")
+def delete_official_lineup(group_id: str, session=Depends(require_session)) -> dict:
+    """Delete all official lineup sets for a group (founder only).
+
+    Also deletes member_set_preferences pointing to those sets, since they
+    would be orphaned. Non-official canonical_sets and their preferences
+    are untouched.
+    """
+    if session["group_id"] != group_id or session["role"] != "founder":
+        raise HTTPException(status_code=403, detail="founder_only")
+
+    with get_conn() as conn:
+        official_rows = conn.execute(
+            "SELECT id FROM canonical_sets WHERE group_id = ? AND source = 'official'",
+            (group_id,),
+        ).fetchall()
+        official_ids = [row["id"] for row in official_rows]
+
+        if official_ids:
+            placeholders = ",".join("?" * len(official_ids))
+            conn.execute(
+                f"DELETE FROM member_set_preferences WHERE canonical_set_id IN ({placeholders})",
+                official_ids,
+            )
+            conn.execute(
+                "DELETE FROM canonical_sets WHERE group_id = ? AND source = 'official'",
+                (group_id,),
+            )
+
+    return {"ok": True, "sets_deleted": len(official_ids)}

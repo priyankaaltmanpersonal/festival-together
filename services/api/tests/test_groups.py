@@ -289,3 +289,136 @@ def test_home_has_official_lineup_true_after_import() -> None:
     resp = client.get("/v1/members/me/home", headers={"x-session-token": founder_session})
     assert resp.status_code == 200
     assert resp.json()["group"]["has_official_lineup"] is True
+
+# ─── Delete official lineup ───────────────────────────────────────────────────
+
+def test_delete_official_lineup_removes_sets_and_preferences() -> None:
+    from datetime import datetime, timezone
+
+    founder = _create_group("Delete Lineup Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+    member_id = founder["member"]["id"]
+
+    now = datetime.now(tz=timezone.utc).isoformat()
+    from uuid import uuid4 as _uuid4
+    official_id = str(_uuid4())
+    personal_id = str(_uuid4())
+
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO canonical_sets
+               (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                day_index, status, source_confidence, source, created_at)
+               VALUES (?, ?, 'Official Artist', 'Sahara', '21:00', '22:00', 1, 'resolved', 1.0, 'official', ?)""",
+            (official_id, group_id, now),
+        )
+        conn.execute(
+            """INSERT INTO canonical_sets
+               (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                day_index, status, source_confidence, created_at)
+               VALUES (?, ?, 'Personal Artist', 'Gobi', '20:00', '21:00', 1, 'resolved', 0.85, ?)""",
+            (personal_id, group_id, now),
+        )
+        conn.execute(
+            """INSERT INTO member_set_preferences
+               (id, member_id, canonical_set_id, preference, attendance, source_confidence, created_at, updated_at)
+               VALUES (?, ?, ?, 'must_see', 'going', 1.0, ?, ?)""",
+            (str(_uuid4()), member_id, official_id, now, now),
+        )
+        conn.execute(
+            """INSERT INTO member_set_preferences
+               (id, member_id, canonical_set_id, preference, attendance, source_confidence, created_at, updated_at)
+               VALUES (?, ?, ?, 'flexible', 'going', 0.85, ?, ?)""",
+            (str(_uuid4()), member_id, personal_id, now, now),
+        )
+        conn.execute("UPDATE groups SET setup_complete = 1 WHERE id = ?", (group_id,))
+
+    resp = client.delete(
+        f"/v1/groups/{group_id}/lineup",
+        headers={"x-session-token": founder_session},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+    assert resp.json()["sets_deleted"] == 1
+
+    with get_conn() as conn:
+        remaining = conn.execute(
+            "SELECT id, source FROM canonical_sets WHERE group_id = ?", (group_id,)
+        ).fetchall()
+        assert len(remaining) == 1
+        assert remaining[0]["source"] != "official"
+
+        prefs = conn.execute(
+            "SELECT canonical_set_id FROM member_set_preferences WHERE member_id = ?",
+            (member_id,),
+        ).fetchall()
+        pref_ids = {r["canonical_set_id"] for r in prefs}
+        assert official_id not in pref_ids
+        assert personal_id in pref_ids
+
+
+def test_delete_official_lineup_requires_founder() -> None:
+    founder = _create_group("Auth Delete Crew", "Founder")
+    group_id = founder["group"]["id"]
+    invite_code = founder["group"]["invite_code"]
+
+    seed_canonical_sets(group_id)
+
+    member_creator = _create_group("Tmp2", "Member")
+    member_session = member_creator["session"]["token"]
+    client.post(
+        f"/v1/invites/{invite_code}/join",
+        headers={"x-session-token": member_session},
+        json={"display_name": "Member", "leave_current_group": True},
+    )
+
+    resp = client.delete(
+        f"/v1/groups/{group_id}/lineup",
+        headers={"x-session-token": member_session},
+    )
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "founder_only"
+
+
+def test_delete_official_lineup_returns_zero_when_nothing_to_delete() -> None:
+    founder = _create_group("Empty Delete Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    resp = client.delete(
+        f"/v1/groups/{group_id}/lineup",
+        headers={"x-session-token": founder_session},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["sets_deleted"] == 0
+
+
+def test_import_official_lineup_parses_multiple_images_concurrently() -> None:
+    """All images must be parsed; behavior is correct regardless of concurrency."""
+    founder = _create_group("Parallel Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    day1 = [{"artist_name": "Artist A", "stage_name": "Coachella Stage",
+              "start_time": "21:00", "end_time": "22:30", "day_index": 1}]
+    day2 = [{"artist_name": "Artist B", "stage_name": "Sahara",
+              "start_time": "20:00", "end_time": "21:30", "day_index": 2}]
+    day3 = [{"artist_name": "Artist C", "stage_name": "Outdoor Theatre",
+              "start_time": "22:00", "end_time": "23:30", "day_index": 3}]
+
+    with patch("app.api.groups.parse_official_lineup_from_image",
+               side_effect=[day1, day2, day3]) as mock_parse:
+        resp = client.post(
+            f"/v1/groups/{group_id}/lineup/import",
+            headers={"x-session-token": founder_session},
+            files=[
+                ("images", ("fri.jpg", make_jpeg_bytes(), "image/jpeg")),
+                ("images", ("sat.jpg", make_jpeg_bytes(), "image/jpeg")),
+                ("images", ("sun.jpg", make_jpeg_bytes(), "image/jpeg")),
+            ],
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["sets_created"] == 3
+    assert mock_parse.call_count == 3

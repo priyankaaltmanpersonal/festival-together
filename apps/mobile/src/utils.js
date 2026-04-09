@@ -28,6 +28,23 @@ export function formatTime(totalMinutes) {
   return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
+/**
+ * Format a "HH:MM" or extended "25:MM" time string as "h:mm AM/PM".
+ * Extended hours (24–29) represent 0–5 AM the next day (post-midnight festival sets).
+ * Returns "?" for null or undefined input.
+ */
+export function formatTimeStr(timePt) {
+  if (timePt == null) return '?';
+  const [hStr, mStr] = String(timePt).split(':');
+  const h24 = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(h24) || isNaN(m)) return '?';
+  const normalizedHour = h24 >= 24 ? h24 - 24 : h24;
+  const suffix = normalizedHour >= 12 ? 'PM' : 'AM';
+  const h12 = ((normalizedHour + 11) % 12) + 1;
+  return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
 // ─── Grid position utilities ──────────────────────────────────────────────────
 
 /**

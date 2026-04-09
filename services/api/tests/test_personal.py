@@ -432,3 +432,65 @@ def test_upload_passes_no_hints_when_no_official_sets() -> None:
         )
 
     assert captured_kwargs.get("canonical_hints") is None
+
+
+def test_personal_upload_deduplicates_against_official_lineup() -> None:
+    """When a personal upload includes an artist already in the official lineup,
+    no new canonical_set should be created — the existing one is reused and
+    a member_set_preference points to it."""
+    from uuid import uuid4 as _uuid4
+    from datetime import datetime, timezone
+    from unittest.mock import patch as _patch
+
+    founder = _create_group("Dedup Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+    member_id = founder["member"]["id"]
+
+    now = datetime.now(tz=timezone.utc).isoformat()
+    official_set_id = str(_uuid4())
+
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO canonical_sets
+               (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                day_index, status, source_confidence, source, created_at)
+               VALUES (?, ?, 'Headliner X', 'Coachella Stage', '22:00', '23:30',
+                       1, 'resolved', 1.0, 'official', ?)""",
+            (official_set_id, group_id, now),
+        )
+        conn.execute("UPDATE groups SET setup_complete = 1 WHERE id = ?", (group_id,))
+
+    parsed_return = [
+        {
+            "artist_name": "Headliner X",
+            "stage_name": "Coachella Stage",
+            "start_time": "22:00",
+            "end_time": "23:30",
+            "day_index": 1,
+        }
+    ]
+
+    with _patch("app.api.personal.parse_schedule_from_image", return_value=parsed_return):
+        resp = client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": founder_session},
+            data={"day_label": "Friday"},
+            files={"images": ("screenshot.jpg", make_jpeg_bytes(), "image/jpeg")},
+        )
+
+    assert resp.status_code == 200
+
+    with get_conn() as conn:
+        all_sets = conn.execute(
+            "SELECT id FROM canonical_sets WHERE group_id = ?", (group_id,)
+        ).fetchall()
+        assert len(all_sets) == 1, "Should not create a duplicate canonical_set"
+        assert all_sets[0]["id"] == official_set_id
+
+        pref = conn.execute(
+            "SELECT canonical_set_id FROM member_set_preferences WHERE member_id = ?",
+            (member_id,),
+        ).fetchone()
+        assert pref is not None
+        assert pref["canonical_set_id"] == official_set_id
