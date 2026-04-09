@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useCallback } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 import { DaySelector } from '../components/DaySelector';
@@ -20,6 +20,7 @@ export function GroupScheduleScreen({
   inviteCopied,
   myMemberId,
   onAddToMySchedule,
+  onSetPreferenceFromGrid,
   festivalDays,
 }) {
   const C = useTheme();
@@ -73,6 +74,31 @@ export function GroupScheduleScreen({
     [members]
   );
   const timeScrollRef = useRef(null);
+  const [pendingSetId, setPendingSetId] = useState(null);
+
+  const handleQuickAdd = useCallback(async (setItem) => {
+    if (pendingSetId || !onAddToMySchedule) return;
+    setPendingSetId(setItem.id);
+    try {
+      await onAddToMySchedule(setItem);
+    } catch (_e) {
+      // error is surfaced by App.js
+    } finally {
+      setPendingSetId(null);
+    }
+  }, [pendingSetId, onAddToMySchedule]);
+
+  const handleQuickUpgrade = useCallback(async (canonicalSetId) => {
+    if (pendingSetId || !onSetPreferenceFromGrid) return;
+    setPendingSetId(canonicalSetId);
+    try {
+      await onSetPreferenceFromGrid(canonicalSetId, 'must_see');
+    } catch (_e) {
+      // error is surfaced by App.js
+    } finally {
+      setPendingSetId(null);
+    }
+  }, [pendingSetId, onSetPreferenceFromGrid]);
 
   return (
     <View style={styles.wrap} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>
@@ -249,6 +275,35 @@ export function GroupScheduleScreen({
                                 ) : null}
                               </View>
                             </Pressable>
+                            {myMemberId ? (() => {
+                              const myAttendance = (setItem.attendees || []).find(
+                                (a) => a.member_id === myMemberId
+                              );
+                              const isPending = pendingSetId === setItem.id;
+                              if (!myAttendance && onAddToMySchedule) {
+                                return (
+                                  <Pressable
+                                    style={[styles.quickActionBtn, styles.quickAddBtn, isPending && { opacity: 0.4 }]}
+                                    onPress={() => handleQuickAdd(setItem)}
+                                    disabled={isPending}
+                                  >
+                                    <Text style={styles.quickActionText}>+</Text>
+                                  </Pressable>
+                                );
+                              }
+                              if (myAttendance && myAttendance.preference !== 'must_see' && onSetPreferenceFromGrid) {
+                                return (
+                                  <Pressable
+                                    style={[styles.quickActionBtn, styles.quickMaybeBtn, isPending && { opacity: 0.4 }]}
+                                    onPress={() => handleQuickUpgrade(setItem.id)}
+                                    disabled={isPending}
+                                  >
+                                    <Text style={styles.quickActionText}>✓</Text>
+                                  </Pressable>
+                                );
+                              }
+                              return null;
+                            })() : null}
                           </View>
                         );
                       })}
@@ -500,7 +555,31 @@ const makeStyles = (C) => StyleSheet.create({
     position: 'absolute',
     left: 3,
     right: 3,
-    zIndex: 2
+    zIndex: 2,
+  },
+  quickActionBtn: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  quickAddBtn: {
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  quickMaybeBtn: {
+    backgroundColor: 'rgba(251,146,60,0.7)',
+  },
+  quickActionText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
+    lineHeight: 14,
+    textAlign: 'center',
   },
   setTag: {
     flex: 1,

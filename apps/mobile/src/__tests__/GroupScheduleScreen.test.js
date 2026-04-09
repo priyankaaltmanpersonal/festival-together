@@ -103,6 +103,93 @@ describe('GroupScheduleScreen — day filtering', () => {
   });
 });
 
+describe('GroupScheduleScreen — quick-add icons', () => {
+  const MY_ID = 'member-me';
+
+  function makeSetWithAttendees(id, attendees = []) {
+    return {
+      id,
+      day_index: 1,
+      artist_name: `Artist ${id}`,
+      stage_name: STAGE,
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees,
+      attendee_count: attendees.length,
+      popularity_tier: null,
+    };
+  }
+
+  it('shows + icon when user is not attending the set', () => {
+    const sets = [makeSetWithAttendees('a', [])];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: jest.fn() })}
+      />
+    );
+    expect(getByText('+')).toBeTruthy();
+  });
+
+  it('calls onAddToMySchedule when + icon is tapped', () => {
+    const onAdd = jest.fn().mockResolvedValue(undefined);
+    const sets = [makeSetWithAttendees('a', [])];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: onAdd })}
+      />
+    );
+    fireEvent.press(getByText('+'));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
+  });
+
+  it('shows ✓ icon when user is a maybe for the set', () => {
+    const attendees = [{ member_id: MY_ID, display_name: 'Me', preference: 'flexible', chip_color: '#f00' }];
+    const sets = [makeSetWithAttendees('b', attendees)];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onSetPreferenceFromGrid: jest.fn() })}
+      />
+    );
+    expect(getByText('✓')).toBeTruthy();
+  });
+
+  it('calls onSetPreferenceFromGrid with must_see when ✓ icon is tapped', () => {
+    const onUpgrade = jest.fn().mockResolvedValue(undefined);
+    const attendees = [{ member_id: MY_ID, display_name: 'Me', preference: 'flexible', chip_color: '#f00' }];
+    const sets = [makeSetWithAttendees('b', attendees)];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onSetPreferenceFromGrid: onUpgrade })}
+      />
+    );
+    fireEvent.press(getByText('✓'));
+    expect(onUpgrade).toHaveBeenCalledWith('b', 'must_see');
+  });
+
+  it('shows no quick-add icon when user is definitely attending', () => {
+    const attendees = [{ member_id: MY_ID, display_name: 'Me', preference: 'must_see', chip_color: '#f00' }];
+    const sets = [makeSetWithAttendees('c', attendees)];
+    const { queryByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: jest.fn(), onSetPreferenceFromGrid: jest.fn() })}
+      />
+    );
+    expect(queryByText('+')).toBeNull();
+    expect(queryByText('✓')).toBeNull();
+  });
+
+  it('shows no icons when myMemberId is null', () => {
+    const sets = [makeSetWithAttendees('d', [])];
+    const { queryByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: null, onAddToMySchedule: jest.fn() })}
+      />
+    );
+    expect(queryByText('+')).toBeNull();
+  });
+});
+
 describe('GroupScheduleScreen — hide-unattended toggle', () => {
   it('filters out sets with attendee_count 0 when toggle is active', () => {
     const sets = [

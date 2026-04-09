@@ -274,3 +274,26 @@ describe('DayTabReview — add artist on failed day regression', () => {
     expect(queryByText('Parse failed.')).toBeNull();
   });
 });
+
+describe('DayTabReview — stage options', () => {
+  it('includes Heineken House in the Add Artist stage dropdown', async () => {
+    const { getByText, getByPlaceholderText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: { 1: { status: 'done', sets: [], retryCount: 0, confirmed: false } },
+        })}
+      />
+    );
+
+    // Open the Add Artist form
+    await act(async () => {
+      fireEvent.press(getByText('+ Add Artist'));
+    });
+
+    // Open the stage dropdown
+    fireEvent.press(getByText('Select stage…'));
+
+    // Heineken House should appear as an option
+    expect(getByText('Heineken House')).toBeTruthy();
+  });
+});

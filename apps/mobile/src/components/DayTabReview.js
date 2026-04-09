@@ -7,7 +7,7 @@ import { formatHHMM, formatDisplayTime, timeToTotalMinutes } from '../utils';
 
 const STAGE_OPTIONS = [
   'Coachella Stage', 'Outdoor Theatre', 'Sonora', 'Gobi',
-  'Mojave', 'Sahara', 'Yuma', 'Quasar', 'Do Lab',
+  'Mojave', 'Sahara', 'Yuma', 'Quasar', 'Do Lab', 'Heineken House',
 ];
 
 function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {

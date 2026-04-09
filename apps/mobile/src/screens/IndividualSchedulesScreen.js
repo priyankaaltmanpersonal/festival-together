@@ -50,7 +50,7 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
                 <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
                   <Text style={styles.setTitle}>{setItem.artist_name}</Text>
                   <Text style={styles.helper}>
-                    {setItem.stage_name} • {formatTimeStr(setItem.start_time_pt)}–{formatTimeStr(setItem.end_time_pt)} • {setItem.preference}
+                    {setItem.stage_name} • {formatTimeStr(setItem.start_time_pt)}–{formatTimeStr(setItem.end_time_pt)} • {setItem.preference === 'must_see' ? 'Definitely' : 'Maybe'}
                   </Text>
                 </View>
               ))

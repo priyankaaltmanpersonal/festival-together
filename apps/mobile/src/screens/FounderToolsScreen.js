@@ -43,7 +43,7 @@ export function FounderToolsScreen({
         {lineupImportState === 'uploading' ? (
           <View style={styles.statusRow}>
             <ActivityIndicator color={C.primary} size="small" />
-            <Text style={styles.helper}>Parsing lineup… this may take 1–2 minutes. Please keep the app open.</Text>
+            <Text style={[styles.helper, { flex: 1 }]}>Parsing lineup… this may take 1–2 minutes. Please keep the app open.</Text>
           </View>
         ) : lineupImportState === 'done' && lineupImportResult ? (
           <View style={styles.successBox}>
