@@ -360,3 +360,75 @@ def test_add_member_set_conflict() -> None:
     # Second add — same artist, same member
     r2 = client.post("/v1/members/me/sets", headers={"x-session-token": session_token}, json=payload)
     assert r2.status_code == 409
+
+
+# ─── Canonical hints regression ───────────────────────────────────────────────
+
+def test_upload_passes_canonical_hints_to_parser_when_official_sets_exist() -> None:
+    """When official sets exist for the upload day, they should be passed as
+    canonical_hints to parse_schedule_from_image, not None."""
+    from datetime import datetime, timezone
+    from uuid import uuid4
+
+    founder = _create_group("Hints Crew", "Hints Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    # Seed an official canonical set for day 1
+    now = datetime.now(tz=timezone.utc).isoformat()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO canonical_sets
+            (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+             day_index, status, source_confidence, source, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 1.0, 'official', ?)
+            """,
+            (str(uuid4()), group_id, "Official Artist", "Sahara", "21:00", "22:00", 1, now),
+        )
+        conn.execute("UPDATE groups SET setup_complete = 1 WHERE id = ?", (group_id,))
+
+    captured_kwargs = {}
+
+    def fake_parse(image_bytes, day_label, festival_days, canonical_hints=None):
+        captured_kwargs["canonical_hints"] = canonical_hints
+        return []
+
+    with patch("app.api.personal.parse_schedule_from_image", side_effect=fake_parse):
+        client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": founder_session},
+            data={"day_label": "Friday"},
+            files={"images": ("img.jpg", make_jpeg_bytes(), "image/jpeg")},
+        )
+
+    hints = captured_kwargs.get("canonical_hints")
+    assert hints is not None, "canonical_hints should be passed when official sets exist"
+    assert any(h["artist_name"] == "Official Artist" for h in hints)
+
+
+def test_upload_passes_no_hints_when_no_official_sets() -> None:
+    """When no official sets exist for the day, canonical_hints should be None."""
+    founder = _create_group("No Hints Crew", "No Hints Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    # Seed only member-source canonical sets (no official ones)
+    from tests.conftest import seed_canonical_sets
+    seed_canonical_sets(group_id)
+
+    captured_kwargs = {}
+
+    def fake_parse(image_bytes, day_label, festival_days, canonical_hints=None):
+        captured_kwargs["canonical_hints"] = canonical_hints
+        return []
+
+    with patch("app.api.personal.parse_schedule_from_image", side_effect=fake_parse):
+        client.post(
+            "/v1/members/me/personal/upload",
+            headers={"x-session-token": founder_session},
+            data={"day_label": "Friday"},
+            files={"images": ("img.jpg", make_jpeg_bytes(), "image/jpeg")},
+        )
+
+    assert captured_kwargs.get("canonical_hints") is None

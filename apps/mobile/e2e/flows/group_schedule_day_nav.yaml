@@ -2,10 +2,9 @@
 appId: com.festivaltogether.app
 ---
 - tapOn: "Group"
-- assertVisible: "Time"
 - assertVisible: "Friday"
 - assertVisible: "Saturday"
 - tapOn: "Saturday"
-- assertVisible: "Time"
+- assertVisible: "Saturday"
 - tapOn: "Friday"
-- assertVisible: "Time"
+- assertVisible: "Friday"

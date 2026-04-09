@@ -75,6 +75,7 @@ _SCHEMA_SQL = [
       day_index INTEGER NOT NULL,
       status TEXT NOT NULL,
       source_confidence REAL NOT NULL DEFAULT 0.0,
+      source TEXT NOT NULL DEFAULT 'member',
       created_at TEXT NOT NULL,
       FOREIGN KEY(group_id) REFERENCES groups(id)
     )

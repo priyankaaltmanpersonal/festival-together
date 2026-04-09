@@ -133,3 +133,24 @@ def test_group_schedule_filters() -> None:
     member_blocks = individual_resp.json()["members"]
     assert len(member_blocks) >= 2
     assert any(block["display_name"] == "Taylor" for block in member_blocks)
+
+
+def test_schedule_sets_include_source_field() -> None:
+    """Every set in the schedule response should have a 'source' field."""
+    founder = _create_group("Source Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    seed_canonical_sets(group_id)
+    _import_and_complete_member(founder_session, must_see_first=False)
+
+    resp = client.get(
+        f"/v1/groups/{group_id}/schedule",
+        headers={"x-session-token": founder_session},
+    )
+    assert resp.status_code == 200
+    sets = resp.json()["sets"]
+    assert len(sets) >= 1
+    for set_item in sets:
+        assert "source" in set_item
+        assert set_item["source"] in {"member", "official"}

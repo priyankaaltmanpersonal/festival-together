@@ -1,0 +1,19 @@
+appId: com.festivaltogether.app
+# Pre-condition: user is logged in as the group founder and has completed onboarding.
+# Verifies that founders can navigate to the Founder Tools screen from the More sheet
+# and see the Upload Official Lineup option.
+---
+# Open the More sheet from the bottom tab bar
+- tapOn: "More"
+
+# Verify the Founder Tools option is visible (only shown to founders)
+- assertVisible: "Founder Tools"
+- tapOn: "Founder Tools"
+
+# Verify the Founder Tools screen loaded
+- assertVisible: "Official Lineup"
+- assertVisible: "Upload Official Lineup"
+
+# Verify navigation back to group schedule works
+- tapOn: "Open Group Schedule"
+- assertVisible: "Group"

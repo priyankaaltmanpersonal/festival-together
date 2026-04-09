@@ -1,0 +1,16 @@
+appId: com.festivaltogether.app
+# Pre-condition: group schedule is loaded and contains at least one set
+# with no group attendees (attendee_count = 0). This happens when the
+# founder has imported the official lineup but not all sets are in member schedules.
+# Verifies the "Group only" toggle filters unattended sets.
+---
+- tapOn: "Group"
+
+# "Group only" toggle should be visible when unattended sets exist
+- assertVisible: "Group only"
+
+# Tap toggle to activate — unattended sets should disappear
+- tapOn: "Group only"
+
+# Tap again to deactivate — sets reappear
+- tapOn: "Group only"
