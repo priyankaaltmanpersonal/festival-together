@@ -1,8 +1,7 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
-import { GroupScheduleScreen } from '../screens/GroupScheduleScreen';
+import { GroupScheduleScreen, userAttendanceCardStyle } from '../screens/GroupScheduleScreen';
 import { lightColors } from '../theme';
-import { userAttendanceCardStyle } from '../screens/GroupScheduleScreen';
 
 jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'LinearGradient',
