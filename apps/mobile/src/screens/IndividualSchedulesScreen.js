@@ -4,6 +4,21 @@ import { DaySelector } from '../components/DaySelector';
 import { useTheme } from '../theme';
 import { formatTimeStr } from '../utils';
 
+function PreferenceBadge({ preference, styles }) {
+  const isDefinitely = preference === 'must_see';
+  const label = isDefinitely ? 'Definitely' : 'Maybe';
+  const bgColor = isDefinitely ? 'rgba(22,163,74,0.15)' : 'rgba(245,158,11,0.15)';
+  const textColor = isDefinitely ? '#16a34a' : '#B45309';
+  return (
+    <View
+      testID="preference-badge"
+      style={[styles.badgePill, { backgroundColor: bgColor }]}
+    >
+      <Text style={[styles.badgeText, { color: textColor }]}>{label}</Text>
+    </View>
+  );
+}
+
 export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, onLoadIndividual, onBack }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -50,8 +65,9 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
                 <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
                   <Text style={styles.setTitle}>{setItem.artist_name}</Text>
                   <Text style={styles.helper}>
-                    {setItem.stage_name} • {formatTimeStr(setItem.start_time_pt)}–{formatTimeStr(setItem.end_time_pt)} • {setItem.preference === 'must_see' ? 'Definitely' : 'Maybe'}
+                    {setItem.stage_name} • {formatTimeStr(setItem.start_time_pt)}–{formatTimeStr(setItem.end_time_pt)}
                   </Text>
+                  <PreferenceBadge preference={setItem.preference} styles={styles} />
                 </View>
               ))
             ) : (
@@ -101,5 +117,16 @@ const makeStyles = (C) => StyleSheet.create({
     padding: 8,
     backgroundColor: C.setRowBg
   },
-  setTitle: { color: C.setRowTitle, fontWeight: '600' }
+  setTitle: { color: C.setRowTitle, fontWeight: '600' },
+  badgePill: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginTop: 2,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
 });
