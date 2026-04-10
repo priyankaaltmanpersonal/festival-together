@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 import { DaySelector } from '../components/DaySelector';
 import { timeToMinutes, formatTime, formatTimeStr, minuteToY, buildTimeline, initials, withAlpha, SLOT_MINUTES, SLOT_HEIGHT } from '../utils';
@@ -84,6 +85,7 @@ export function GroupScheduleScreen({
   const optimisticRef = useRef(new Map());
   const [optimisticAttendance, setOptimisticAttendance] = useState(() => new Map());
   optimisticRef.current = optimisticAttendance; // keep ref in sync for stable callbacks
+  const cardAnimRef = useRef(new Map());
 
   useEffect(() => {
     AsyncStorage.getItem('hint_grid_doubletap_seen').then((val) => {
@@ -115,6 +117,19 @@ export function GroupScheduleScreen({
       clearTimeout(last.timeout);
       lastTapRef.current.delete(setId);
       if (inFlightRef.current.has(setId)) return;
+
+      // Haptic confirmation
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      // Scale pulse animation
+      if (!cardAnimRef.current.has(setId)) {
+        cardAnimRef.current.set(setId, new Animated.Value(1));
+      }
+      const anim = cardAnimRef.current.get(setId);
+      Animated.spring(anim, { toValue: 1.07, tension: 300, friction: 8, useNativeDriver: true })
+        .start(() => {
+          Animated.spring(anim, { toValue: 1, tension: 300, friction: 8, useNativeDriver: true }).start();
+        });
 
       // Determine current effective preference (optimistic takes priority)
       const myOptimistic = optimisticRef.current.get(setId);
@@ -365,8 +380,14 @@ export function GroupScheduleScreen({
                           ? (effectiveAttendees.find((a) => a.member_id === myMemberId)?.preference ?? null)
                           : null;
 
+                        // Ensure animation value exists for this card
+                        if (!cardAnimRef.current.has(setItem.id)) {
+                          cardAnimRef.current.set(setItem.id, new Animated.Value(1));
+                        }
+                        const scaleAnim = cardAnimRef.current.get(setItem.id);
+
                         return (
-                          <View key={setItem.id} style={[styles.setCardWrap, { top, height }]}>
+                          <Animated.View key={setItem.id} style={[styles.setCardWrap, { top, height, transform: [{ scale: scaleAnim }] }]}>
                             <Pressable
                               onPress={() => handleCardPress(setItem)}
                               style={[
@@ -405,7 +426,7 @@ export function GroupScheduleScreen({
                                 ) : null}
                               </View>
                             </Pressable>
-                          </View>
+                          </Animated.View>
                         );
                       })}
                     </View>
