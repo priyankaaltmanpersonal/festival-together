@@ -380,10 +380,6 @@ export function GroupScheduleScreen({
                           ? (effectiveAttendees.find((a) => a.member_id === myMemberId)?.preference ?? null)
                           : null;
 
-                        // Ensure animation value exists for this card
-                        if (!cardAnimRef.current.has(setItem.id)) {
-                          cardAnimRef.current.set(setItem.id, new Animated.Value(1));
-                        }
                         const scaleAnim = cardAnimRef.current.get(setItem.id);
 
                         return (

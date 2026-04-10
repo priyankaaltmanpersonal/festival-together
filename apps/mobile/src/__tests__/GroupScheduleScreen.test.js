@@ -2,6 +2,7 @@ import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { GroupScheduleScreen, userAttendanceCardStyle } from '../screens/GroupScheduleScreen';
 import { lightColors } from '../theme';
+import * as Haptics from 'expo-haptics';
 
 jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'LinearGradient',
@@ -200,6 +201,21 @@ describe('GroupScheduleScreen — double-tap attendance cycling', () => {
       <GroupScheduleScreen {...makeProps(none, { myMemberId: MY_ID, onAddToMySchedule: jest.fn() })} />
     );
     expect(q2('+')).toBeNull();
+  });
+
+  it('fires a light haptic impact on double-tap', () => {
+    const onAdd = jest.fn().mockResolvedValue(undefined);
+    const sets = [makeAttendedSet('haptic-test', null)];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: onAdd })}
+      />
+    );
+    const card = getByText('Artist haptic-test');
+    fireEvent.press(card);
+    fireEvent.press(card);
+    jest.runAllTimers();
+    expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light);
   });
 });
 
