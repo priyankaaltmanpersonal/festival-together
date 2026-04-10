@@ -18,6 +18,8 @@ function makeProps(overrides = {}) {
     inviteCopied: false,
     lineupImportState: 'idle',
     lineupImportResult: null,
+    officialLineupStats: null,
+    onDeleteLineup: undefined,
     ...overrides,
   };
 }
@@ -166,5 +168,73 @@ describe('FounderToolsScreen — done state', () => {
     );
     fireEvent.press(getByText('Delete All Official Sets'));
     expect(onDeleteLineup).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('FounderToolsScreen — persistent lineup stats', () => {
+  it('shows stats block when officialLineupStats has sets and state is idle', () => {
+    const { getByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          lineupImportState: 'idle',
+          officialLineupStats: { set_count: 312, days: ['Friday', 'Saturday', 'Sunday'] },
+        })}
+      />
+    );
+    expect(getByText(/312 sets/)).toBeTruthy();
+    expect(getByText(/Friday/)).toBeTruthy();
+  });
+
+  it('does not show stats block when set_count is 0', () => {
+    const { queryByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          lineupImportState: 'idle',
+          officialLineupStats: { set_count: 0, days: [] },
+        })}
+      />
+    );
+    expect(queryByText(/\d+ sets/)).toBeNull();
+  });
+
+  it('does not show stats block when lineupImportState is done (success box shown instead)', () => {
+    const { getByText, queryByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          lineupImportState: 'done',
+          lineupImportResult: { sets_created: 10, days_processed: ['Friday'] },
+          officialLineupStats: { set_count: 10, days: ['Friday'] },
+        })}
+      />
+    );
+    expect(getByText(/10 sets imported/)).toBeTruthy();
+    // The persistent stats block should NOT appear (success box takes priority)
+    expect(queryByText(/already imported/)).toBeNull();
+  });
+
+  it('shows delete button when officialLineupStats has sets even if state is idle', () => {
+    const { getByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          lineupImportState: 'idle',
+          officialLineupStats: { set_count: 50, days: ['Friday'] },
+          onDeleteLineup: jest.fn(),
+        })}
+      />
+    );
+    expect(getByText('Delete All Official Sets')).toBeTruthy();
+  });
+
+  it('does not show delete button when no lineup exists and state is idle', () => {
+    const { queryByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          lineupImportState: 'idle',
+          officialLineupStats: { set_count: 0, days: [] },
+          onDeleteLineup: jest.fn(),
+        })}
+      />
+    );
+    expect(queryByText('Delete All Official Sets')).toBeNull();
   });
 });

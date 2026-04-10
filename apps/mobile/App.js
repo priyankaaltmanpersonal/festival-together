@@ -1514,6 +1514,14 @@ export default function App() {
           onDeleteLineup={deleteOfficialLineup}
           lineupImportState={lineupImportState}
           lineupImportResult={lineupImportResult}
+          officialLineupStats={
+            homeSnapshot?.group?.has_official_lineup
+              ? {
+                  set_count: homeSnapshot.group.official_set_count ?? 0,
+                  days: homeSnapshot.group.official_days ?? [],
+                }
+              : null
+          }
         />
       ) : null}
 

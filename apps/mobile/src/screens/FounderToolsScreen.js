@@ -12,6 +12,7 @@ export function FounderToolsScreen({
   onDeleteLineup,
   lineupImportState = 'idle',
   lineupImportResult = null,
+  officialLineupStats = null,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -54,6 +55,13 @@ export function FounderToolsScreen({
                 : ''}
             </Text>
           </View>
+        ) : lineupImportState === 'idle' && officialLineupStats?.set_count > 0 ? (
+          <View style={styles.statsBox}>
+            <Text style={styles.statsText}>
+              ✓ Official lineup already imported — {officialLineupStats.set_count} sets
+              {officialLineupStats.days?.length ? ` across ${officialLineupStats.days.join(', ')}` : ''}
+            </Text>
+          </View>
         ) : null}
 
         <Pressable
@@ -66,7 +74,7 @@ export function FounderToolsScreen({
           </Text>
         </Pressable>
 
-        {lineupImportState === 'done' && onDeleteLineup ? (
+        {(lineupImportState === 'done' || (officialLineupStats?.set_count > 0)) && onDeleteLineup ? (
           <Pressable
             onPress={() => {
               Alert.alert(
@@ -112,6 +120,14 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: C.successBorder || '#86efac',
   },
   successText: { color: C.success || '#16a34a', fontWeight: '700', fontSize: 13 },
+  statsBox: {
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    backgroundColor: C.cardBg,
+  },
+  statsText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
   buttonPrimary: {
     backgroundColor: C.primary,
     borderRadius: 10,
