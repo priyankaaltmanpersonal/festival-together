@@ -296,15 +296,17 @@ export default function App() {
       if (!prev || !homeSnapshot?.me?.id) return prev;
       return {
         ...prev,
-        sets: (prev.sets || []).map((setItem) => ({
-          ...setItem,
-          attendees: (setItem.attendees || []).map((attendee) =>
+        sets: (prev.sets || []).map((setItem) => {
+          if (setItem.id !== canonicalSetId) return setItem;
+          const updatedAttendees = (setItem.attendees || []).map((attendee) =>
             attendee.member_id === homeSnapshot.me.id ? { ...attendee, preference } : attendee
-          ),
-          must_see_count: (setItem.attendees || []).map((attendee) =>
-            attendee.member_id === homeSnapshot.me.id ? { ...attendee, preference } : attendee
-          ).filter((attendee) => attendee.preference === 'must_see').length
-        }))
+          );
+          return {
+            ...setItem,
+            attendees: updatedAttendees,
+            must_see_count: updatedAttendees.filter((a) => a.preference === 'must_see').length,
+          };
+        }),
       };
     });
     setIndividualSnapshot((prev) => {

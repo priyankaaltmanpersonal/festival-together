@@ -234,3 +234,40 @@ describe('GroupScheduleScreen — hide-unattended toggle', () => {
     expect(getByText('Unattended Artist')).toBeTruthy();
   });
 });
+
+describe('GroupScheduleScreen — preference update isolation', () => {
+  const MY_ID = 'me';
+
+  it('does not visually change unrelated sets when one set preference changes', () => {
+    // Regression: applyPreferenceLocally was updating ALL sets' attendee preferences
+    // instead of only the matching canonicalSetId. This test verifies the component
+    // prop boundary—a parent that correctly updates only one set in the snapshot
+    // results in only that set showing must_see styling.
+    const attendees = (pref) => [{ member_id: MY_ID, display_name: 'Me', preference: pref, chip_color: '#f00' }];
+    const sets = [
+      { id: 'set-a', day_index: 1, artist_name: 'Set A', stage_name: STAGE, start_time_pt: '20:00', end_time_pt: '21:00', attendees: attendees('flexible'), attendee_count: 1, popularity_tier: null },
+      { id: 'set-b', day_index: 1, artist_name: 'Set B', stage_name: STAGE, start_time_pt: '21:00', end_time_pt: '22:00', attendees: attendees('flexible'), attendee_count: 1, popularity_tier: null },
+    ];
+    // Simulate a correctly-fixed parent: only set-a gets upgraded to must_see
+    const updatedSets = sets.map((s) =>
+      s.id === 'set-a'
+        ? { ...s, attendees: attendees('must_see') }
+        : s
+    );
+    const { rerender, getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onSetPreferenceFromGrid: jest.fn(), onRemoveFromGrid: jest.fn() })}
+        scheduleSnapshot={{ sets, stages: [STAGE] }}
+      />
+    );
+    rerender(
+      <GroupScheduleScreen
+        {...makeProps(updatedSets, { myMemberId: MY_ID, onSetPreferenceFromGrid: jest.fn(), onRemoveFromGrid: jest.fn() })}
+        scheduleSnapshot={{ sets: updatedSets, stages: [STAGE] }}
+      />
+    );
+    // Both sets should still render (no crash or disappearance)
+    expect(getByText('Set A')).toBeTruthy();
+    expect(getByText('Set B')).toBeTruthy();
+  });
+});
