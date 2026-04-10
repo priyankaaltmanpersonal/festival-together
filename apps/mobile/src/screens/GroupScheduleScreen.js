@@ -1,5 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../theme';
 import { DaySelector } from '../components/DaySelector';
@@ -21,6 +22,8 @@ export function GroupScheduleScreen({
   myMemberId,
   onAddToMySchedule,
   onSetPreferenceFromGrid,
+  onRemoveFromGrid,
+  onNavigateToEditSet,
   festivalDays,
 }) {
   const C = useTheme();
@@ -74,31 +77,109 @@ export function GroupScheduleScreen({
     [members]
   );
   const timeScrollRef = useRef(null);
-  const [pendingSetId, setPendingSetId] = useState(null);
 
-  const handleQuickAdd = useCallback(async (setItem) => {
-    if (pendingSetId || !onAddToMySchedule) return;
-    setPendingSetId(setItem.id);
-    try {
-      await onAddToMySchedule(setItem);
-    } catch (_e) {
-      // error is surfaced by App.js
-    } finally {
-      setPendingSetId(null);
-    }
-  }, [pendingSetId, onAddToMySchedule]);
+  const lastTapRef = useRef(new Map());
+  const inFlightRef = useRef(new Set());
+  const [showHint, setShowHint] = useState(false);
+  const optimisticRef = useRef(new Map());
+  const [optimisticAttendance, setOptimisticAttendance] = useState(() => new Map());
+  optimisticRef.current = optimisticAttendance; // keep ref in sync for stable callbacks
 
-  const handleQuickUpgrade = useCallback(async (canonicalSetId) => {
-    if (pendingSetId || !onSetPreferenceFromGrid) return;
-    setPendingSetId(canonicalSetId);
-    try {
-      await onSetPreferenceFromGrid(canonicalSetId, 'must_see');
-    } catch (_e) {
-      // error is surfaced by App.js
-    } finally {
-      setPendingSetId(null);
+  useEffect(() => {
+    AsyncStorage.getItem('hint_grid_doubletap_seen').then((val) => {
+      if (!val) setShowHint(true);
+    });
+    return () => {
+      lastTapRef.current.forEach((entry) => clearTimeout(entry.timeout));
+    };
+  }, []);
+
+  const dismissHint = useCallback(() => {
+    setShowHint(false);
+    AsyncStorage.setItem('hint_grid_doubletap_seen', 'true');
+  }, []);
+
+  useEffect(() => {
+    if (!showHint) return;
+    const t = setTimeout(dismissHint, 4000);
+    return () => clearTimeout(t);
+  }, [showHint, dismissHint]);
+
+  const handleCardPress = useCallback((setItem) => {
+    const setId = setItem.id;
+    const now = Date.now();
+    const last = lastTapRef.current.get(setId);
+
+    if (last && now - last.time < 250) {
+      // Double-tap detected
+      clearTimeout(last.timeout);
+      lastTapRef.current.delete(setId);
+      if (inFlightRef.current.has(setId)) return;
+
+      // Determine current effective preference (optimistic takes priority)
+      const myOptimistic = optimisticRef.current.get(setId);
+      let currentPref;
+      if (myOptimistic !== undefined) {
+        currentPref = myOptimistic;
+      } else {
+        const myAttendee = myMemberId
+          ? (setItem.attendees || []).find((a) => a.member_id === myMemberId)
+          : null;
+        currentPref = myAttendee?.preference ?? 'none';
+      }
+
+      // Determine next state and which API call to make
+      let nextPref, action;
+      if (!currentPref || currentPref === 'none') {
+        nextPref = 'flexible';
+        action = onAddToMySchedule ? onAddToMySchedule(setItem) : Promise.resolve();
+      } else if (currentPref !== 'must_see') {
+        nextPref = 'must_see';
+        action = onSetPreferenceFromGrid ? onSetPreferenceFromGrid(setId, 'must_see') : Promise.resolve();
+      } else {
+        nextPref = 'none';
+        action = onRemoveFromGrid ? onRemoveFromGrid(setId) : Promise.resolve();
+      }
+
+      // Write optimistic state immediately so card re-renders with mint color
+      setOptimisticAttendance((prev) => {
+        const next = new Map(prev);
+        next.set(setId, nextPref);
+        return next;
+      });
+      inFlightRef.current.add(setId);
+
+      Promise.resolve(action)
+        .then(() => {
+          // Server confirmed — clear optimistic override (real parent state will take over)
+          setOptimisticAttendance((prev) => {
+            const next = new Map(prev);
+            next.delete(setId);
+            return next;
+          });
+        })
+        .catch(() => {
+          // Revert to previous preference on failure
+          setOptimisticAttendance((prev) => new Map(prev).set(setId, currentPref));
+        })
+        .finally(() => {
+          inFlightRef.current.delete(setId);
+        });
+
+      return;
     }
-  }, [pendingSetId, onSetPreferenceFromGrid]);
+
+    // Single tap — schedule expand after debounce
+    const timeout = setTimeout(() => {
+      lastTapRef.current.delete(setId);
+      const definite = (setItem.attendees || []).filter((a) => a.preference === 'must_see');
+      const maybe = (setItem.attendees || []).filter((a) => a.preference !== 'must_see');
+      setExpandedSet({ ...setItem, definite, maybe });
+    }, 250);
+
+    lastTapRef.current.set(setId, { time: now, timeout });
+  }, [myMemberId, onAddToMySchedule, onSetPreferenceFromGrid, onRemoveFromGrid]);
+  // optimisticRef, cardAnimRef, setOptimisticAttendance are stable — safe to omit
 
   return (
     <View style={styles.wrap} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>
@@ -161,6 +242,12 @@ export function GroupScheduleScreen({
       </View>
 
       {!timeline ? <Text style={styles.helperPad}>No schedule loaded yet.</Text> : null}
+
+      {showHint ? (
+        <Pressable style={styles.hintBanner} onPress={dismissHint}>
+          <Text style={styles.hintText}>Double-tap any set to change your attendance</Text>
+        </Pressable>
+      ) : null}
 
       {timeline ? (
         <View style={styles.gridOuter}>
@@ -225,9 +312,36 @@ export function GroupScheduleScreen({
                         const rawDuration = endMin - startMin;
                         const duration = rawDuration > 0 ? rawDuration : 120;
                         const height = Math.max(26, (duration / SLOT_MINUTES) * SLOT_HEIGHT - 2);
-                        const definite = (setItem.attendees || []).filter((a) => a.preference === 'must_see');
-                        const maybe = (setItem.attendees || []).filter((a) => a.preference !== 'must_see');
-                        const maybeCount = Math.max(0, (setItem.attendee_count || 0) - definite.length);
+                        // Compute effectiveAttendees by applying optimistic override for current user
+                        const myOptimistic = optimisticAttendance.get(setItem.id);
+                        let effectiveAttendees = setItem.attendees || [];
+                        if (myMemberId && myOptimistic !== undefined) {
+                          if (myOptimistic === 'none') {
+                            effectiveAttendees = effectiveAttendees.filter((a) => a.member_id !== myMemberId);
+                          } else {
+                            const alreadyIn = effectiveAttendees.some((a) => a.member_id === myMemberId);
+                            if (alreadyIn) {
+                              effectiveAttendees = effectiveAttendees.map((a) =>
+                                a.member_id === myMemberId ? { ...a, preference: myOptimistic } : a
+                              );
+                            } else {
+                              const myMember = members.find((m) => m.id === myMemberId);
+                              effectiveAttendees = [
+                                ...effectiveAttendees,
+                                {
+                                  member_id: myMemberId,
+                                  preference: myOptimistic,
+                                  display_name: myMember?.display_name || '',
+                                  chip_color: myMember?.chip_color || null,
+                                },
+                              ];
+                            }
+                          }
+                        }
+
+                        const definite = effectiveAttendees.filter((a) => a.preference === 'must_see');
+                        const maybe = effectiveAttendees.filter((a) => a.preference !== 'must_see');
+                        const maybeCount = maybe.length;
                         const maxRows = height < 43 ? 1 : 2;
                         const maxBubbles = maxRows * BUBBLES_PER_ROW;
                         const hasOverflow = definite.length > maxBubbles;
@@ -239,11 +353,19 @@ export function GroupScheduleScreen({
                         const bubblesHeight = actualRows === 1 ? 16 : 35;
                         const showSummary = height >= bubblesHeight + 40;
 
+                        const myEffectivePref = myMemberId
+                          ? (effectiveAttendees.find((a) => a.member_id === myMemberId)?.preference ?? null)
+                          : null;
+
                         return (
                           <View key={setItem.id} style={[styles.setCardWrap, { top, height }]}>
                             <Pressable
-                              onPress={() => setExpandedSet({ ...setItem, definite, maybe })}
-                              style={[styles.setTag, tierStyle(setItem.popularity_tier, C)]}
+                              onPress={() => handleCardPress(setItem)}
+                              style={[
+                                styles.setTag,
+                                tierStyle(setItem.popularity_tier, C),
+                                myMemberId ? userAttendanceCardStyle(myEffectivePref, C) : null,
+                              ]}
                             >
                               <Text style={styles.artistText} numberOfLines={1}>{setItem.artist_name}</Text>
                               <Text style={styles.timeRangeText} numberOfLines={1}>
@@ -275,35 +397,6 @@ export function GroupScheduleScreen({
                                 ) : null}
                               </View>
                             </Pressable>
-                            {myMemberId ? (() => {
-                              const myAttendance = (setItem.attendees || []).find(
-                                (a) => a.member_id === myMemberId
-                              );
-                              const isPending = pendingSetId === setItem.id;
-                              if (!myAttendance && onAddToMySchedule) {
-                                return (
-                                  <Pressable
-                                    style={[styles.quickActionBtn, styles.quickAddBtn, isPending && { opacity: 0.4 }]}
-                                    onPress={() => handleQuickAdd(setItem)}
-                                    disabled={isPending}
-                                  >
-                                    <Text style={styles.quickActionText}>+</Text>
-                                  </Pressable>
-                                );
-                              }
-                              if (myAttendance && myAttendance.preference !== 'must_see' && onSetPreferenceFromGrid) {
-                                return (
-                                  <Pressable
-                                    style={[styles.quickActionBtn, styles.quickMaybeBtn, isPending && { opacity: 0.4 }]}
-                                    onPress={() => handleQuickUpgrade(setItem.id)}
-                                    disabled={isPending}
-                                  >
-                                    <Text style={styles.quickActionText}>✓</Text>
-                                  </Pressable>
-                                );
-                              }
-                              return null;
-                            })() : null}
                           </View>
                         );
                       })}
@@ -370,7 +463,17 @@ export function GroupScheduleScreen({
                           <Text style={styles.modalStatusText}>
                             ✓ On your schedule — {myAttendance.preference === 'must_see' ? 'Must See' : 'Maybe'}
                           </Text>
-                          <Text style={styles.modalAddHint}>Edit in your schedule to change preference</Text>
+                          <Pressable
+                          onPress={() => {
+                            const dayIdx = expandedSet?.day_index;
+                            setExpandedSet(null);
+                            if (onNavigateToEditSet && dayIdx != null) {
+                              onNavigateToEditSet(dayIdx);
+                            }
+                          }}
+                        >
+                          <Text style={styles.modalEditLink}>Edit in your schedule →</Text>
+                        </Pressable>
                         </View>
                       ) : (
                         <AddToScheduleFooter
@@ -557,28 +660,18 @@ const makeStyles = (C) => StyleSheet.create({
     right: 3,
     zIndex: 2,
   },
-  quickActionBtn: {
-    position: 'absolute',
-    bottom: 3,
-    right: 3,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+  hintBanner: {
+    backgroundColor: 'rgba(251,146,60,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 6,
     alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
   },
-  quickAddBtn: {
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  quickMaybeBtn: {
-    backgroundColor: 'rgba(251,146,60,0.7)',
-  },
-  quickActionText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '800',
-    lineHeight: 14,
+  hintText: {
+    color: '#b45309',
+    fontSize: 12,
+    fontWeight: '600',
     textAlign: 'center',
   },
   setTag: {
@@ -667,6 +760,13 @@ const makeStyles = (C) => StyleSheet.create({
   },
   modalStatusText: { fontSize: 13, fontWeight: '700', color: C.kickerText, textAlign: 'center' },
   modalAddHint: { fontSize: 11, color: C.textMuted, textAlign: 'center' },
+  modalEditLink: {
+    fontSize: 12,
+    color: '#5c85ff',
+    textDecorationLine: 'underline',
+    textAlign: 'center',
+    paddingVertical: 4,
+  },
   modalAddedPill: {
     backgroundColor: C.successBg,
     borderRadius: 10,
@@ -711,5 +811,15 @@ function tierStyle(tier, C) {
     return { borderColor: C.tierLowBorder, backgroundColor: C.tierLowBg };
   }
   return { borderColor: C.setCardBorder, backgroundColor: C.setCardBg };
+}
+
+export function userAttendanceCardStyle(preference, C) {
+  if (preference === 'must_see') {
+    return { backgroundColor: C.myAttendanceDefBg, borderColor: C.myAttendanceDefBorder };
+  }
+  if (preference != null && preference !== 'none') {
+    return { backgroundColor: C.myAttendanceMaybeBg, borderColor: C.myAttendanceMaybeBorder };
+  }
+  return {};
 }
 
