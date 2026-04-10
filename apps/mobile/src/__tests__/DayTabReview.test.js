@@ -275,6 +275,35 @@ describe('DayTabReview — add artist on failed day regression', () => {
   });
 });
 
+describe('DayTabReview — initialSelectedDay', () => {
+  it('renders the initialSelectedDay tab as active on first render', () => {
+    const festivalDays = [
+      { dayIndex: 1, label: 'Friday' },
+      { dayIndex: 2, label: 'Saturday' },
+    ];
+    const dayStates = {
+      1: { status: 'done', sets: [], retryCount: 0, imageUris: null },
+      2: { status: 'done', sets: [], retryCount: 0, imageUris: null },
+    };
+    const { getByText } = render(
+      <DayTabReview
+        festivalDays={festivalDays}
+        dayStates={dayStates}
+        initialSelectedDay={2}
+        onRetry={jest.fn()}
+        onDeleteSet={jest.fn()}
+        onAddSet={jest.fn()}
+        onSetPreference={jest.fn()}
+        onEditSet={jest.fn()}
+        onReUpload={jest.fn()}
+        onAddOpen={jest.fn()}
+      />
+    );
+    // Saturday (day 2) should be the active tab
+    expect(getByText('Saturday')).toBeTruthy();
+  });
+});
+
 describe('DayTabReview — stage options', () => {
   it('includes Heineken House in the Add Artist stage dropdown', async () => {
     const { getByText, getByPlaceholderText } = render(

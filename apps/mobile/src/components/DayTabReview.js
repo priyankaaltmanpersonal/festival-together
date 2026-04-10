@@ -179,10 +179,11 @@ export function DayTabReview({
   onReUpload,
   onAddOpen,
   onConfirmDay,
+  initialSelectedDay,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
-  const [activeDay, setActiveDay] = useState(festivalDays[0]?.dayIndex ?? 1);
+  const [activeDay, setActiveDay] = useState(initialSelectedDay ?? festivalDays[0]?.dayIndex ?? 1);
   const [editingSetId, setEditingSetId] = useState(null);
   const [savingSetId, setSavingSetId] = useState(null);
   const [isAdding, setIsAdding] = useState(false);

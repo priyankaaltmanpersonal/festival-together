@@ -11,6 +11,7 @@ export function EditMyScheduleScreen({
   onDeleteSet,
   onAddSet,
   onEditSet,
+  initialDayIndex,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -50,6 +51,7 @@ export function EditMyScheduleScreen({
           <DayTabReview
             festivalDays={festivalDays || []}
             dayStates={dayStates}
+            initialSelectedDay={initialDayIndex}
             onRetry={() => {}}
             onDeleteSet={onDeleteSet}
             onAddSet={onAddSet}

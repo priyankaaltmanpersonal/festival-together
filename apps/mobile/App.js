@@ -115,6 +115,7 @@ export default function App() {
   const [uploadDayIndex, setUploadDayIndex] = useState(1);
   // { [dayIndex]: { status: 'idle'|'uploading'|'done'|'failed', sets: [], retryCount: 0, imageUris: null } }
   const [dayStates, setDayStates] = useState({});
+  const [editInitialDay, setEditInitialDay] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
@@ -136,6 +137,10 @@ export default function App() {
       clearTimeout(scheduleFilterTimeoutRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    if (activeView !== 'edit') setEditInitialDay(null);
+  }, [activeView]);
 
   useEffect(() => {
     let alive = true;
@@ -1250,6 +1255,11 @@ export default function App() {
     }
   };
 
+  const navigateToEditSet = (dayIndex) => {
+    setEditInitialDay(dayIndex);
+    openEditSchedule();
+  };
+
   const resetFlow = async () => {
     await clearSessionData(true);
     setUserRole('member');
@@ -1488,6 +1498,8 @@ export default function App() {
           onAddToMySchedule={addSetFromGrid}
           onSetPreferenceFromGrid={setPreference}
           festivalDays={festivalDays}
+          onNavigateToEditSet={navigateToEditSet}
+          onRemoveFromGrid={deletePersonalSet}
         />
       ) : null}
 
@@ -1523,6 +1535,7 @@ export default function App() {
           onDeleteSet={deletePersonalSet}
           onAddSet={addPersonalSet}
           onEditSet={editCanonicalSet}
+          initialDayIndex={editInitialDay}
         />
       ) : null}
 
