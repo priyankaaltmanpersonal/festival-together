@@ -439,6 +439,31 @@ def member_home(session=Depends(require_session)) -> dict:
             (member["group_id"],),
         ).fetchone() is not None
 
+        official_set_count = 0
+        official_days: list[str] = []
+        if has_official_lineup:
+            day_rows = conn.execute(
+                """
+                SELECT day_index, COUNT(*) AS cnt
+                FROM canonical_sets
+                WHERE group_id = ? AND source = 'official'
+                GROUP BY day_index
+                ORDER BY day_index
+                """,
+                (member["group_id"],),
+            ).fetchall()
+            official_set_count = sum(row["cnt"] for row in day_rows)
+            raw_festival_days = member["festival_days"]
+            try:
+                festival_days_list = json.loads(raw_festival_days) if raw_festival_days else []
+            except (json.JSONDecodeError, TypeError):
+                festival_days_list = []
+            day_index_to_label = {d["day_index"]: d["label"] for d in festival_days_list}
+            official_days = [
+                day_index_to_label.get(row["day_index"], f"Day {row['day_index']}")
+                for row in day_rows
+            ]
+
     return {
         "me": {
             "id": member["id"],
@@ -457,6 +482,8 @@ def member_home(session=Depends(require_session)) -> dict:
                 {"day_index": 3, "label": "Sunday"},
             ],
             "has_official_lineup": has_official_lineup,
+            "official_set_count": official_set_count,
+            "official_days": official_days,
         },
         "members": [
             {

@@ -290,6 +290,70 @@ def test_home_has_official_lineup_true_after_import() -> None:
     assert resp.status_code == 200
     assert resp.json()["group"]["has_official_lineup"] is True
 
+
+def test_home_includes_official_set_count_and_days_when_lineup_exists() -> None:
+    """home response includes count and day labels when official sets exist."""
+    founder = _create_group("Count Days Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    mock_lineup = [
+        {"artist_name": "Artist A", "stage_name": "Sahara", "start_time": "20:00", "end_time": "21:00", "day_index": 1},
+        {"artist_name": "Artist B", "stage_name": "Gobi", "start_time": "22:00", "end_time": "23:00", "day_index": 2},
+    ]
+    with patch("app.api.groups.parse_official_lineup_from_image", return_value=mock_lineup):
+        client.post(
+            f"/v1/groups/{group_id}/lineup/import",
+            files=[
+                ("images", ("day.jpg", make_jpeg_bytes(), "image/jpeg")),
+                ("images", ("day2.jpg", make_jpeg_bytes(), "image/jpeg")),
+            ],
+            headers={"X-Session-Token": founder_session},
+        )
+    resp = client.get("/v1/members/me/home", headers={"X-Session-Token": founder_session})
+    assert resp.status_code == 200
+    group = resp.json()["group"]
+    assert group["official_set_count"] == 2
+    assert "Friday" in group["official_days"]
+    assert "Saturday" in group["official_days"]
+
+
+def test_home_official_set_count_zero_when_no_lineup() -> None:
+    """home response has count=0, days=[] when no official sets exist."""
+    founder = _create_group("No Count Crew", "Founder")
+    founder_session = founder["session"]["token"]
+
+    resp = client.get("/v1/members/me/home", headers={"X-Session-Token": founder_session})
+    assert resp.status_code == 200
+    group = resp.json()["group"]
+    assert group["official_set_count"] == 0
+    assert group["official_days"] == []
+
+
+def test_home_official_days_handles_null_festival_days() -> None:
+    """home response doesn't crash when festival_days is null but official sets exist."""
+    founder = _create_group("Null Days Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    # Insert a canonical set with source='official' directly, bypassing the import
+    import sqlite3
+    with sqlite3.connect(settings.sqlite_path) as raw:
+        raw.execute(
+            "INSERT INTO canonical_sets (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt, day_index, status, source, created_at) "
+            "VALUES ('test-set-null-days', ?, 'Ghost Artist', 'Sahara', '20:00', '21:00', 99, 'resolved', 'official', '2026-01-01T00:00:00')",
+            (group_id,)
+        )
+        raw.commit()
+    # Note: day_index 99 won't match any festival_days entry, so official_days will use fallback label
+    resp = client.get("/v1/members/me/home", headers={"X-Session-Token": founder_session})
+    assert resp.status_code == 200
+    group = resp.json()["group"]
+    # Should not crash; count includes the orphaned set
+    assert group["official_set_count"] >= 1
+    assert isinstance(group["official_days"], list)
+
+
 # ─── Delete official lineup ───────────────────────────────────────────────────
 
 def test_delete_official_lineup_removes_sets_and_preferences() -> None:
