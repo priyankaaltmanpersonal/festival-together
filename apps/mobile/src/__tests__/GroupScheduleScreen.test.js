@@ -1,9 +1,19 @@
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import { GroupScheduleScreen } from '../screens/GroupScheduleScreen';
 
 jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'LinearGradient',
+}));
+
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn().mockResolvedValue('true'), // hint already seen by default
+  setItem: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: 'Light' },
 }));
 
 const STAGE = 'Sahara';
@@ -35,6 +45,9 @@ function makeProps(sets, overrides = {}) {
     inviteCopied: false,
     myMemberId: null,
     onAddToMySchedule: null,
+    onSetPreferenceFromGrid: jest.fn(),
+    onRemoveFromGrid: jest.fn(),
+    onNavigateToEditSet: jest.fn(),
     festivalDays: [
       { dayIndex: 1, label: 'Friday' },
       { dayIndex: 2, label: 'Saturday' },
@@ -103,10 +116,10 @@ describe('GroupScheduleScreen — day filtering', () => {
   });
 });
 
-describe('GroupScheduleScreen — quick-add icons', () => {
+describe('GroupScheduleScreen — double-tap attendance cycling', () => {
   const MY_ID = 'member-me';
 
-  function makeSetWithAttendees(id, attendees = []) {
+  function makeAttendedSet(id, preference) {
     return {
       id,
       day_index: 1,
@@ -114,79 +127,111 @@ describe('GroupScheduleScreen — quick-add icons', () => {
       stage_name: STAGE,
       start_time_pt: '20:00',
       end_time_pt: '21:00',
-      attendees,
-      attendee_count: attendees.length,
+      attendees: preference
+        ? [{ member_id: MY_ID, display_name: 'Me', preference, chip_color: '#f00' }]
+        : [],
+      attendee_count: preference ? 1 : 0,
       popularity_tier: null,
     };
   }
 
-  it('shows + icon when user is not attending the set', () => {
-    const sets = [makeSetWithAttendees('a', [])];
-    const { getByText } = render(
-      <GroupScheduleScreen
-        {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: jest.fn() })}
-      />
-    );
-    expect(getByText('+')).toBeTruthy();
+  beforeEach(() => {
+    jest.useFakeTimers();
   });
 
-  it('calls onAddToMySchedule when + icon is tapped', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('double-tap on a not-attending set calls onAddToMySchedule', () => {
     const onAdd = jest.fn().mockResolvedValue(undefined);
-    const sets = [makeSetWithAttendees('a', [])];
+    const sets = [makeAttendedSet('a', null)];
     const { getByText } = render(
       <GroupScheduleScreen
         {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: onAdd })}
       />
     );
-    fireEvent.press(getByText('+'));
+    const card = getByText('Artist a');
+    fireEvent.press(card);
+    fireEvent.press(card);
+    jest.runAllTimers();
     expect(onAdd).toHaveBeenCalledTimes(1);
-    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }));
   });
 
-  it('shows ✓ icon when user is a maybe for the set', () => {
-    const attendees = [{ member_id: MY_ID, display_name: 'Me', preference: 'flexible', chip_color: '#f00' }];
-    const sets = [makeSetWithAttendees('b', attendees)];
-    const { getByText } = render(
-      <GroupScheduleScreen
-        {...makeProps(sets, { myMemberId: MY_ID, onSetPreferenceFromGrid: jest.fn() })}
-      />
-    );
-    expect(getByText('✓')).toBeTruthy();
-  });
-
-  it('calls onSetPreferenceFromGrid with must_see when ✓ icon is tapped', () => {
+  it('double-tap on a maybe set calls onSetPreferenceFromGrid with must_see', () => {
     const onUpgrade = jest.fn().mockResolvedValue(undefined);
-    const attendees = [{ member_id: MY_ID, display_name: 'Me', preference: 'flexible', chip_color: '#f00' }];
-    const sets = [makeSetWithAttendees('b', attendees)];
+    const sets = [makeAttendedSet('b', 'flexible')];
     const { getByText } = render(
       <GroupScheduleScreen
         {...makeProps(sets, { myMemberId: MY_ID, onSetPreferenceFromGrid: onUpgrade })}
       />
     );
-    fireEvent.press(getByText('✓'));
+    const card = getByText('Artist b');
+    fireEvent.press(card);
+    fireEvent.press(card);
+    jest.runAllTimers();
     expect(onUpgrade).toHaveBeenCalledWith('b', 'must_see');
   });
 
-  it('shows no quick-add icon when user is definitely attending', () => {
-    const attendees = [{ member_id: MY_ID, display_name: 'Me', preference: 'must_see', chip_color: '#f00' }];
-    const sets = [makeSetWithAttendees('c', attendees)];
-    const { queryByText } = render(
+  it('double-tap on a definitely set calls onRemoveFromGrid', () => {
+    const onRemove = jest.fn().mockResolvedValue(undefined);
+    const sets = [makeAttendedSet('c', 'must_see')];
+    const { getByText } = render(
       <GroupScheduleScreen
-        {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: jest.fn(), onSetPreferenceFromGrid: jest.fn() })}
+        {...makeProps(sets, { myMemberId: MY_ID, onRemoveFromGrid: onRemove })}
       />
     );
-    expect(queryByText('+')).toBeNull();
-    expect(queryByText('✓')).toBeNull();
+    const card = getByText('Artist c');
+    fireEvent.press(card);
+    fireEvent.press(card);
+    jest.runAllTimers();
+    expect(onRemove).toHaveBeenCalledWith('c');
   });
 
-  it('shows no icons when myMemberId is null', () => {
-    const sets = [makeSetWithAttendees('d', [])];
-    const { queryByText } = render(
+  it('overlay + and ✓ icon buttons are not rendered', () => {
+    const maybe = [makeAttendedSet('e', 'flexible')];
+    const none = [makeAttendedSet('f', null)];
+    const { queryByText: q1 } = render(
+      <GroupScheduleScreen {...makeProps(maybe, { myMemberId: MY_ID, onSetPreferenceFromGrid: jest.fn() })} />
+    );
+    expect(q1('✓')).toBeNull();
+    const { queryByText: q2 } = render(
+      <GroupScheduleScreen {...makeProps(none, { myMemberId: MY_ID, onAddToMySchedule: jest.fn() })} />
+    );
+    expect(q2('+')).toBeNull();
+  });
+});
+
+describe('GroupScheduleScreen — edit navigation link', () => {
+  const MY_ID = 'member-me';
+
+  it('shows tappable edit link in expanded modal when user is attending', () => {
+    jest.useFakeTimers();
+    const attendees = [{ member_id: MY_ID, display_name: 'Me', preference: 'must_see', chip_color: '#f00' }];
+    const sets = [{
+      id: 'set-x',
+      day_index: 1,
+      artist_name: 'Edit Artist',
+      stage_name: STAGE,
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees,
+      attendee_count: 1,
+      popularity_tier: null,
+    }];
+    const onNavigate = jest.fn();
+    const { getByText } = render(
       <GroupScheduleScreen
-        {...makeProps(sets, { myMemberId: null, onAddToMySchedule: jest.fn() })}
+        {...makeProps(sets, { myMemberId: MY_ID, onNavigateToEditSet: onNavigate, onAddToMySchedule: jest.fn() })}
       />
     );
-    expect(queryByText('+')).toBeNull();
+    // Open the modal via single tap (after debounce)
+    fireEvent.press(getByText('Edit Artist'));
+    act(() => { jest.advanceTimersByTime(300); });
+    // Tap the edit link
+    fireEvent.press(getByText('Edit in your schedule →'));
+    expect(onNavigate).toHaveBeenCalledWith(1);
+    jest.useRealTimers();
   });
 });
 

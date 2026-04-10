@@ -25,6 +25,7 @@
     "@react-native-community/netinfo": "^11.4.1",
     "expo": "^54.0.33",
     "expo-clipboard": "~8.0.8",
+    "expo-haptics": "~15.0.8",
     "expo-image-manipulator": "~14.0.8",
     "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
