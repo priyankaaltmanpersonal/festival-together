@@ -160,7 +160,15 @@ export function GroupScheduleScreen({
         })
         .catch(() => {
           // Revert to previous preference on failure
-          setOptimisticAttendance((prev) => new Map(prev).set(setId, currentPref));
+          setOptimisticAttendance((prev) => {
+            const next = new Map(prev);
+            if (!currentPref || currentPref === 'none') {
+              next.delete(setId);
+            } else {
+              next.set(setId, currentPref);
+            }
+            return next;
+          });
         })
         .finally(() => {
           inFlightRef.current.delete(setId);
