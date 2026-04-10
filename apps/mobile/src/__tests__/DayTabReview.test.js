@@ -276,31 +276,29 @@ describe('DayTabReview — add artist on failed day regression', () => {
 });
 
 describe('DayTabReview — initialSelectedDay', () => {
-  it('renders the initialSelectedDay tab as active on first render', () => {
-    const festivalDays = [
-      { dayIndex: 1, label: 'Friday' },
-      { dayIndex: 2, label: 'Saturday' },
-    ];
-    const dayStates = {
-      1: { status: 'done', sets: [], retryCount: 0, imageUris: null },
-      2: { status: 'done', sets: [], retryCount: 0, imageUris: null },
+  it('shows day 2 content immediately without pressing any tab', () => {
+    const saturdaySet = {
+      ...SET_ITEM,
+      canonical_set_id: 'set-sat',
+      artist_name: 'Saturday Artist',
+      day_index: 2,
     };
-    const { getByText } = render(
+    const { getByText, queryByText } = render(
       <DayTabReview
-        festivalDays={festivalDays}
-        dayStates={dayStates}
-        initialSelectedDay={2}
-        onRetry={jest.fn()}
-        onDeleteSet={jest.fn()}
-        onAddSet={jest.fn()}
-        onSetPreference={jest.fn()}
-        onEditSet={jest.fn()}
-        onReUpload={jest.fn()}
-        onAddOpen={jest.fn()}
+        {...makeProps({
+          initialSelectedDay: 2,
+          dayStates: {
+            // day 1 has no sets — its content should not appear
+            1: { status: 'done', sets: [], retryCount: 0 },
+            2: { status: 'done', sets: [saturdaySet], retryCount: 0 },
+          },
+        })}
       />
     );
-    // Saturday (day 2) should be the active tab
-    expect(getByText('Saturday')).toBeTruthy();
+    // Day 2's artist should be visible without pressing any tab
+    expect(getByText('Saturday Artist')).toBeTruthy();
+    // Day 1 has no sets, so the Confirm Friday button for day 1 should not be visible
+    expect(queryByText(/Confirm Friday/)).toBeNull();
   });
 });
 
