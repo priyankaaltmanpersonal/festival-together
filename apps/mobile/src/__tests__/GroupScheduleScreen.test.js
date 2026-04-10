@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { GroupScheduleScreen } from '../screens/GroupScheduleScreen';
+import { lightColors } from '../theme';
+import { userAttendanceCardStyle } from '../screens/GroupScheduleScreen';
 
 jest.mock('expo-linear-gradient', () => ({
   LinearGradient: 'LinearGradient',
@@ -316,5 +318,27 @@ describe('GroupScheduleScreen — renders correctly after isolated preference up
     // Both sets should still render (no crash or disappearance)
     expect(getByText('Set A')).toBeTruthy();
     expect(getByText('Set B')).toBeTruthy();
+  });
+});
+
+describe('userAttendanceCardStyle', () => {
+  it('returns empty object when preference is null (not attending)', () => {
+    expect(userAttendanceCardStyle(null, lightColors)).toEqual({});
+  });
+
+  it('returns empty object when preference is "none"', () => {
+    expect(userAttendanceCardStyle('none', lightColors)).toEqual({});
+  });
+
+  it('returns maybe mint style for flexible (maybe) preference', () => {
+    const style = userAttendanceCardStyle('flexible', lightColors);
+    expect(style.backgroundColor).toBe(lightColors.myAttendanceMaybeBg);
+    expect(style.borderColor).toBe(lightColors.myAttendanceMaybeBorder);
+  });
+
+  it('returns definitely mint style for must_see preference', () => {
+    const style = userAttendanceCardStyle('must_see', lightColors);
+    expect(style.backgroundColor).toBe(lightColors.myAttendanceDefBg);
+    expect(style.borderColor).toBe(lightColors.myAttendanceDefBorder);
   });
 });
