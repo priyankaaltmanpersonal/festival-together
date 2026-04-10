@@ -434,24 +434,21 @@ def member_home(session=Depends(require_session)) -> dict:
             (member["id"],),
         ).fetchone()
 
-        has_official_lineup = conn.execute(
-            "SELECT 1 FROM canonical_sets WHERE group_id = ? AND source = 'official' LIMIT 1",
+        day_rows = conn.execute(
+            """
+            SELECT day_index, COUNT(*) AS cnt
+            FROM canonical_sets
+            WHERE group_id = ? AND source = 'official'
+            GROUP BY day_index
+            ORDER BY day_index
+            """,
             (member["group_id"],),
-        ).fetchone() is not None
+        ).fetchall()
 
+        has_official_lineup = bool(day_rows)
         official_set_count = 0
         official_days: list[str] = []
         if has_official_lineup:
-            day_rows = conn.execute(
-                """
-                SELECT day_index, COUNT(*) AS cnt
-                FROM canonical_sets
-                WHERE group_id = ? AND source = 'official'
-                GROUP BY day_index
-                ORDER BY day_index
-                """,
-                (member["group_id"],),
-            ).fetchall()
             official_set_count = sum(row["cnt"] for row in day_rows)
             raw_festival_days = member["festival_days"]
             try:

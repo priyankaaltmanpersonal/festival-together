@@ -308,9 +308,9 @@ def test_home_includes_official_set_count_and_days_when_lineup_exists() -> None:
                 ("images", ("day.jpg", make_jpeg_bytes(), "image/jpeg")),
                 ("images", ("day2.jpg", make_jpeg_bytes(), "image/jpeg")),
             ],
-            headers={"X-Session-Token": founder_session},
+            headers={"x-session-token": founder_session},
         )
-    resp = client.get("/v1/members/me/home", headers={"X-Session-Token": founder_session})
+    resp = client.get("/v1/members/me/home", headers={"x-session-token": founder_session})
     assert resp.status_code == 200
     group = resp.json()["group"]
     assert group["official_set_count"] == 2
@@ -323,20 +323,21 @@ def test_home_official_set_count_zero_when_no_lineup() -> None:
     founder = _create_group("No Count Crew", "Founder")
     founder_session = founder["session"]["token"]
 
-    resp = client.get("/v1/members/me/home", headers={"X-Session-Token": founder_session})
+    resp = client.get("/v1/members/me/home", headers={"x-session-token": founder_session})
     assert resp.status_code == 200
     group = resp.json()["group"]
     assert group["official_set_count"] == 0
     assert group["official_days"] == []
 
 
-def test_home_official_days_handles_null_festival_days() -> None:
-    """home response doesn't crash when festival_days is null but official sets exist."""
+def test_home_official_days_uses_fallback_label_for_unknown_day_index() -> None:
+    """official_days uses 'Day N' fallback when day_index has no matching festival_days entry."""
     founder = _create_group("Null Days Crew", "Founder")
     group_id = founder["group"]["id"]
     founder_session = founder["session"]["token"]
 
-    # Insert a canonical set with source='official' directly, bypassing the import
+    # Insert a canonical set with source='official' directly, bypassing the import.
+    # day_index=99 won't match any festival_days entry, so the fallback label should be used.
     import sqlite3
     with sqlite3.connect(settings.sqlite_path) as raw:
         raw.execute(
@@ -345,13 +346,11 @@ def test_home_official_days_handles_null_festival_days() -> None:
             (group_id,)
         )
         raw.commit()
-    # Note: day_index 99 won't match any festival_days entry, so official_days will use fallback label
-    resp = client.get("/v1/members/me/home", headers={"X-Session-Token": founder_session})
+    resp = client.get("/v1/members/me/home", headers={"x-session-token": founder_session})
     assert resp.status_code == 200
     group = resp.json()["group"]
-    # Should not crash; count includes the orphaned set
     assert group["official_set_count"] >= 1
-    assert isinstance(group["official_days"], list)
+    assert "Day 99" in group["official_days"]
 
 
 # ─── Delete official lineup ───────────────────────────────────────────────────
