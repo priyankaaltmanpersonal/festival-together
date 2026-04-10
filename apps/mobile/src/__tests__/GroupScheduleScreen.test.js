@@ -235,10 +235,12 @@ describe('GroupScheduleScreen — hide-unattended toggle', () => {
   });
 });
 
-describe('GroupScheduleScreen — preference update isolation', () => {
+describe('GroupScheduleScreen — renders correctly after isolated preference update', () => {
   const MY_ID = 'me';
 
   it('does not visually change unrelated sets when one set preference changes', () => {
+    // Smoke test for the GroupScheduleScreen component in isolation (not an integration
+    // test of App.js — applyPreferenceLocally lives in App.js, which has no test file).
     // Regression: applyPreferenceLocally was updating ALL sets' attendee preferences
     // instead of only the matching canonicalSetId. This test verifies the component
     // prop boundary—a parent that correctly updates only one set in the snapshot
