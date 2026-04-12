@@ -66,7 +66,6 @@ describe('SetupScreen — upload_all_days step', () => {
   it('shows Browse Full Lineup button when hasOfficialLineup is true', () => {
     const { getByText } = render(<SetupScreen {...makeProps({ hasOfficialLineup: true })} />);
     expect(getByText('Browse Full Lineup →')).toBeTruthy();
-    expect(getByText(/Skip photos/)).toBeTruthy();
   });
 
   it('calls onBrowseFullLineup when Browse Full Lineup is pressed', () => {
@@ -81,5 +80,32 @@ describe('SetupScreen — upload_all_days step', () => {
   it('shows day label in the upload step header', () => {
     const { getByText } = render(<SetupScreen {...makeProps()} />);
     expect(getByText(/Friday/)).toBeTruthy();
+  });
+
+  it('shows lineup info message when hasOfficialLineup is true', () => {
+    const { getByText } = render(<SetupScreen {...makeProps({ hasOfficialLineup: true })} />);
+    expect(getByText(/The full lineup is already imported/)).toBeTruthy();
+  });
+
+  it('shows Skip for Now (not Skip This Day) when hasOfficialLineup is true', () => {
+    const { getByText, queryByText } = render(
+      <SetupScreen {...makeProps({ hasOfficialLineup: true })} />
+    );
+    expect(getByText('Skip for Now')).toBeTruthy();
+    expect(queryByText('Skip This Day')).toBeNull();
+  });
+
+  it('still shows Skip This Day when hasOfficialLineup is false', () => {
+    const { getByText } = render(<SetupScreen {...makeProps({ hasOfficialLineup: false })} />);
+    expect(getByText('Skip This Day')).toBeTruthy();
+  });
+
+  it('calls onSkipDay when Skip for Now is pressed (hasOfficialLineup true)', () => {
+    const onSkipDay = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ hasOfficialLineup: true, onSkipDay })} />
+    );
+    fireEvent.press(getByText('Skip for Now'));
+    expect(onSkipDay).toHaveBeenCalledTimes(1);
   });
 });

@@ -170,34 +170,48 @@ export function SetupScreen({
             ) : dayState.status === 'failed' ? (
               <Text style={[styles.helper, { color: C.error }]}>Upload failed — retry in review</Text>
             ) : null}
-            <ActionButton
-              label="Choose Screenshot"
-              onPress={() => onChooseDayScreenshot(uploadDayIndex)}
-              primary
-              disabled={loading}
-            />
-            <ActionButton
-              label="Skip This Day"
-              onPress={onSkipDay}
-              disabled={loading}
-            />
             {hasOfficialLineup ? (
               <>
+                <Text style={styles.helper}>
+                  The full lineup is already imported! You can add artists directly from the group grid, or upload a screenshot of your personal schedule to mark your picks.
+                </Text>
+                <ActionButton
+                  label="Browse Full Lineup →"
+                  onPress={onBrowseFullLineup}
+                  primary
+                  disabled={loading}
+                />
                 <View style={styles.orDivider}>
                   <View style={styles.orLine} />
                   <Text style={styles.orText}>or</Text>
                   <View style={styles.orLine} />
                 </View>
                 <ActionButton
-                  label="Browse Full Lineup →"
-                  onPress={onBrowseFullLineup}
+                  label="Choose Screenshot"
+                  onPress={() => onChooseDayScreenshot(uploadDayIndex)}
                   disabled={loading}
                 />
-                <Text style={styles.helper}>
-                  Skip photos — add artists directly from the full schedule
-                </Text>
+                <ActionButton
+                  label="Skip for Now"
+                  onPress={onSkipDay}
+                  disabled={loading}
+                />
               </>
-            ) : null}
+            ) : (
+              <>
+                <ActionButton
+                  label="Choose Screenshot"
+                  onPress={() => onChooseDayScreenshot(uploadDayIndex)}
+                  primary
+                  disabled={loading}
+                />
+                <ActionButton
+                  label="Skip This Day"
+                  onPress={onSkipDay}
+                  disabled={loading}
+                />
+              </>
+            )}
           </View>
         );
       })() : null}
