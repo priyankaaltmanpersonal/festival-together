@@ -286,7 +286,7 @@ export function GroupScheduleScreen({
       {myOnly && myMemberId && visibleSets.length === 0 ? (
         <View style={styles.myOnlyEmpty}>
           <Text style={styles.myOnlyEmptyText}>
-            You haven't added any sets for this day yet. Double-tap a card to add one.
+            You haven't added any sets for this day yet. Turn off My Sets to browse all sets and double-tap to add one.
           </Text>
         </View>
       ) : !timeline ? (
