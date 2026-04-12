@@ -83,10 +83,10 @@ export const lightColors = {
   tierLowBorder: '#e8b888',
 
   // Per-user attendance card highlighting
-  myAttendanceMaybeBg: '#e0f7ef',
-  myAttendanceMaybeBorder: '#7dd4b0',
-  myAttendanceDefBg: '#b8eedb',
-  myAttendanceDefBorder: '#3db88a',
+  myAttendanceMaybeBg: '#edf5f2',
+  myAttendanceMaybeBorder: '#b5cfc8',
+  myAttendanceDefBg: '#d6ede6',
+  myAttendanceDefBorder: '#8ab8ad',
 
   // Attendee bubble
   attendeeBg: '#ff6b00',
