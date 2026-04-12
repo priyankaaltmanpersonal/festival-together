@@ -434,3 +434,85 @@ describe('GroupScheduleScreen — My Sets toggle', () => {
     expect(queryByText('Group Artist')).toBeNull();
   });
 });
+
+describe('GroupScheduleScreen — modal footer (round 6)', () => {
+  const MY_ID = 'member-me';
+
+  it('shows "Add in your schedule →" link when user is not attending an expanded set', () => {
+    jest.useFakeTimers();
+    const sets = [{
+      id: 'set-noattend',
+      day_index: 1,
+      artist_name: 'Not Attending Artist',
+      stage_name: STAGE,
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees: [],
+      attendee_count: 0,
+      popularity_tier: null,
+    }];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onNavigateToEditSet: jest.fn() })}
+      />
+    );
+    fireEvent.press(getByText('Not Attending Artist'));
+    act(() => { jest.advanceTimersByTime(300); });
+    expect(getByText('Add in your schedule →')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  it('does not render an "Add to My Schedule" button in the expanded modal', () => {
+    jest.useFakeTimers();
+    const sets = [{
+      id: 'set-noadd',
+      day_index: 1,
+      artist_name: 'No Add Button Artist',
+      stage_name: STAGE,
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees: [],
+      attendee_count: 0,
+      popularity_tier: null,
+    }];
+    const { getByText, queryByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, { myMemberId: MY_ID, onAddToMySchedule: jest.fn(), onNavigateToEditSet: jest.fn() })}
+      />
+    );
+    fireEvent.press(getByText('No Add Button Artist'));
+    act(() => { jest.advanceTimersByTime(300); });
+    expect(queryByText('+ Add to My Schedule')).toBeNull();
+    jest.useRealTimers();
+  });
+
+  it('tapping "Add in your schedule →" calls onNavigateToEditSet with the set\'s day_index', () => {
+    jest.useFakeTimers();
+    const onNavigate = jest.fn();
+    const sets = [{
+      id: 'set-nav',
+      day_index: 2,
+      artist_name: 'Nav Artist',
+      stage_name: STAGE,
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees: [],
+      attendee_count: 0,
+      popularity_tier: null,
+    }];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, {
+          myMemberId: MY_ID,
+          onNavigateToEditSet: onNavigate,
+          festivalDays: [{ dayIndex: 2, label: 'Saturday' }],
+        })}
+      />
+    );
+    fireEvent.press(getByText('Nav Artist'));
+    act(() => { jest.advanceTimersByTime(300); });
+    fireEvent.press(getByText('Add in your schedule →'));
+    expect(onNavigate).toHaveBeenCalledWith(2);
+    jest.useRealTimers();
+  });
+});

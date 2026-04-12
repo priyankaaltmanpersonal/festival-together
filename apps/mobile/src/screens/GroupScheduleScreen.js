@@ -504,10 +504,15 @@ export function GroupScheduleScreen({
                   <Text style={styles.modalEmpty}>No maybes for this set.</Text>
                 )}
 
-                {myMemberId && onAddToMySchedule ? (() => {
+                {myMemberId && onNavigateToEditSet ? (() => {
                   const myAttendance = (expandedSet.attendees || []).find(
                     (a) => a.member_id === myMemberId
                   );
+                  const navigateToDay = () => {
+                    const dayIdx = expandedSet?.day_index;
+                    setExpandedSet(null);
+                    if (dayIdx != null) onNavigateToEditSet(dayIdx);
+                  };
                   return (
                     <>
                       <View style={styles.modalDivider} />
@@ -516,24 +521,14 @@ export function GroupScheduleScreen({
                           <Text style={styles.modalStatusText}>
                             ✓ On your schedule — {myAttendance.preference === 'must_see' ? 'Must See' : 'Maybe'}
                           </Text>
-                          <Pressable
-                          onPress={() => {
-                            const dayIdx = expandedSet?.day_index;
-                            setExpandedSet(null);
-                            if (onNavigateToEditSet && dayIdx != null) {
-                              onNavigateToEditSet(dayIdx);
-                            }
-                          }}
-                        >
-                          <Text style={styles.modalEditLink}>Edit in your schedule →</Text>
-                        </Pressable>
+                          <Pressable onPress={navigateToDay}>
+                            <Text style={styles.modalEditLink}>Edit in your schedule →</Text>
+                          </Pressable>
                         </View>
                       ) : (
-                        <AddToScheduleFooter
-                          setItem={expandedSet}
-                          onAdd={onAddToMySchedule}
-                          onAdded={() => setExpandedSet(null)}
-                        />
+                        <Pressable onPress={navigateToDay}>
+                          <Text style={styles.modalEditLink}>Add in your schedule →</Text>
+                        </Pressable>
                       )}
                     </>
                   );
@@ -566,53 +561,6 @@ function AttendeeRow({ attendee, chipColor, isSelf = false }) {
         {attendee.display_name}
         {isSelf ? <Text style={styles.modalSelfLabel}> (you)</Text> : null}
       </Text>
-    </View>
-  );
-}
-
-function AddToScheduleFooter({ setItem, onAdd, onAdded }) {
-  const C = useTheme();
-  const styles = useMemo(() => makeStyles(C), [C]);
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
-  const [addError, setAddError] = useState('');
-
-  const handleAdd = async () => {
-    setAdding(true);
-    setAddError('');
-    try {
-      await onAdd(setItem);
-      setAdded(true);
-      setTimeout(onAdded, 1000);
-    } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Failed to add. Try again.');
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  if (added) {
-    return (
-      <View style={styles.modalAddedPill}>
-        <Text style={styles.modalAddedText}>✓ Added as maybe!</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={{ gap: 6 }}>
-      <Pressable onPress={handleAdd} disabled={adding} style={[styles.modalAddBtn, adding && { opacity: 0.6 }]}>
-        <LinearGradient
-          colors={C.gradientPrimary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.modalAddBtnGradient}
-        >
-          <Text style={styles.modalAddBtnText}>{adding ? 'Adding…' : '+ Add to My Schedule'}</Text>
-        </LinearGradient>
-      </Pressable>
-      <Text style={styles.modalAddHint}>Adds as "maybe" — edit in your schedule to confirm</Text>
-      {addError ? <Text style={styles.modalAddError}>{addError}</Text> : null}
     </View>
   );
 }
@@ -767,6 +715,8 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.attendeeBg,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.75)',
   },
   attendeeText: { color: C.attendeeText, fontSize: 7, fontWeight: '800' },
   overflowBubble: {
@@ -824,7 +774,6 @@ const makeStyles = (C) => StyleSheet.create({
     gap: 3,
   },
   modalStatusText: { fontSize: 13, fontWeight: '700', color: C.kickerText, textAlign: 'center' },
-  modalAddHint: { fontSize: 11, color: C.textMuted, textAlign: 'center' },
   modalEditLink: {
     fontSize: 12,
     color: '#5c85ff',
@@ -832,33 +781,6 @@ const makeStyles = (C) => StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 4,
   },
-  modalAddedPill: {
-    backgroundColor: C.successBg,
-    borderRadius: 10,
-    padding: 11,
-    borderWidth: 1,
-    borderColor: C.successBorder,
-    alignItems: 'center',
-  },
-  modalAddedText: { fontSize: 13, fontWeight: '800', color: C.success },
-  modalAddError: { fontSize: 11, color: C.error, textAlign: 'center' },
-  modalAddBtn: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    shadowColor: C.primaryShadow,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  modalAddBtnGradient: {
-    borderRadius: 10,
-    paddingVertical: 13,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalAddBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   inviteText: { fontSize: 12, color: C.inviteRowText },
   inviteCode: { fontWeight: '800', color: C.inviteRowCode, letterSpacing: 1 },
