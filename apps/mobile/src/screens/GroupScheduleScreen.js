@@ -48,6 +48,7 @@ export function GroupScheduleScreen({
 
   const [selectedDay, setSelectedDay] = useState(null);
   const [hideUnattended, setHideUnattended] = useState(false);
+  const [myOnly, setMyOnly] = useState(false);
 
   // Default to first available day; stay on selected if it's still valid
   const effectiveDay = selectedDay !== null && availableDays.includes(selectedDay)
@@ -60,9 +61,24 @@ export function GroupScheduleScreen({
 
   const hasUnattendedSets = filteredSets.some((s) => s.attendee_count === 0);
 
-  const visibleSets = hideUnattended
-    ? filteredSets.filter((s) => s.attendee_count > 0)
-    : filteredSets;
+  const timeScrollRef = useRef(null);
+
+  const lastTapRef = useRef(new Map());
+  const inFlightRef = useRef(new Set());
+  const [showHint, setShowHint] = useState(false);
+  const optimisticRef = useRef(new Map());
+  const [optimisticAttendance, setOptimisticAttendance] = useState(() => new Map());
+  optimisticRef.current = optimisticAttendance; // keep ref in sync for stable callbacks
+
+  const visibleSets = myOnly && myMemberId
+    ? filteredSets.filter((s) => {
+        const inServer = (s.attendees || []).some((a) => a.member_id === myMemberId);
+        const optimistic = optimisticAttendance.get(s.id);
+        return inServer || (optimistic && optimistic !== 'none');
+      })
+    : hideUnattended
+      ? filteredSets.filter((s) => s.attendee_count > 0)
+      : filteredSets;
 
   const stageColumns = stages
     .map((stage) => ({
@@ -77,14 +93,6 @@ export function GroupScheduleScreen({
     () => Object.fromEntries(members.map((member) => [member.id, member.chip_color])),
     [members]
   );
-  const timeScrollRef = useRef(null);
-
-  const lastTapRef = useRef(new Map());
-  const inFlightRef = useRef(new Set());
-  const [showHint, setShowHint] = useState(false);
-  const optimisticRef = useRef(new Map());
-  const [optimisticAttendance, setOptimisticAttendance] = useState(() => new Map());
-  optimisticRef.current = optimisticAttendance; // keep ref in sync for stable callbacks
   const cardAnimRef = useRef(new Map());
 
   useEffect(() => {
@@ -231,16 +239,28 @@ export function GroupScheduleScreen({
               onSelect={setSelectedDay}
             />
           ) : null}
-          {hasUnattendedSets ? (
+          {(hasUnattendedSets || myMemberId) ? (
             <View style={styles.toggleRow}>
-              <Pressable
-                onPress={() => setHideUnattended((v) => !v)}
-                style={[styles.togglePill, hideUnattended && styles.togglePillActive]}
-              >
-                <Text style={[styles.togglePillText, hideUnattended && styles.togglePillTextActive]}>
-                  Group only
-                </Text>
-              </Pressable>
+              {hasUnattendedSets ? (
+                <Pressable
+                  onPress={() => { setHideUnattended((v) => !v); setMyOnly(false); }}
+                  style={[styles.togglePill, hideUnattended && styles.togglePillActive]}
+                >
+                  <Text style={[styles.togglePillText, hideUnattended && styles.togglePillTextActive]}>
+                    Group only
+                  </Text>
+                </Pressable>
+              ) : null}
+              {myMemberId ? (
+                <Pressable
+                  onPress={() => { setMyOnly((v) => !v); setHideUnattended(false); }}
+                  style={[styles.togglePill, myOnly && styles.togglePillActive]}
+                >
+                  <Text style={[styles.togglePillText, myOnly && styles.togglePillTextActive]}>
+                    My sets
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
@@ -264,7 +284,15 @@ export function GroupScheduleScreen({
         </View>
       </View>
 
-      {!timeline ? <Text style={styles.helperPad}>No schedule loaded yet.</Text> : null}
+      {myOnly && myMemberId && visibleSets.length === 0 ? (
+        <View style={styles.myOnlyEmpty}>
+          <Text style={styles.myOnlyEmptyText}>
+            You haven't added any sets for this day yet. Double-tap a card to add one.
+          </Text>
+        </View>
+      ) : !timeline ? (
+        <Text style={styles.helperPad}>No schedule loaded yet.</Text>
+      ) : null}
 
       {showHint ? (
         <Pressable style={styles.hintBanner} onPress={dismissHint}>
@@ -272,7 +300,7 @@ export function GroupScheduleScreen({
         </Pressable>
       ) : null}
 
-      {timeline ? (
+      {timeline && !(myOnly && myMemberId && visibleSets.length === 0) ? (
         <View style={styles.gridOuter}>
           {/* Fixed left: time header + time body */}
           <View style={styles.timePanel}>
@@ -698,6 +726,18 @@ const makeStyles = (C) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  myOnlyEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  myOnlyEmptyText: {
+    color: C.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   setTag: {
     flex: 1,
