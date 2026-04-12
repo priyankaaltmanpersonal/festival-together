@@ -1067,7 +1067,7 @@ export default function App() {
       await refreshCoreSnapshots();
     } catch (err) {
       setError(friendlyError(err instanceof Error ? err.message : String(err)));
-      throw err; // re-throw so AddToScheduleFooter can show its own error state
+      throw err;
     }
   };
 
