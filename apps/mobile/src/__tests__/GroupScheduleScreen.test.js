@@ -357,3 +357,80 @@ describe('userAttendanceCardStyle', () => {
     expect(style.borderColor).toBe(lightColors.myAttendanceDefBorder);
   });
 });
+
+describe('GroupScheduleScreen — My Sets toggle', () => {
+  const MY_ID = 'member-me';
+
+  function makeAttendedSet(id, myId, otherAttendees = []) {
+    return {
+      id,
+      day_index: 1,
+      artist_name: `Artist ${id}`,
+      stage_name: STAGE,
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees: [
+        { member_id: myId, display_name: 'Me', preference: 'must_see', chip_color: '#f00' },
+        ...otherAttendees,
+      ],
+      attendee_count: 1 + otherAttendees.length,
+      popularity_tier: null,
+    };
+  }
+
+  it('shows My sets toggle button when myMemberId is provided', () => {
+    const sets = [makeSet('a', 1, 'Artist A')];
+    const { getByText } = render(
+      <GroupScheduleScreen {...makeProps(sets, { myMemberId: MY_ID })} />
+    );
+    expect(getByText('My sets')).toBeTruthy();
+  });
+
+  it('does not show My sets toggle when myMemberId is null', () => {
+    const sets = [makeSet('a', 1, 'Artist A')];
+    const { queryByText } = render(
+      <GroupScheduleScreen {...makeProps(sets, { myMemberId: null })} />
+    );
+    expect(queryByText('My sets')).toBeNull();
+  });
+
+  it('filters to only the current user\'s sets when My sets is active', () => {
+    const sets = [
+      makeAttendedSet('mine', MY_ID),
+      { ...makeSet('other', 1, 'Other Artist'), attendees: [], attendee_count: 0 },
+    ];
+    const { getByText, queryByText } = render(
+      <GroupScheduleScreen {...makeProps(sets, { myMemberId: MY_ID })} />
+    );
+    fireEvent.press(getByText('My sets'));
+    expect(getByText('Artist mine')).toBeTruthy();
+    expect(queryByText('Other Artist')).toBeNull();
+  });
+
+  it('shows empty state message when My sets is active and user has no attended sets', () => {
+    const sets = [makeSet('a', 1, 'Some Artist')];
+    const { getByText } = render(
+      <GroupScheduleScreen {...makeProps(sets, { myMemberId: MY_ID })} />
+    );
+    fireEvent.press(getByText('My sets'));
+    expect(getByText(/You haven't added any sets for this day yet/)).toBeTruthy();
+  });
+
+  it('deactivates Group Only when My sets is pressed', () => {
+    const sets = [
+      makeAttendedSet('mine', MY_ID),
+      { ...makeSet('group', 1, 'Group Artist'), attendees: [{ member_id: 'other', display_name: 'Other', preference: 'must_see', chip_color: '#00f' }], attendee_count: 1 },
+      { ...makeSet('empty', 1, 'Empty Artist'), attendees: [], attendee_count: 0 },
+    ];
+    const { getByText, queryByText } = render(
+      <GroupScheduleScreen {...makeProps(sets, { myMemberId: MY_ID })} />
+    );
+    // Activate Group Only first
+    fireEvent.press(getByText('Group only'));
+    expect(queryByText('Empty Artist')).toBeNull();
+    // Then activate My Sets — should deactivate Group Only and filter to my sets
+    fireEvent.press(getByText('My sets'));
+    expect(getByText('Artist mine')).toBeTruthy();
+    expect(queryByText('Group Artist')).toBeNull();
+  });
+});
