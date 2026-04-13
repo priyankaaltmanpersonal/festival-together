@@ -95,12 +95,23 @@ export function GroupScheduleScreen({
   const cardAnimRef = useRef(new Map());
 
   useEffect(() => {
+    AsyncStorage.getItem('group_grid_selected_day').then((val) => {
+      if (val !== null) setSelectedDay(Number(val));
+    });
+  }, []);
+
+  useEffect(() => {
     AsyncStorage.getItem('hint_grid_doubletap_seen').then((val) => {
       if (!val) setShowHint(true);
     });
     return () => {
       lastTapRef.current.forEach((entry) => clearTimeout(entry.timeout));
     };
+  }, []);
+
+  const handleDaySelect = useCallback((day) => {
+    setSelectedDay(day);
+    AsyncStorage.setItem('group_grid_selected_day', String(day));
   }, []);
 
   const dismissHint = useCallback(() => {
@@ -235,7 +246,7 @@ export function GroupScheduleScreen({
                 label: (festivalDays || []).find((d) => d.dayIndex === dayIdx)?.label || `Day ${dayIdx}`,
               }))}
               selectedDay={effectiveDay}
-              onSelect={setSelectedDay}
+              onSelect={handleDaySelect}
             />
           ) : null}
           {(hasUnattendedSets || myMemberId) ? (

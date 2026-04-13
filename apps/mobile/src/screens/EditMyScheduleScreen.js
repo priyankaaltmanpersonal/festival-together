@@ -56,6 +56,7 @@ export function EditMyScheduleScreen({
             festivalDays={festivalDays || []}
             dayStates={dayStates}
             initialSelectedDay={initialDayIndex}
+            storageKey="edit_schedule_selected_day"
             onRetry={() => {}}
             onDeleteSet={onDeleteSet}
             onAddSet={onAddSet}

@@ -1,5 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EditableSetCard } from './EditableSetCard';
 import { useTheme } from '../theme';
@@ -180,6 +181,7 @@ export function DayTabReview({
   onAddOpen,
   onConfirmDay,
   initialSelectedDay,
+  storageKey,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -188,10 +190,18 @@ export function DayTabReview({
   const [savingSetId, setSavingSetId] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
 
+  useEffect(() => {
+    if (!storageKey) return;
+    AsyncStorage.getItem(storageKey).then((val) => {
+      if (val !== null) setActiveDay(Number(val));
+    });
+  }, [storageKey]);
+
   const handleTabPress = (dayIndex) => {
     setActiveDay(dayIndex);
     setEditingSetId(null);
     setIsAdding(false);
+    if (storageKey) AsyncStorage.setItem(storageKey, String(dayIndex));
   };
 
   const handleSave = async (canonicalSetId, fields) => {
