@@ -2,13 +2,14 @@
 
 ## Overview
 
-Five independent improvements:
+Six independent improvements:
 
 1. **Festival Days helper text** — add example day names
 2. **Founder onboarding: Upload Official Schedule step** — let founders import the full lineup during setup, instead of discovering the option only in Founder Tools post-onboarding
 3. **Member onboarding: Official Lineup intro screen** — when the official schedule is already imported, show members a choice screen before personal screenshot uploads, defaulting to going straight to the grid
-4. **Full reset on "Reset App"** — require online connection and delete backend data before clearing local state
-5. **Fix skip-day spinner** — don't auto-fire `finishUploadFlow` when all days are idle (no personal screenshots were uploaded)
+4. **Back navigation on every onboarding step** — every step after `welcome` has a back button with correct target
+5. **Full reset on "Reset App"** — require online connection and delete backend data before clearing local state
+6. **Fix skip-day spinner** — don't auto-fire `finishUploadFlow` when all days are idle (no personal screenshots were uploaded)
 
 ---
 
@@ -189,7 +190,7 @@ const skipMemberLineupIntro = () => {
 
 ---
 
-## 4. Full Reset on "Reset App"
+## 5. Full Reset on "Reset App"
 
 ### Problem
 
@@ -251,7 +252,66 @@ Note: If the user has no active session (already logged out / never onboarded), 
 
 ---
 
-## 4. Fix Skip-Day Spinner
+## 4. Back Navigation for Every Onboarding Step
+
+### Current State
+
+Steps `profile_create`, `profile_join`, and `festival_setup` already have back buttons. Every step from `upload_official_schedule` onward has none.
+
+### Back Target Per Step
+
+| Step | Back target | Handler |
+|---|---|---|
+| `upload_official_schedule` | `festival_setup` | `setOnboardingStep('festival_setup')` |
+| `member_lineup_intro` | `profile_join` | `setOnboardingStep('profile_join')` (session stays alive; re-join attempt shows "already in group" if they retry) |
+| `upload_all_days` day 1, founder | `upload_official_schedule` | `setOnboardingStep('upload_official_schedule')` |
+| `upload_all_days` day 1, member w/ lineup | `member_lineup_intro` | `setOnboardingStep('member_lineup_intro')` |
+| `upload_all_days` day 1, member w/o lineup | `profile_join` | `setOnboardingStep('profile_join')` |
+| `upload_all_days` day N > 1 | previous day | `setUploadDayIndex(festivalDays[currentIdx - 1].dayIndex)` |
+| `review_days` | last day of `upload_all_days` | `setUploadDayIndex(festivalDays[festivalDays.length - 1].dayIndex); setOnboardingStep('upload_all_days')` |
+
+### Implementation
+
+Add a single `onGoBack` prop to `SetupScreen`. App.js computes the correct back action and passes it. Each step renders `<ActionButton label="← Back" onPress={onGoBack} disabled={loading} />` as its first child.
+
+The `onGoBack` computation in App.js (derived value, not state):
+
+```js
+const handleOnboardingBack = () => {
+  if (onboardingStep === 'upload_official_schedule') {
+    setOnboardingStep('festival_setup');
+  } else if (onboardingStep === 'member_lineup_intro') {
+    setOnboardingStep('profile_join');
+  } else if (onboardingStep === 'upload_all_days') {
+    const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
+    if (currentIdx > 0) {
+      setUploadDayIndex(festivalDays[currentIdx - 1].dayIndex);
+    } else if (userRole === 'founder') {
+      setOnboardingStep('upload_official_schedule');
+    } else if (homeSnapshot?.group?.has_official_lineup) {
+      setOnboardingStep('member_lineup_intro');
+    } else {
+      setOnboardingStep('profile_join');
+    }
+  } else if (onboardingStep === 'review_days') {
+    setUploadDayIndex(festivalDays[festivalDays.length - 1]?.dayIndex ?? 1);
+    setOnboardingStep('upload_all_days');
+  }
+};
+```
+
+Pass as `onGoBack={handleOnboardingBack}` to `SetupScreen`. The `welcome` step has no back button (it's the root).
+
+### Tests
+
+- `upload_official_schedule` renders a back button; pressing it calls `onGoBack`
+- `member_lineup_intro` renders a back button; pressing it calls `onGoBack`
+- `upload_all_days` renders a back button; pressing it calls `onGoBack`
+- `review_days` renders a back button; pressing it calls `onGoBack`
+
+---
+
+## 6. Fix Skip-Day Spinner
 
 ### Problem
 
