@@ -24,9 +24,10 @@ export function EditMyScheduleScreen({
     const result = {};
     for (const day of (festivalDays || [])) {
       const isUploading = uploadingDayIndex === day.dayIndex;
+      const daySets = (personalSets || []).filter((s) => s.day_index === day.dayIndex);
       result[day.dayIndex] = {
-        status: isUploading ? 'uploading' : 'done',
-        sets: (personalSets || []).filter((s) => s.day_index === day.dayIndex),
+        status: isUploading ? 'uploading' : daySets.length > 0 ? 'done' : 'idle',
+        sets: daySets,
         retryCount: 0,
         imageUris: null,
       };

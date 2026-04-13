@@ -438,7 +438,7 @@ describe('GroupScheduleScreen — My Sets toggle', () => {
 describe('GroupScheduleScreen — modal footer (round 6)', () => {
   const MY_ID = 'member-me';
 
-  it('shows "Add in your schedule →" link when user is not attending an expanded set', () => {
+  it('shows "+ Maybe" and "+ Must See" buttons when user is not attending an expanded set', () => {
     jest.useFakeTimers();
     const sets = [{
       id: 'set-noattend',
@@ -453,12 +453,13 @@ describe('GroupScheduleScreen — modal footer (round 6)', () => {
     }];
     const { getByText } = render(
       <GroupScheduleScreen
-        {...makeProps(sets, { myMemberId: MY_ID, onNavigateToEditSet: jest.fn() })}
+        {...makeProps(sets, { myMemberId: MY_ID, onNavigateToEditSet: jest.fn(), onAddToMySchedule: jest.fn(), onSetPreferenceFromGrid: jest.fn() })}
       />
     );
     fireEvent.press(getByText('Not Attending Artist'));
     act(() => { jest.advanceTimersByTime(300); });
-    expect(getByText('Add in your schedule →')).toBeTruthy();
+    expect(getByText('+ Maybe')).toBeTruthy();
+    expect(getByText('+ Must See')).toBeTruthy();
     jest.useRealTimers();
   });
 
@@ -486,9 +487,9 @@ describe('GroupScheduleScreen — modal footer (round 6)', () => {
     jest.useRealTimers();
   });
 
-  it('tapping "Add in your schedule →" calls onNavigateToEditSet with the set\'s day_index', () => {
+  it('tapping "+ Maybe" calls onAddToMySchedule with the set', () => {
     jest.useFakeTimers();
-    const onNavigate = jest.fn();
+    const onAdd = jest.fn().mockResolvedValue();
     const sets = [{
       id: 'set-nav',
       day_index: 2,
@@ -504,15 +505,17 @@ describe('GroupScheduleScreen — modal footer (round 6)', () => {
       <GroupScheduleScreen
         {...makeProps(sets, {
           myMemberId: MY_ID,
-          onNavigateToEditSet: onNavigate,
+          onNavigateToEditSet: jest.fn(),
+          onAddToMySchedule: onAdd,
+          onSetPreferenceFromGrid: jest.fn(),
           festivalDays: [{ dayIndex: 2, label: 'Saturday' }],
         })}
       />
     );
     fireEvent.press(getByText('Nav Artist'));
     act(() => { jest.advanceTimersByTime(300); });
-    fireEvent.press(getByText('Add in your schedule →'));
-    expect(onNavigate).toHaveBeenCalledWith(2);
+    fireEvent.press(getByText('+ Maybe'));
+    expect(onAdd).toHaveBeenCalled();
     jest.useRealTimers();
   });
 });

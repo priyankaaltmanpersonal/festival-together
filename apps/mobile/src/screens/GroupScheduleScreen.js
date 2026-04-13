@@ -525,9 +525,27 @@ export function GroupScheduleScreen({
                           </Pressable>
                         </View>
                       ) : (
-                        <Pressable onPress={navigateToDay}>
-                          <Text style={styles.modalEditLink}>Add in your schedule →</Text>
-                        </Pressable>
+                        <View style={styles.modalAddRow}>
+                          <Pressable
+                            style={styles.modalAddBtn}
+                            onPress={() => { setExpandedSet(null); onAddToMySchedule && onAddToMySchedule(expandedSet); }}
+                          >
+                            <Text style={styles.modalAddBtnText}>+ Maybe</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[styles.modalAddBtn, styles.modalAddBtnPrimary]}
+                            onPress={() => {
+                              setExpandedSet(null);
+                              if (onAddToMySchedule && onSetPreferenceFromGrid) {
+                                onAddToMySchedule(expandedSet).then(() =>
+                                  onSetPreferenceFromGrid(expandedSet.id, 'must_see')
+                                ).catch(() => {});
+                              }
+                            }}
+                          >
+                            <Text style={[styles.modalAddBtnText, styles.modalAddBtnTextPrimary]}>+ Must See</Text>
+                          </Pressable>
+                        </View>
                       )}
                     </>
                   );
@@ -763,6 +781,18 @@ const makeStyles = (C) => StyleSheet.create({
   modalEmpty: { color: C.modalEmpty, fontSize: 12, marginBottom: 6 },
   modalSelfLabel: { color: C.textMuted, fontWeight: '400', fontSize: 13 },
   modalDivider: { height: 1, backgroundColor: C.cardBorder, marginVertical: 4 },
+  modalAddRow: { flexDirection: 'row', gap: 8 },
+  modalAddBtn: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  modalAddBtnPrimary: { backgroundColor: C.primary, borderColor: C.primary },
+  modalAddBtnText: { fontSize: 13, fontWeight: '700', color: C.kickerText },
+  modalAddBtnTextPrimary: { color: '#fff' },
   modalStatusPill: {
     backgroundColor: C.primaryBg,
     borderRadius: 10,
