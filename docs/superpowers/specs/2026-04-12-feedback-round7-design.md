@@ -2,12 +2,13 @@
 
 ## Overview
 
-Four independent improvements:
+Five independent improvements:
 
 1. **Festival Days helper text** — add example day names
 2. **Founder onboarding: Upload Official Schedule step** — let founders import the full lineup during setup, instead of discovering the option only in Founder Tools post-onboarding
-3. **Full reset on "Reset App"** — delete backend data before clearing local state
-4. **Fix skip-day spinner** — don't auto-fire `finishUploadFlow` when all days are idle (no personal screenshots were uploaded)
+3. **Member onboarding: Official Lineup intro screen** — when the official schedule is already imported, show members a choice screen before personal screenshot uploads, defaulting to going straight to the grid
+4. **Full reset on "Reset App"** — require online connection and delete backend data before clearing local state
+5. **Fix skip-day spinner** — don't auto-fire `finishUploadFlow` when all days are idle (no personal screenshots were uploaded)
 
 ---
 
@@ -115,8 +116,8 @@ const proceedToPersonalSchedule = () => {
 
 **Done state:**
 - Success text: "✓ {result.sets_created} sets imported across {result.days_processed.join(', ')}"
-- Primary button: "Go to Group Schedule →" → `onFinishSetup` (calls `finishUploadFlow`)
-- Secondary button: "Also mark my picks →" → `onSkipOfficialSchedule` (advances to `upload_all_days`, where `hasOfficialLineup` is now true so "Browse Full Lineup" is primary)
+- Primary button: "Go to Group Schedule →" → `onFinishSetup` (calls `finishUploadFlow`, skips personal screenshot steps)
+- No secondary option — members can add personal picks by double-tapping from the grid
 
 **Error state:**
 - Error text in red
@@ -136,22 +137,82 @@ onFinishSetup,                // () => void — calls finishUploadFlow
 
 ---
 
-## 3. Full Reset on "Reset App"
+## 3. Member Onboarding: Official Lineup Intro Screen
 
 ### Problem
 
-`resetFlow` only clears local state and AsyncStorage. The backend group (with imported official lineup, member data, etc.) persists. On re-onboarding, the user may end up back in the old group with stale data.
+When a member joins a group that already has an official schedule imported (the founder did it during onboarding), the member is immediately dropped into the per-day personal screenshot upload flow. There's no explanation that they can skip all that and just go to the grid to double-tap artists. The default action should be "go to the grid" — not "upload screenshots."
 
 ### Solution
 
-When `resetFlow` is called with an active session (`memberSession` is set) and the app is online, call `DELETE /v1/members/me` first (same endpoint as "Delete My Data"), which removes the member and — if no other members remain — the group. Then proceed with local reset regardless of API outcome.
+Insert a new onboarding step, `member_lineup_intro`, between `upload_all_days`'s first-day display and the member's personal screenshot prompts. This step is shown **only when** `hasOfficialLineup` is true at the time the member enters `upload_all_days`.
+
+#### When to show it
+
+In `App.js`, when `onboardingStep` transitions to `'upload_all_days'` for a member (inside `beginProfile` for the join path, after fetching home data), check if `hasOfficialLineup` is already true. If so, set `onboardingStep = 'member_lineup_intro'` instead.
+
+Specifically in the join path in `beginProfile`:
+```js
+const firstDay = (homePayload.festival_days || [{ day_index: 1 }])[0];
+setUploadDayIndex(firstDay.day_index);
+setDayStates({});
+// Show intro screen if official lineup exists, else go straight to personal screenshots
+if (homePayload.group?.has_official_lineup) {
+  setOnboardingStep('member_lineup_intro');
+} else {
+  setOnboardingStep('upload_all_days');
+}
+```
+
+#### Screen UI (`member_lineup_intro` step in SetupScreen.js)
+
+- Title: "Schedule is Ready"
+- Helper: "The official lineup has been imported — you can browse every artist and tap to add them to your picks right from the group grid."
+- **Primary button (default path):** "Go to Group Schedule →" → `onFinishSetup` (calls `finishUploadFlow` directly)
+- **Secondary button:** "Upload my own screenshots →" → `onSkipMemberLineupIntro` (sets `onboardingStep = 'upload_all_days'`)
+- Small subtext below secondary: "You can always upload screenshots later from the My Schedule tab."
+
+#### Props added to SetupScreen
+
+```js
+onSkipMemberLineupIntro,   // () => void — advances to upload_all_days
+// onFinishSetup already defined above (reused)
+```
+
+#### New handler in App.js
+
+```js
+const skipMemberLineupIntro = () => {
+  setOnboardingStep('upload_all_days');
+};
+```
+
+---
+
+## 4. Full Reset on "Reset App"
+
+### Problem
+
+`resetFlow` only clears local state and AsyncStorage. The backend group (with imported official lineup, member data, etc.) persists. On re-onboarding, the user may end up back in the old group with stale data. There is no way to queue the backend deletion to fire when service is restored, since the mutation queue only runs while the app is open.
+
+### Solution
+
+**Require an active internet connection to reset.** If offline, show an alert: "You're offline. Connect to the internet to fully reset the app." Do not proceed.
+
+If online and a session exists, call `DELETE /v1/members/me` (same as "Delete My Data") before clearing local state. If the API call fails for any reason other than being offline (e.g. server error), proceed with local reset anyway — the user can re-attempt the delete via "Delete My Data" later.
 
 ### Updated `resetFlow`
 
 ```js
 const resetFlow = async () => {
-  // If we have a live session, delete backend data first
-  if (memberSession && isOnline) {
+  if (memberSession) {
+    if (!isOnline) {
+      Alert.alert(
+        'You\'re Offline',
+        'Connect to the internet to fully reset the app. This ensures your data is deleted from the server.',
+      );
+      return; // do NOT proceed with reset while offline
+    }
     try {
       await apiRequest({
         baseUrl: apiUrl,
@@ -161,7 +222,8 @@ const resetFlow = async () => {
         body: { confirm: true },
       });
     } catch (_err) {
-      // best-effort — proceed with local reset regardless
+      // Backend deletion failed (server error) — proceed with local reset anyway.
+      // User can clean up via "Delete My Data" if needed.
     }
   }
   await clearSessionData(true);
@@ -185,7 +247,7 @@ const resetFlow = async () => {
 };
 ```
 
-This is best-effort: if offline or the DELETE fails, the local reset still happens. A warning comment explains why.
+Note: If the user has no active session (already logged out / never onboarded), the reset proceeds immediately with no API call.
 
 ---
 
@@ -238,10 +300,32 @@ welcome
   └─► profile_create
         └─► [beginProfile API] festival_setup
               └─► [completeFestivalSetup API] upload_official_schedule  ← NEW
-                    ├─► [upload + finish] → group view
+                    ├─► [upload + "Go to Group Schedule →"] → group view
                     └─► [skip] upload_all_days
                               └─► review_days
                                     └─► [› button] → group view
+```
+
+### New Member Onboarding Flow (when official lineup exists)
+
+```
+welcome
+  └─► profile_join
+        └─► [beginProfile API, hasOfficialLineup=true] member_lineup_intro  ← NEW
+              ├─► [primary: "Go to Group Schedule →"] → group view
+              └─► [secondary: "Upload my own screenshots →"] upload_all_days
+                        └─► review_days
+                              └─► [› button] → group view
+```
+
+### Member Onboarding Flow (no official lineup — unchanged)
+
+```
+welcome
+  └─► profile_join
+        └─► [beginProfile API, hasOfficialLineup=false] upload_all_days
+              └─► review_days
+                    └─► [› button] → group view
 ```
 
 ### State Persistence
@@ -256,20 +340,24 @@ welcome
 
 - Renders "Import Official Schedule" title and "Upload Schedule Images" + "Skip" buttons when `onboardingLineupState === 'idle'`
 - Renders spinner and help text when `onboardingLineupState === 'uploading'`
-- Renders success text and "Go to Group Schedule →" + "Also mark my picks →" buttons when `onboardingLineupState === 'done'`
+- Renders success text and "Go to Group Schedule →" button (no secondary) when `onboardingLineupState === 'done'`
 - Calls `onImportOfficialSchedule` when "Upload Schedule Images" is pressed
-- Calls `onSkipOfficialSchedule` when "Skip" is pressed (idle state)
+- Calls `onSkipOfficialSchedule` when "Skip — I'll do this later" is pressed (idle state)
 - Calls `onFinishSetup` when "Go to Group Schedule →" is pressed (done state)
-- Calls `onSkipOfficialSchedule` when "Also mark my picks →" is pressed (done state)
+- Renders error message and retry/skip buttons when `onboardingLineupState === 'error'`
+
+### New tests (SetupScreen.test.js — `member_lineup_intro` describe block)
+
+- Renders "Schedule is Ready" title
+- Renders "Go to Group Schedule →" as primary button
+- Renders "Upload my own screenshots →" as secondary button
+- Calls `onFinishSetup` when primary button is pressed
+- Calls `onSkipMemberLineupIntro` when secondary button is pressed
 
 ### Updated tests (SetupScreen.test.js — `festival_setup` describe block)
 
-- Existing `festival_setup` tests still pass with the updated helper text
+- Add assertion that helper text includes `(e.g. "Friday", "Saturday", "Sunday")`
 
-### New tests (App.js integration — describe `resetFlow`)
+### New tests (App.js integration — `resetFlow`)
 
-- These are harder to unit test in Jest (due to API mocking complexity). Add a comment in the code noting the behavior and test manually.
-
-### Updated tests (SetupScreen.test.js — `festival_setup`)
-
-- `festival_setup` helper text now includes `(e.g. "Friday", "Saturday", "Sunday")` — update any snapshot or text assertions that checked the old string.
+- These are harder to unit test in Jest (due to API mocking complexity). Add a code comment noting the behavior and test manually.
