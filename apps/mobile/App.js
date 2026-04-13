@@ -1160,7 +1160,7 @@ export default function App() {
     });
   };
 
-  const addSetFromGrid = async (setItem) => {
+  const addSetFromGrid = async (setItem, preference = 'flexible') => {
     const myId = homeSnapshot?.me?.id;
     const previousScheduleSnapshot = scheduleSnapshot;
 
@@ -1177,7 +1177,7 @@ export default function App() {
             if (alreadyIn) return s;
             const newAttendee = {
               member_id: myId,
-              preference: 'flexible',
+              preference,
               display_name: homeSnapshot.me.display_name || '',
               chip_color: homeSnapshot.me.chip_color || null,
             };
@@ -1185,6 +1185,7 @@ export default function App() {
               ...s,
               attendees: [...(s.attendees || []), newAttendee],
               attendee_count: (s.attendee_count || 0) + 1,
+              must_see_count: preference === 'must_see' ? (s.must_see_count || 0) + 1 : (s.must_see_count || 0),
             };
           }),
         };

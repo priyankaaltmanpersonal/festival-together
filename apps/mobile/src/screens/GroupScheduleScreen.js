@@ -465,43 +465,45 @@ export function GroupScheduleScreen({
         <Pressable style={styles.modalOverlay} onPress={() => setExpandedSet(null)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             {expandedSet ? (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={styles.modalTitle}>{expandedSet.artist_name}</Text>
-                <Text style={styles.modalSubtitle}>
-                  {expandedSet.stage_name} • {formatTimeStr(expandedSet.start_time_pt)}{expandedSet.end_time_pt && expandedSet.end_time_pt !== expandedSet.start_time_pt ? `–${formatTimeStr(expandedSet.end_time_pt)}` : ''}
-                </Text>
+              <>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.modalTitle}>{expandedSet.artist_name}</Text>
+                  <Text style={styles.modalSubtitle}>
+                    {expandedSet.stage_name} • {formatTimeStr(expandedSet.start_time_pt)}{expandedSet.end_time_pt && expandedSet.end_time_pt !== expandedSet.start_time_pt ? `–${formatTimeStr(expandedSet.end_time_pt)}` : ''}
+                  </Text>
 
-                <Text style={styles.modalSectionTitle}>Definitely ({expandedSet.definite.length})</Text>
-                {(expandedSet.definite || []).length ? (
-                  <View style={styles.modalList}>
-                    {expandedSet.definite.map((attendee) => (
-                      <AttendeeRow
-                        key={`def-${attendee.member_id}`}
-                        attendee={attendee}
-                        chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
-                        isSelf={attendee.member_id === myMemberId}
-                      />
-                    ))}
-                  </View>
-                ) : (
-                  <Text style={styles.modalEmpty}>No one marked definitely yet.</Text>
-                )}
+                  <Text style={styles.modalSectionTitle}>Definitely ({expandedSet.definite.length})</Text>
+                  {(expandedSet.definite || []).length ? (
+                    <View style={styles.modalList}>
+                      {expandedSet.definite.map((attendee) => (
+                        <AttendeeRow
+                          key={`def-${attendee.member_id}`}
+                          attendee={attendee}
+                          chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
+                          isSelf={attendee.member_id === myMemberId}
+                        />
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.modalEmpty}>No one marked definitely yet.</Text>
+                  )}
 
-                <Text style={styles.modalSectionTitle}>Maybe ({expandedSet.maybe.length})</Text>
-                {(expandedSet.maybe || []).length ? (
-                  <View style={styles.modalList}>
-                    {expandedSet.maybe.map((attendee) => (
-                      <AttendeeRow
-                        key={`maybe-${attendee.member_id}`}
-                        attendee={attendee}
-                        chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
-                        isSelf={attendee.member_id === myMemberId}
-                      />
-                    ))}
-                  </View>
-                ) : (
-                  <Text style={styles.modalEmpty}>No maybes for this set.</Text>
-                )}
+                  <Text style={styles.modalSectionTitle}>Maybe ({expandedSet.maybe.length})</Text>
+                  {(expandedSet.maybe || []).length ? (
+                    <View style={styles.modalList}>
+                      {expandedSet.maybe.map((attendee) => (
+                        <AttendeeRow
+                          key={`maybe-${attendee.member_id}`}
+                          attendee={attendee}
+                          chipColor={attendee.chip_color || memberColorById[attendee.member_id]}
+                          isSelf={attendee.member_id === myMemberId}
+                        />
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={styles.modalEmpty}>No maybes for this set.</Text>
+                  )}
+                </ScrollView>
 
                 {myMemberId && onNavigateToEditSet ? (() => {
                   const myAttendance = (expandedSet.attendees || []).find(
@@ -537,7 +539,7 @@ export function GroupScheduleScreen({
                             onPress={() => {
                               setExpandedSet(null);
                               if (onAddToMySchedule && onSetPreferenceFromGrid) {
-                                onAddToMySchedule(expandedSet).then(() =>
+                                onAddToMySchedule(expandedSet, 'must_see').then(() =>
                                   onSetPreferenceFromGrid(expandedSet.id, 'must_see')
                                 ).catch(() => {});
                               }
@@ -550,7 +552,7 @@ export function GroupScheduleScreen({
                     </>
                   );
                 })() : null}
-              </ScrollView>
+              </>
             ) : null}
           </Pressable>
         </Pressable>
