@@ -242,6 +242,9 @@ export function SetupScreen({
 
         return (
           <View style={styles.stepCard}>
+            {onboardingLineupState !== 'uploading' ? (
+              <ActionButton label="← Back" onPress={onGoBack} disabled={loading} />
+            ) : null}
             <Text style={styles.stepTitle}>Import Official Schedule</Text>
             {onboardingLineupState === 'uploading' ? (
               <View style={{ gap: 6 }}>

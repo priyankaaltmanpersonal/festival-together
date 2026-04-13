@@ -1381,7 +1381,9 @@ export default function App() {
   };
 
   const handleOnboardingBack = () => {
-    if (onboardingStep === 'upload_all_days') {
+    if (onboardingStep === 'upload_official_schedule') {
+      setOnboardingStep('festival_setup');
+    } else if (onboardingStep === 'upload_all_days') {
       const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
       if (currentIdx > 0) {
         setUploadDayIndex(festivalDays[currentIdx - 1].dayIndex);
@@ -1784,6 +1786,8 @@ export default function App() {
           onAddSet={addPersonalSet}
           onEditSet={editCanonicalSet}
           initialDayIndex={editInitialDay}
+          uploadError={error}
+          onDismissError={() => setError('')}
         />
       ) : null}
 

@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
@@ -13,6 +13,8 @@ export function EditMyScheduleScreen({
   onAddSet,
   onEditSet,
   initialDayIndex,
+  uploadError,
+  onDismissError,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -42,6 +44,11 @@ export function EditMyScheduleScreen({
       keyboardShouldPersistTaps="handled"
       automaticallyAdjustKeyboardInsets
     >
+      {uploadError ? (
+        <Pressable onPress={onDismissError} style={styles.errorBanner}>
+          <Text style={styles.errorText}>{uploadError}</Text>
+        </Pressable>
+      ) : null}
       <View style={styles.card}>
         <Text style={styles.label}>
           Your Schedule ({(personalSets || []).length} artists)
@@ -83,4 +90,15 @@ const makeStyles = (C) => StyleSheet.create({
   },
   label: { fontWeight: '700', color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },
+  errorBanner: {
+    marginHorizontal: 4,
+    marginBottom: 8,
+    backgroundColor: C.errorBg,
+    borderWidth: 1,
+    borderColor: C.errorBorder,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  errorText: { color: C.error, fontWeight: '600', fontSize: 13 },
 });

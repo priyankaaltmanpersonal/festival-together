@@ -56,7 +56,7 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
       <Text style={styles.addCardLabel}>Add Artist</Text>
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Artist name</Text>
-        <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="e.g. Bad Bunny" />
+        <TextInput value={name} onChangeText={setName} style={styles.input} />
       </View>
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Stage</Text>
@@ -328,7 +328,7 @@ export function DayTabReview({
             )}
             {onReUpload ? (
               <Pressable onPress={() => onReUpload(activeDay)} style={styles.secondaryBtn}>
-                <Text style={styles.secondaryBtnText}>Re-upload Screenshot</Text>
+                <Text style={styles.secondaryBtnText}>Upload Screenshot</Text>
               </Pressable>
             ) : null}
             {onConfirmDay ? (
