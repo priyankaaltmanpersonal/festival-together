@@ -94,6 +94,8 @@ const importOfficialScheduleDuringOnboarding = async () => {
 
 Note: this does NOT use `run()` so it manages its own loading state via `onboardingLineupState` rather than the global `loading` flag.
 
+If the response has `sets_created === 0` and `days_processed` is empty or missing, treat it as an error (set `onboardingLineupState = 'error'`) rather than a misleading "done" with nothing imported. Otherwise set `done` — partial success is a valid done state and the UI handles the warning display.
+
 ### New Handler: `proceedToPersonalSchedule`
 
 ```js
@@ -115,10 +117,20 @@ const proceedToPersonalSchedule = () => {
 - ActivityIndicator + "Importing lineup… this may take 1–2 minutes. Please keep the app open."
 - No buttons (disabled)
 
-**Done state:**
-- Success text: "✓ {result.sets_created} sets imported across {result.days_processed.join(', ')}"
-- Primary button: "Go to Group Schedule →" → `onFinishSetup` (calls `finishUploadFlow`, skips personal screenshot steps)
-- No secondary option — members can add personal picks by double-tapping from the grid
+**Done state (full success — all festival days appear in `days_processed`):**
+- Success text: "✓ {sets_created} sets imported across {days_processed.join(', ')}"
+- Primary button: "Go to Group Schedule →" → `onFinishSetup`
+
+**Done state (partial success — some festival days missing from `days_processed`):**
+- Success text: "✓ {sets_created} sets imported across {days_processed.join(', ')}"
+- Warning text (amber/yellow): "Couldn't read: {missingDays.join(', ')}. Re-upload those days from Founder Tools after setup."
+- Primary button: "Go to Group Schedule →" → `onFinishSetup` (still allow proceed — some sets are better than none)
+
+`missingDays` is computed client-side: `festivalDays.map(d => d.label).filter(label => !days_processed.includes(label))`. If `days_processed` is empty or missing, fall through to the error state instead.
+
+The partial-success case is still `onboardingLineupState = 'done'` — not `error`. `error` is only set when the API throws (i.e. `all_images_failed` or a network/server failure).
+
+No secondary option in either done variant — members can add personal picks by double-tapping from the grid.
 
 **Error state:**
 - Error text in red
@@ -439,7 +451,8 @@ welcome
 - Renders "Import Official Schedule" title and "Upload Schedule Images" + skip button when `onboardingLineupState === 'idle'`
 - Renders "Start over" link (not `← Back`); pressing calls `onStartOver`
 - Renders spinner and help text when `onboardingLineupState === 'uploading'`
-- Renders success text and "Go to Group Schedule →" button (no secondary) when `onboardingLineupState === 'done'`
+- Renders success text and "Go to Group Schedule →" button (no secondary) when `onboardingLineupState === 'done'` and all festival days are in `days_processed`
+- Renders success text + amber warning listing missing days when `onboardingLineupState === 'done'` and some festival days are absent from `days_processed`
 - Calls `onImportOfficialSchedule` when "Upload Schedule Images" is pressed
 - Calls `onSkipOfficialSchedule` when skip button is pressed (idle state)
 - Calls `onFinishSetup` when "Go to Group Schedule →" is pressed (done state)
