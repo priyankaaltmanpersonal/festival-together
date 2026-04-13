@@ -668,7 +668,59 @@ export default function App() {
     try {
       const response = await uploadImages(apiUrl, '/v1/members/me/personal/upload', memberSession, uris, null, dayLabel);
       if (response.sets && response.sets.length > 0) {
-        await Promise.all([refreshPersonal(), refreshCoreSnapshots()]);
+        const myId = homeSnapshot?.me?.id;
+
+        // Optimistically update the group grid immediately — don't wait for a
+        // background refresh that could silently fail.
+        if (myId) {
+          const uploadedIdSet = new Set(response.sets.map((s) => s.canonical_set_id));
+          const myAttendee = {
+            member_id: myId,
+            preference: 'flexible',
+            display_name: homeSnapshot.me.display_name || '',
+            chip_color: homeSnapshot.me.chip_color || null,
+          };
+          setScheduleSnapshot((prev) => {
+            if (!prev) return prev;
+            const existingIds = new Set((prev.sets || []).map((s) => s.id));
+            const newSets = response.sets
+              .filter((s) => !existingIds.has(s.canonical_set_id))
+              .map((s) => ({
+                id: s.canonical_set_id,
+                artist_name: s.artist_name,
+                stage_name: s.stage_name,
+                start_time_pt: s.start_time_pt,
+                end_time_pt: s.end_time_pt,
+                day_index: s.day_index,
+                attendees: [myAttendee],
+                attendee_count: 1,
+                must_see_count: 0,
+                popularity_tier: 'low',
+                status: 'resolved',
+                source: 'member',
+              }));
+            return {
+              ...prev,
+              sets: [
+                ...(prev.sets || []).map((s) => {
+                  if (!uploadedIdSet.has(s.id)) return s;
+                  const alreadyIn = (s.attendees || []).some((a) => a.member_id === myId);
+                  if (alreadyIn) return s;
+                  return {
+                    ...s,
+                    attendees: [...(s.attendees || []), myAttendee],
+                    attendee_count: (s.attendee_count || 0) + 1,
+                  };
+                }),
+                ...newSets,
+              ],
+            };
+          });
+        }
+
+        // Background sync — don't await so nothing here can block the grid update
+        refreshPersonal();
+        refreshCoreSnapshots().catch(() => {});
       }
     } catch (e) {
       setError(friendlyError(e instanceof Error ? e.message : String(e)));
