@@ -97,8 +97,9 @@ def import_personal(payload: PersonalImportRequest, session=Depends(require_sess
             """,
             (parse_job_id, session["member_id"], len(screenshots), len(mapped_rows), now, now),
         )
+        # Only mark incomplete if still in onboarding — do not downgrade 'complete'.
         conn.execute(
-            "UPDATE members SET setup_status = 'incomplete' WHERE id = ?",
+            "UPDATE members SET setup_status = 'incomplete' WHERE id = ? AND setup_status != 'complete'",
             (session["member_id"],),
         )
 
@@ -492,8 +493,9 @@ def upload_personal_images(
                 len(images), len(all_parsed), failed_count, now, now,
             ),
         )
+        # Only mark incomplete if still in onboarding — do not downgrade 'complete'.
         conn.execute(
-            "UPDATE members SET setup_status = 'incomplete' WHERE id = ?",
+            "UPDATE members SET setup_status = 'incomplete' WHERE id = ? AND setup_status != 'complete'",
             (session["member_id"],),
         )
 
