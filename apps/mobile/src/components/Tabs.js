@@ -48,7 +48,7 @@ const makeStyles = (C) => StyleSheet.create({
   tabText: {
     fontSize: 12,
     color: C.tabText,
-    fontWeight: '600'
+    fontWeight: '700'
   },
   tabTextActive: {
     color: C.tabActiveText

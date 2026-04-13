@@ -117,7 +117,7 @@ const makeStyles = (C) => StyleSheet.create({
     padding: 8,
     backgroundColor: C.setRowBg
   },
-  setTitle: { color: C.setRowTitle, fontWeight: '600' },
+  setTitle: { color: C.setRowTitle, fontWeight: '700' },
   badgePill: {
     alignSelf: 'flex-start',
     borderRadius: 6,

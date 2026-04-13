@@ -436,7 +436,7 @@ const makeStyles = (C) => StyleSheet.create({
     gap: 8
   },
   kicker: { color: C.kickerText, fontWeight: '700', fontSize: 12, textTransform: 'uppercase' },
-  h1: { color: C.headingText, fontSize: 21, fontWeight: '800', lineHeight: 26 },
+  h1: { color: C.headingText, fontSize: 21, fontWeight: '700', lineHeight: 26 },
   label: { color: C.text, fontWeight: '700' },
   stepTitle: { color: C.text, fontWeight: '700', fontSize: 16 },
   inputLabel: { color: C.fieldLabelText, fontSize: 12, fontWeight: '700', marginTop: 2 },
@@ -481,7 +481,7 @@ const makeStyles = (C) => StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 14
   },
-  buttonTextLarge: { fontSize: 20, fontWeight: '800' },
+  buttonTextLarge: { fontSize: 20, fontWeight: '700' },
   buttonDisabled: { opacity: 0.45 },
   colorBlock: { gap: 8, marginTop: 2 },
   colorRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -503,7 +503,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
   removeButtonDisabled: { opacity: 0.3 },
   removeButtonText: { fontSize: 18, color: C.fieldLabelText, fontWeight: '700', lineHeight: 20 },
-  error: { color: C.error, fontWeight: '600' },
+  error: { color: C.error, fontWeight: '700' },
   successBox: {
     backgroundColor: '#f0fdf4',
     borderRadius: 8,
@@ -519,12 +519,12 @@ const makeStyles = (C) => StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fcd34d',
   },
-  warningText: { color: '#92400e', fontWeight: '600', fontSize: 13 },
+  warningText: { color: '#92400e', fontWeight: '700', fontSize: 13 },
   startOverLink: { alignItems: 'center', paddingTop: 4 },
   startOverText: { color: C.textMuted, fontSize: 12, textDecorationLine: 'underline' },
   orDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 2 },
   orLine: { flex: 1, height: 1, backgroundColor: C.cardBorder },
-  orText: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
+  orText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
   addButton: {
     borderWidth: 1,
     borderColor: C.addCardBorder,

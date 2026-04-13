@@ -635,7 +635,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: C.chipSelectedBorder
   },
-  chipText: { fontSize: 13, fontWeight: '800' },
+  chipText: { fontSize: 13, fontWeight: '700' },
   resetBtn: {
     paddingVertical: 6,
     paddingHorizontal: 2,
@@ -644,7 +644,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
   resetBtnText: {
     color: C.resetBtnText,
-    fontWeight: '800',
+    fontWeight: '700',
     fontSize: 12,
     textDecorationLine: 'underline',
     textDecorationColor: C.resetBtnUnderline
@@ -663,7 +663,7 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.primaryBg,
     borderColor: C.primary,
   },
-  togglePillText: { fontSize: 12, fontWeight: '600', color: C.textMuted },
+  togglePillText: { fontSize: 12, fontWeight: '700', color: C.textMuted },
   togglePillTextActive: { color: C.primary, fontWeight: '700' },
   gridHeader: {
     flexDirection: 'row',
@@ -702,7 +702,7 @@ const makeStyles = (C) => StyleSheet.create({
   hintText: {
     color: '#b45309',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
   myOnlyEmpty: {
@@ -727,8 +727,8 @@ const makeStyles = (C) => StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  artistText: { fontWeight: '800', color: C.setCardText, fontSize: 10, lineHeight: 11 },
-  timeRangeText: { color: C.setCardTimeTxt, fontSize: 8, marginTop: 1, lineHeight: 9 },
+  artistText: { fontWeight: '700', color: C.setCardText, fontSize: 10, lineHeight: 13 },
+  timeRangeText: { color: C.setCardTimeTxt, fontSize: 8, marginTop: 1, lineHeight: 11 },
   pin: {
     position: 'absolute',
     bottom: 2,
@@ -748,7 +748,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.75)',
   },
-  attendeeText: { color: C.attendeeText, fontSize: 7, fontWeight: '800' },
+  attendeeText: { color: C.attendeeText, fontSize: 7, fontWeight: '700' },
   overflowBubble: {
     width: 16,
     height: 16,
@@ -757,8 +757,8 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  overflowText: { color: '#fff', fontSize: 6.5, fontWeight: '800' },
-  summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 9 },
+  overflowText: { color: '#fff', fontSize: 6.5, fontWeight: '700' },
+  summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 11 },
   modalOverlay: {
     flex: 1,
     backgroundColor: C.modalOverlay,
@@ -776,7 +776,7 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.modalBg,
     padding: 14
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: C.modalTitle },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: C.modalTitle },
   modalSubtitle: { marginTop: 2, marginBottom: 10, color: C.modalSubtitle, fontSize: 12 },
   modalSectionTitle: { marginTop: 4, marginBottom: 6, color: C.modalSectionTitle, fontWeight: '700', fontSize: 13 },
   modalList: { gap: 6, marginBottom: 6 },
@@ -789,8 +789,8 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-  modalAvatarText: { fontSize: 10, fontWeight: '800' },
-  modalName: { color: C.modalName, fontSize: 13, fontWeight: '600' },
+  modalAvatarText: { fontSize: 10, fontWeight: '700' },
+  modalName: { color: C.modalName, fontSize: 13, fontWeight: '700' },
   modalEmpty: { color: C.modalEmpty, fontSize: 12, marginBottom: 6 },
   modalSelfLabel: { color: C.textMuted, fontWeight: '400', fontSize: 13 },
   modalDivider: { height: 1, backgroundColor: C.cardBorder, marginVertical: 4 },
@@ -825,7 +825,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
   inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
   inviteText: { fontSize: 12, color: C.inviteRowText },
-  inviteCode: { fontWeight: '800', color: C.inviteRowCode, letterSpacing: 1 },
+  inviteCode: { fontWeight: '700', color: C.inviteRowCode, letterSpacing: 1 },
   inviteCopyIcon: { fontSize: 14 },
 });
 

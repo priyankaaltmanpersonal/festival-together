@@ -47,7 +47,7 @@ const makeStyles = (C) => StyleSheet.create({
     padding: 20,
     gap: 16,
   },
-  cardTitle: { fontSize: 22, fontWeight: '800', color: C.headingText },
+  cardTitle: { fontSize: 22, fontWeight: '700', color: C.headingText },
   divider: { height: 1, backgroundColor: C.cardBorder },
   row: { fontSize: 15, lineHeight: 23, color: C.textSec },
   label: { fontWeight: '700', color: C.text },
@@ -59,5 +59,5 @@ const makeStyles = (C) => StyleSheet.create({
     paddingHorizontal: 10,
     alignItems: 'center',
   },
-  buttonText: { color: '#fff', fontWeight: '800', fontSize: 17 }
+  buttonText: { color: '#fff', fontWeight: '700', fontSize: 17 }
 });

@@ -100,5 +100,5 @@ const makeStyles = (C) => StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  errorText: { color: C.error, fontWeight: '600', fontSize: 13 },
+  errorText: { color: C.error, fontWeight: '700', fontSize: 13 },
 });

@@ -126,7 +126,7 @@ const makeStyles = (C) => StyleSheet.create({
   label: { fontWeight: '700', color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },
   inviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  inviteCodeText: { fontWeight: '800', letterSpacing: 1 },
+  inviteCodeText: { fontWeight: '700', letterSpacing: 1 },
   copyHint: { fontSize: 12, fontWeight: '700', color: C.primary },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   successBox: {
@@ -144,7 +144,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fcd34d',
   },
-  warningText: { color: '#92400e', fontWeight: '600', fontSize: 13 },
+  warningText: { color: '#92400e', fontWeight: '700', fontSize: 13 },
   statsBox: {
     borderRadius: 8,
     padding: 10,
@@ -152,7 +152,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: C.cardBorder,
     backgroundColor: C.cardBg,
   },
-  statsText: { color: C.textMuted, fontWeight: '600', fontSize: 13 },
+  statsText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
   buttonPrimary: {
     backgroundColor: C.primary,
     borderRadius: 10,

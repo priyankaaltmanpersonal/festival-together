@@ -214,7 +214,7 @@ const makeStyles = (C) => StyleSheet.create({
     marginBottom: 4,
   },
   inviteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  inviteCode: { fontSize: 16, fontWeight: '800', color: C.kickerText, letterSpacing: 1 },
+  inviteCode: { fontSize: 16, fontWeight: '700', color: C.kickerText, letterSpacing: 1 },
   inviteCopy: { fontSize: 12, fontWeight: '700', color: C.primary },
   row: {
     flexDirection: 'row',
@@ -225,7 +225,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: C.cardBorder,
   },
-  rowLabel: { fontSize: 14, fontWeight: '600', color: C.text },
+  rowLabel: { fontSize: 14, fontWeight: '700', color: C.text },
   rowChevron: { fontSize: 20, color: C.textMuted },
   profileForm: {
     paddingVertical: 10,
@@ -263,7 +263,7 @@ const makeStyles = (C) => StyleSheet.create({
     transform: [{ scale: 1.15 }],
   },
   swatchTaken: { opacity: 0.2 },
-  saveError: { fontSize: 11, color: C.error, fontWeight: '600' },
+  saveError: { fontSize: 11, color: C.error, fontWeight: '700' },
   profileBtns: { flexDirection: 'row', gap: 8 },
   saveBtn: {
     flex: 1,
@@ -290,11 +290,11 @@ const makeStyles = (C) => StyleSheet.create({
   resetLabel: {
     fontSize: 12,
     color: C.textMuted,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   deleteLabel: {
     fontSize: 12,
     color: C.error,
-    fontWeight: '500',
+    fontWeight: '400',
   },
 });

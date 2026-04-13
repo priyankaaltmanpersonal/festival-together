@@ -53,7 +53,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
   text: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: C.textMuted,
   },
   textActive: {

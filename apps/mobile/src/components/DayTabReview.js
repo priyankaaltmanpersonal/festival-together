@@ -380,7 +380,7 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.primaryBg,
     borderColor: C.primary,
   },
-  tabText: { color: C.textMuted, fontWeight: '600', fontSize: 12 },
+  tabText: { color: C.textMuted, fontWeight: '700', fontSize: 12 },
   tabActiveText: { color: C.text, fontWeight: '700' },
   badge: {
     backgroundColor: C.primary,
@@ -391,8 +391,8 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
   },
   badgeText: { color: C.primaryText, fontSize: 10, fontWeight: '700' },
-  tabErrorMark: { color: C.error, fontWeight: '800', fontSize: 13 },
-  tabConfirmedMark: { color: C.success || '#22c55e', fontWeight: '800', fontSize: 13 },
+  tabErrorMark: { color: C.error, fontWeight: '700', fontSize: 13 },
+  tabConfirmedMark: { color: C.success || '#22c55e', fontWeight: '700', fontSize: 13 },
   content: { gap: 8 },
   loadingBlock: {
     flexDirection: 'row',
@@ -423,7 +423,7 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: C.btnSecondaryBg,
   },
-  secondaryBtnText: { color: C.btnSecondaryText, fontWeight: '600', fontSize: 13 },
+  secondaryBtnText: { color: C.btnSecondaryText, fontWeight: '700', fontSize: 13 },
   addCard: {
     backgroundColor: C.addCardBg,
     borderRadius: 12,
@@ -465,7 +465,7 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
-  saveError: { color: C.error, fontWeight: '600', fontSize: 12 },
+  saveError: { color: C.error, fontWeight: '700', fontSize: 12 },
   dropdownTrigger: {
     borderWidth: 1,
     borderColor: C.inputBorder,
@@ -512,7 +512,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: C.primary,
     backgroundColor: C.primaryBg,
   },
-  timePickerText: { fontSize: 14, fontWeight: '600', color: C.text },
+  timePickerText: { fontSize: 14, fontWeight: '700', color: C.text },
   pickerContainer: {
     backgroundColor: C.inputBg,
     borderRadius: 10,

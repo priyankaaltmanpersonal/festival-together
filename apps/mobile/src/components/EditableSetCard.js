@@ -237,7 +237,7 @@ const makeStyles = (C) => StyleSheet.create({
   },
   editBtnText: { color: C.editBtnText, fontSize: 11, fontWeight: '700' },
   deleteBtn: { paddingHorizontal: 6, paddingVertical: 2 },
-  deleteBtnText: { color: C.error, fontWeight: '800', fontSize: 16 },
+  deleteBtnText: { color: C.error, fontWeight: '700', fontSize: 16 },
   editHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   editLabel: { color: C.addCardLabel, fontWeight: '700', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
   fieldGroup: { gap: 2 },
@@ -266,7 +266,7 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: C.primary,
     backgroundColor: C.primaryBg,
   },
-  timePickerText: { fontSize: 14, fontWeight: '600', color: C.text },
+  timePickerText: { fontSize: 14, fontWeight: '700', color: C.text },
   pickerContainer: {
     backgroundColor: C.inputBg,
     borderRadius: 10,
@@ -302,7 +302,7 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
-  saveError: { color: C.error, fontWeight: '600', fontSize: 12 },
+  saveError: { color: C.error, fontWeight: '700', fontSize: 12 },
   warningBox: {
     backgroundColor: C.warningBg,
     borderWidth: 1,
