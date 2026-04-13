@@ -47,6 +47,14 @@ function makeProps(overrides = {}) {
     onConfirmDay: jest.fn(),
     hasOfficialLineup: false,
     onBrowseFullLineup: jest.fn(),
+    onboardingLineupState: 'idle',
+    onboardingLineupResult: null,
+    onImportOfficialSchedule: jest.fn(),
+    onSkipOfficialSchedule: jest.fn(),
+    onFinishSetup: jest.fn(),
+    onGoBack: jest.fn(),
+    onStartOver: jest.fn(),
+    onSkipMemberLineupIntro: jest.fn(),
     ...overrides,
   };
 }
@@ -116,5 +124,117 @@ describe('SetupScreen — festival_setup step', () => {
       <SetupScreen {...makeProps({ onboardingStep: 'festival_setup' })} />
     );
     expect(getByText(/e\.g\. "Friday", "Saturday", "Sunday"/)).toBeTruthy();
+  });
+});
+
+describe('SetupScreen — upload_official_schedule step', () => {
+  function makeOfficialProps(overrides = {}) {
+    return makeProps({ onboardingStep: 'upload_official_schedule', ...overrides });
+  }
+
+  it('renders title and Upload + skip buttons in idle state', () => {
+    const { getByText } = render(<SetupScreen {...makeOfficialProps()} />);
+    expect(getByText('Import Official Schedule')).toBeTruthy();
+    expect(getByText('Upload Schedule Images')).toBeTruthy();
+    expect(getByText('Skip for Now — upload from Founder Tools after setup')).toBeTruthy();
+  });
+
+  it('renders spinner and help text when uploading', () => {
+    const { getByText } = render(
+      <SetupScreen {...makeOfficialProps({ onboardingLineupState: 'uploading' })} />
+    );
+    expect(getByText(/Importing lineup/)).toBeTruthy();
+    expect(getByText(/keep the app open/)).toBeTruthy();
+  });
+
+  it('renders success text and Go to Group Schedule button (no skip) on full done', () => {
+    const { getByText, queryByText } = render(
+      <SetupScreen
+        {...makeOfficialProps({
+          onboardingLineupState: 'done',
+          onboardingLineupResult: { sets_created: 80, days_processed: ['Friday', 'Saturday', 'Sunday'] },
+          festivalDays: [
+            { dayIndex: 1, label: 'Friday' },
+            { dayIndex: 2, label: 'Saturday' },
+            { dayIndex: 3, label: 'Sunday' },
+          ],
+        })}
+      />
+    );
+    expect(getByText(/80 sets imported/)).toBeTruthy();
+    expect(getByText('Go to Group Schedule →')).toBeTruthy();
+    expect(queryByText(/Skip/)).toBeNull();
+  });
+
+  it('renders amber warning listing missing days on partial done', () => {
+    const { getByText } = render(
+      <SetupScreen
+        {...makeOfficialProps({
+          onboardingLineupState: 'done',
+          onboardingLineupResult: { sets_created: 30, days_processed: ['Friday'] },
+          festivalDays: [
+            { dayIndex: 1, label: 'Friday' },
+            { dayIndex: 2, label: 'Saturday' },
+          ],
+        })}
+      />
+    );
+    expect(getByText(/30 sets imported/)).toBeTruthy();
+    expect(getByText(/Couldn't read: Saturday/)).toBeTruthy();
+    expect(getByText(/Founder Tools/)).toBeTruthy();
+  });
+
+  it('renders error message with retry/skip and Founder Tools hint on error', () => {
+    const { getByText } = render(
+      <SetupScreen {...makeOfficialProps({ onboardingLineupState: 'error', error: 'Upload failed' })} />
+    );
+    expect(getByText('Try Again')).toBeTruthy();
+    expect(getByText('Skip for Now')).toBeTruthy();
+    expect(getByText(/retry.*Founder Tools/i)).toBeTruthy();
+  });
+
+  it('calls onImportOfficialSchedule when Upload button pressed', () => {
+    const onImportOfficialSchedule = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeOfficialProps({ onImportOfficialSchedule })} />
+    );
+    fireEvent.press(getByText('Upload Schedule Images'));
+    expect(onImportOfficialSchedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onSkipOfficialSchedule when skip button pressed (idle)', () => {
+    const onSkipOfficialSchedule = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeOfficialProps({ onSkipOfficialSchedule })} />
+    );
+    fireEvent.press(getByText('Skip for Now — upload from Founder Tools after setup'));
+    expect(onSkipOfficialSchedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onFinishSetup when Go to Group Schedule pressed (done state)', () => {
+    const onFinishSetup = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeOfficialProps({
+          onFinishSetup,
+          onboardingLineupState: 'done',
+          onboardingLineupResult: { sets_created: 10, days_processed: ['Friday'] },
+          festivalDays: [{ dayIndex: 1, label: 'Friday' }],
+        })}
+      />
+    );
+    fireEvent.press(getByText('Go to Group Schedule →'));
+    expect(onFinishSetup).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onSkipOfficialSchedule when Skip for Now pressed (error state)', () => {
+    const onSkipOfficialSchedule = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeOfficialProps({ onSkipOfficialSchedule, onboardingLineupState: 'error', error: 'Upload failed' })}
+      />
+    );
+    fireEvent.press(getByText('Skip for Now'));
+    expect(onSkipOfficialSchedule).toHaveBeenCalledTimes(1);
   });
 });

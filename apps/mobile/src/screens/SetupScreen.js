@@ -43,6 +43,17 @@ export function SetupScreen({
   onConfirmDay,
   hasOfficialLineup,
   onBrowseFullLineup,
+  // upload_official_schedule step
+  onboardingLineupState = 'idle',
+  onboardingLineupResult = null,
+  onImportOfficialSchedule,
+  onSkipOfficialSchedule,
+  onFinishSetup,
+  // back navigation (added in Task 5)
+  onGoBack,
+  onStartOver,
+  // member_lineup_intro step (added in Task 4)
+  onSkipMemberLineupIntro,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -208,6 +219,67 @@ export function SetupScreen({
                 <ActionButton
                   label="Skip This Day"
                   onPress={onSkipDay}
+                  disabled={loading}
+                />
+              </>
+            )}
+          </View>
+        );
+      })() : null}
+
+      {onboardingStep === 'upload_official_schedule' ? (() => {
+        const daysProcessed = onboardingLineupResult?.days_processed || [];
+        const missingDays = (festivalDays || [])
+          .map((d) => d.label)
+          .filter((label) => !daysProcessed.includes(label));
+
+        return (
+          <View style={styles.stepCard}>
+            <Text style={styles.stepTitle}>Import Official Schedule</Text>
+            {onboardingLineupState === 'uploading' ? (
+              <View style={{ gap: 6 }}>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <ActivityIndicator color={C.primary} size="small" />
+                  <Text style={styles.helper}>Importing lineup… this may take 1–2 minutes. Please keep the app open.</Text>
+                </View>
+              </View>
+            ) : onboardingLineupState === 'done' && onboardingLineupResult ? (
+              <>
+                <View style={styles.successBox}>
+                  <Text style={styles.successText}>
+                    ✓ {onboardingLineupResult.sets_created} sets imported
+                    {daysProcessed.length ? ` across ${daysProcessed.join(', ')}` : ''}
+                  </Text>
+                </View>
+                {missingDays.length > 0 ? (
+                  <View style={styles.warningBox}>
+                    <Text style={styles.warningText}>
+                      Couldn't read: {missingDays.join(', ')}. Re-upload those days from Founder Tools after setup.
+                    </Text>
+                  </View>
+                ) : null}
+                <ActionButton label="Go to Group Schedule →" onPress={onFinishSetup} primary disabled={loading} />
+              </>
+            ) : onboardingLineupState === 'error' ? (
+              <>
+                <Text style={styles.helper}>You can retry this after setup from Founder Tools → Official Lineup.</Text>
+                <ActionButton label="Try Again" onPress={onImportOfficialSchedule} primary disabled={loading} />
+                <ActionButton label="Skip for Now" onPress={onSkipOfficialSchedule} disabled={loading} />
+              </>
+            ) : (
+              <>
+                <Text style={styles.helper}>
+                  Upload the official day poster(s) so everyone in your group can browse and pick artists — no screenshots needed.
+                </Text>
+                <ActionButton
+                  label="Upload Schedule Images"
+                  onPress={onImportOfficialSchedule}
+                  primary
+                  disabled={loading}
+                />
+                <ActionButton
+                  label="Skip for Now — upload from Founder Tools after setup"
+                  onPress={onSkipOfficialSchedule}
                   disabled={loading}
                 />
               </>
@@ -399,6 +471,22 @@ const makeStyles = (C) => StyleSheet.create({
   removeButtonDisabled: { opacity: 0.3 },
   removeButtonText: { fontSize: 18, color: C.fieldLabelText, fontWeight: '700', lineHeight: 20 },
   error: { color: C.error, fontWeight: '600' },
+  successBox: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#86efac',
+  },
+  successText: { color: '#16a34a', fontWeight: '700', fontSize: 13 },
+  warningBox: {
+    backgroundColor: '#fffbeb',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+  },
+  warningText: { color: '#92400e', fontWeight: '600', fontSize: 13 },
   orDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 2 },
   orLine: { flex: 1, height: 1, backgroundColor: C.cardBorder },
   orText: { color: C.textMuted, fontSize: 12, fontWeight: '600' },
