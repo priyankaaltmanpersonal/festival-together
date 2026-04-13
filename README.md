@@ -2,7 +2,7 @@
 
 Group schedule coordination app for festival friend groups. Members upload screenshots of their personal schedules; the app builds a shared view of who wants to see what.
 
-Built for Coachella 2026 (April 11–13), private beta with ~12 friends.
+Built for Coachella 2026 (April 17–19). Available on the App Store.
 
 ## Repo Layout
 
@@ -23,7 +23,7 @@ infra/              Infrastructure config
 | Migrations | Alembic |
 | Schedule parsing | Claude Sonnet 4.6 vision (direct image → structured JSON) |
 | Hosting | Render |
-| Distribution | TestFlight (iOS), Google Play internal (Android) |
+| Distribution | App Store (iOS), Google Play internal (Android) |
 
 ## Local Development
 
