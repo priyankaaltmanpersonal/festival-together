@@ -122,8 +122,13 @@ const proceedToPersonalSchedule = () => {
 
 **Error state:**
 - Error text in red
+- Helper text: "You can retry this after setup from Founder Tools → Official Lineup."
 - Button: "Try Again" → `onImportOfficialSchedule`
-- Button: "Skip" → `onSkipOfficialSchedule`
+- Button: "Skip for Now" → `onSkipOfficialSchedule` (proceeds to personal screenshot uploads)
+
+**Idle state "skip" copy update:**
+
+Change "Skip — I'll do this later" to "Skip for Now — upload from Founder Tools after setup" so the path is clear even from the idle state.
 
 ### Props Added to SetupScreen
 
@@ -254,44 +259,62 @@ Note: If the user has no active session (already logged out / never onboarded), 
 
 ## 4. Back Navigation for Every Onboarding Step
 
-### Current State
+### Key constraint: session boundary
 
-Steps `profile_create`, `profile_join`, and `festival_setup` already have back buttons. Every step from `upload_official_schedule` onward has none.
+Once a session is created on the backend (`completeFestivalSetup` for founders, `beginProfile` join path for members), going back to pre-session steps (`festival_setup`, `profile_create`, `profile_join`) creates a trap: the Reset App button doesn't appear until post-onboarding, quitting and reopening just restores the session from AsyncStorage, and re-submitting the form returns "already in group." The user would be stuck.
 
-### Back Target Per Step
+**Rule:** Back navigation navigates freely *within* the upload flow. At the first upload step (no prior upload step exists), the back button is replaced by a small **"Start over"** destructive link that triggers a confirmation + `resetFlow`.
 
-| Step | Back target | Handler |
+### Back target per step
+
+| Step | Back button shows | Back target |
 |---|---|---|
-| `upload_official_schedule` | `festival_setup` | `setOnboardingStep('festival_setup')` |
-| `member_lineup_intro` | `profile_join` | `setOnboardingStep('profile_join')` (session stays alive; re-join attempt shows "already in group" if they retry) |
-| `upload_all_days` day 1, founder | `upload_official_schedule` | `setOnboardingStep('upload_official_schedule')` |
-| `upload_all_days` day 1, member w/ lineup | `member_lineup_intro` | `setOnboardingStep('member_lineup_intro')` |
-| `upload_all_days` day 1, member w/o lineup | `profile_join` | `setOnboardingStep('profile_join')` |
-| `upload_all_days` day N > 1 | previous day | `setUploadDayIndex(festivalDays[currentIdx - 1].dayIndex)` |
-| `review_days` | last day of `upload_all_days` | `setUploadDayIndex(festivalDays[festivalDays.length - 1].dayIndex); setOnboardingStep('upload_all_days')` |
+| `upload_official_schedule` | "Start over" (destructive link) | `resetFlow` with confirmation |
+| `member_lineup_intro` | "Start over" (destructive link) | `resetFlow` with confirmation |
+| `upload_all_days` day 1, founder | `← Back` | `upload_official_schedule` |
+| `upload_all_days` day 1, member w/ lineup | `← Back` | `member_lineup_intro` |
+| `upload_all_days` day 1, member w/o lineup | "Start over" (destructive link) | `resetFlow` with confirmation |
+| `upload_all_days` day N > 1 | `← Back` | previous day |
+| `review_days` | `← Back` | last day of `upload_all_days` |
+
+### "Start over" behavior
+
+A small text-style link at the bottom of the step (not a full button) reading **"Start over"**. On press, shows an Alert:
+
+```
+"Start Over?"
+"This will delete your group and restart onboarding. You need an internet connection to do this."
+[Cancel]  [Start Over]
+```
+
+On confirm → calls `resetFlow` (which already handles offline blocking and backend DELETE).
 
 ### Implementation
 
-Add a single `onGoBack` prop to `SetupScreen`. App.js computes the correct back action and passes it. Each step renders `<ActionButton label="← Back" onPress={onGoBack} disabled={loading} />` as its first child.
+`SetupScreen` receives two props:
 
-The `onGoBack` computation in App.js (derived value, not state):
+```js
+onGoBack,      // () => void  — used when ← Back is shown (upload flow navigation)
+onStartOver,   // () => void  — used when "Start over" link is shown (triggers resetFlow alert)
+```
+
+Each upload step renders either `<ActionButton label="← Back" onPress={onGoBack} />` or a small `<StartOverLink onPress={onStartOver} />` as appropriate.
+
+`StartOverLink` is a minimal inline component — just a `<Pressable>` with small muted text style, not an `ActionButton`.
+
+`handleOnboardingBack` in App.js (for `← Back` cases only):
 
 ```js
 const handleOnboardingBack = () => {
-  if (onboardingStep === 'upload_official_schedule') {
-    setOnboardingStep('festival_setup');
-  } else if (onboardingStep === 'member_lineup_intro') {
-    setOnboardingStep('profile_join');
-  } else if (onboardingStep === 'upload_all_days') {
+  if (onboardingStep === 'upload_all_days') {
     const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
     if (currentIdx > 0) {
       setUploadDayIndex(festivalDays[currentIdx - 1].dayIndex);
     } else if (userRole === 'founder') {
       setOnboardingStep('upload_official_schedule');
-    } else if (homeSnapshot?.group?.has_official_lineup) {
-      setOnboardingStep('member_lineup_intro');
     } else {
-      setOnboardingStep('profile_join');
+      // member with lineup — day 1 back goes to member_lineup_intro
+      setOnboardingStep('member_lineup_intro');
     }
   } else if (onboardingStep === 'review_days') {
     setUploadDayIndex(festivalDays[festivalDays.length - 1]?.dayIndex ?? 1);
@@ -300,14 +323,29 @@ const handleOnboardingBack = () => {
 };
 ```
 
-Pass as `onGoBack={handleOnboardingBack}` to `SetupScreen`. The `welcome` step has no back button (it's the root).
+`handleStartOver` in App.js:
+
+```js
+const handleStartOver = () => {
+  Alert.alert(
+    'Start Over?',
+    'This will delete your group and restart onboarding. You need an internet connection to do this.',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Start Over', style: 'destructive', onPress: resetFlow },
+    ],
+  );
+};
+```
 
 ### Tests
 
-- `upload_official_schedule` renders a back button; pressing it calls `onGoBack`
-- `member_lineup_intro` renders a back button; pressing it calls `onGoBack`
-- `upload_all_days` renders a back button; pressing it calls `onGoBack`
-- `review_days` renders a back button; pressing it calls `onGoBack`
+- `upload_official_schedule` renders "Start over" link (not ← Back); pressing it calls `onStartOver`
+- `member_lineup_intro` renders "Start over" link; pressing it calls `onStartOver`
+- `upload_all_days` day 1 (founder) renders `← Back`; pressing calls `onGoBack`
+- `upload_all_days` day 1 (member, no lineup) renders "Start over" link; pressing calls `onStartOver`
+- `upload_all_days` day N > 1 renders `← Back`; pressing calls `onGoBack`
+- `review_days` renders `← Back`; pressing calls `onGoBack`
 
 ---
 
@@ -398,13 +436,14 @@ welcome
 
 ### New tests (SetupScreen.test.js — `upload_official_schedule` describe block)
 
-- Renders "Import Official Schedule" title and "Upload Schedule Images" + "Skip" buttons when `onboardingLineupState === 'idle'`
+- Renders "Import Official Schedule" title and "Upload Schedule Images" + skip button when `onboardingLineupState === 'idle'`
+- Renders "Start over" link (not `← Back`); pressing calls `onStartOver`
 - Renders spinner and help text when `onboardingLineupState === 'uploading'`
 - Renders success text and "Go to Group Schedule →" button (no secondary) when `onboardingLineupState === 'done'`
 - Calls `onImportOfficialSchedule` when "Upload Schedule Images" is pressed
-- Calls `onSkipOfficialSchedule` when "Skip — I'll do this later" is pressed (idle state)
+- Calls `onSkipOfficialSchedule` when skip button is pressed (idle state)
 - Calls `onFinishSetup` when "Go to Group Schedule →" is pressed (done state)
-- Renders error message and retry/skip buttons when `onboardingLineupState === 'error'`
+- Renders error message with retry/skip buttons AND "You can retry from Founder Tools after setup" helper text when `onboardingLineupState === 'error'`
 
 ### New tests (SetupScreen.test.js — `member_lineup_intro` describe block)
 
@@ -413,6 +452,7 @@ welcome
 - Renders "Upload my own screenshots →" as secondary button
 - Calls `onFinishSetup` when primary button is pressed
 - Calls `onSkipMemberLineupIntro` when secondary button is pressed
+- Renders "Start over" link (not `← Back`); pressing calls `onStartOver`
 
 ### Updated tests (SetupScreen.test.js — `festival_setup` describe block)
 
