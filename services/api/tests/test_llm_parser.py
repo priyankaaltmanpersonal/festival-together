@@ -179,3 +179,41 @@ def test_official_lineup_prompt_contains_festival_hours_context():
     assert "1:00 AM" in prompt or "1:00am" in prompt.lower(), \
         "Prompt must mention festival end time ~1:00 AM"
     assert "PM" in prompt, "Prompt must reference PM times explicitly"
+
+
+# ── Curfew defaults ───────────────────────────────────────────────────────────
+
+def test_curfew_defaults_fills_missing_end_time_friday():
+    """Sets with no end_time on Friday should get 25:00 (1 AM curfew)."""
+    from app.core.llm_parser import _apply_curfew_defaults
+    days = [{"day_index": 1, "label": "Friday"}]
+    entries = [{"artist_name": "A", "end_time": None, "day_index": 1}]
+    result = _apply_curfew_defaults(entries, days)
+    assert result[0]["end_time"] == "25:00"
+
+
+def test_curfew_defaults_fills_missing_end_time_sunday():
+    """Sets with no end_time on Sunday should get 24:00 (midnight curfew)."""
+    from app.core.llm_parser import _apply_curfew_defaults
+    days = [{"day_index": 3, "label": "Sunday"}]
+    entries = [{"artist_name": "B", "end_time": None, "day_index": 3}]
+    result = _apply_curfew_defaults(entries, days)
+    assert result[0]["end_time"] == "24:00"
+
+
+def test_curfew_defaults_does_not_override_existing_end_time():
+    """Sets that already have an end_time must not be changed."""
+    from app.core.llm_parser import _apply_curfew_defaults
+    days = [{"day_index": 1, "label": "Friday"}]
+    entries = [{"artist_name": "C", "end_time": "23:30", "day_index": 1}]
+    result = _apply_curfew_defaults(entries, days)
+    assert result[0]["end_time"] == "23:30"
+
+
+def test_curfew_defaults_saturday_uses_1am():
+    """Saturday should use the 1 AM curfew, same as Friday."""
+    from app.core.llm_parser import _apply_curfew_defaults
+    days = [{"day_index": 2, "label": "Saturday"}]
+    entries = [{"artist_name": "D", "end_time": "", "day_index": 2}]
+    result = _apply_curfew_defaults(entries, days)
+    assert result[0]["end_time"] == "25:00"

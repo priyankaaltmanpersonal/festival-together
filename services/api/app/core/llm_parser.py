@@ -46,6 +46,30 @@ def normalize_stage(name: str) -> str:
     return _STAGE_ALIASES.get(stripped.lower(), stripped)
 
 
+def _curfew_for_day(day_label: str) -> str:
+    """Return the noise-ordinance curfew end time for a given day label.
+
+    Coachella noise ordinances:
+    - Sunday: all music must end by midnight → "24:00" (extended format)
+    - Friday / Saturday: music ends by 1:00 AM → "25:00" (extended format)
+    """
+    if "sunday" in day_label.lower():
+        return "24:00"
+    return "25:00"
+
+
+def _apply_curfew_defaults(results: list[dict], festival_days: list[dict]) -> list[dict]:
+    """Fill in missing end_times using the noise-ordinance curfew for each day."""
+    day_label_by_index: dict[int, str] = {
+        d["day_index"]: d.get("label", "") for d in festival_days
+    }
+    for entry in results:
+        if not entry.get("end_time"):
+            label = day_label_by_index.get(entry.get("day_index", -1), "")
+            entry["end_time"] = _curfew_for_day(label)
+    return results
+
+
 _VISION_PROMPT = """\
 You are extracting a user's personally selected festival performances from a mobile app screenshot.
 
@@ -251,6 +275,7 @@ def parse_schedule_from_image(
             "day_index": day_index,
         })
 
+    results = _apply_curfew_defaults(results, festival_days)
     logger.info(f"parse_schedule_from_image returned {len(results)} sets")
     return results
 
@@ -346,5 +371,6 @@ def parse_official_lineup_from_image(
             "day_index": day_index,
         })
 
+    results = _apply_curfew_defaults(results, festival_days)
     logger.info(f"parse_official_lineup_from_image returned {len(results)} sets")
     return results
