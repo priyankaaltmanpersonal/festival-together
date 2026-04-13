@@ -115,6 +115,8 @@ export default function App() {
   const [uploadDayIndex, setUploadDayIndex] = useState(1);
   // { [dayIndex]: { status: 'idle'|'uploading'|'done'|'failed', sets: [], retryCount: 0, imageUris: null } }
   const [dayStates, setDayStates] = useState({});
+  const [onboardingLineupState, setOnboardingLineupState] = useState('idle'); // 'idle' | 'uploading' | 'done' | 'error'
+  const [onboardingLineupResult, setOnboardingLineupResult] = useState(null); // { sets_created, days_processed } | null
   const [editInitialDay, setEditInitialDay] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -180,6 +182,8 @@ export default function App() {
             : val;
         }
         setDayStates(sanitizedDayStates);
+        setOnboardingLineupState(storedState.onboardingLineupState || 'idle');
+        setOnboardingLineupResult(storedState.onboardingLineupResult || null);
       })
       .finally(() => {
         if (alive) {
@@ -250,6 +254,8 @@ export default function App() {
       lastSyncAt,
       uploadDayIndex,
       dayStates,
+      onboardingLineupState,
+      onboardingLineupResult,
     }).catch((err) => {
       console.warn('saveAppState failed:', err);
     });
@@ -278,6 +284,8 @@ export default function App() {
     lastSyncAt,
     uploadDayIndex,
     dayStates,
+    onboardingLineupState,
+    onboardingLineupResult,
   ]);
 
   useEffect(() => {
@@ -824,7 +832,11 @@ export default function App() {
       setFestivalDays((homePayload.festival_days || []).map((d) => ({ dayIndex: d.day_index, label: d.label })));
       setUploadDayIndex((homePayload.festival_days || [{ day_index: 1 }])[0].day_index);
       setDayStates({});
-      setOnboardingStep('upload_all_days');
+      if (homePayload.group?.has_official_lineup) {
+        setOnboardingStep('member_lineup_intro');
+      } else {
+        setOnboardingStep('upload_all_days');
+      }
     });
 
   const completeFestivalSetup = () =>
@@ -849,7 +861,7 @@ export default function App() {
       setLastSyncAt(new Date().toISOString());
       setDayStates({});
       setUploadDayIndex(festivalDays[0]?.dayIndex ?? 1);
-      setOnboardingStep('upload_all_days');
+      setOnboardingStep('upload_official_schedule');
     });
 
   const importPersonal = () =>
@@ -1200,6 +1212,73 @@ export default function App() {
     }
   };
 
+  const importOfficialScheduleDuringOnboarding = async () => {
+    try {
+      const uris = await pickImages(3);
+      if (!uris) return;
+      setOnboardingLineupState('uploading');
+      const result = await uploadImages(
+        apiUrl,
+        `/v1/groups/${groupId}/lineup/import`,
+        memberSession,
+        uris,
+      );
+      if (!result.sets_created && (!result.days_processed || result.days_processed.length === 0)) {
+        setOnboardingLineupState('error');
+        setError('No sets could be imported. Try uploading clearer images.');
+        return;
+      }
+      setOnboardingLineupResult(result);
+      setOnboardingLineupState('done');
+      const homePayload = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/home',
+        method: 'GET',
+        sessionToken: memberSession,
+      });
+      setHomeSnapshot(homePayload);
+    } catch (err) {
+      setOnboardingLineupState('error');
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const proceedToPersonalSchedule = () => {
+    setOnboardingLineupState('idle');
+    setOnboardingStep('upload_all_days');
+  };
+
+  const skipMemberLineupIntro = () => {
+    setOnboardingStep('upload_all_days');
+  };
+
+  const handleOnboardingBack = () => {
+    if (onboardingStep === 'upload_all_days') {
+      const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
+      if (currentIdx > 0) {
+        setUploadDayIndex(festivalDays[currentIdx - 1].dayIndex);
+      } else if (userRole === 'founder') {
+        setOnboardingStep('upload_official_schedule');
+      } else {
+        setOnboardingStep('member_lineup_intro');
+      }
+    } else if (onboardingStep === 'review_days') {
+      setUploadDayIndex(festivalDays[festivalDays.length - 1]?.dayIndex ?? 1);
+      setOnboardingStep('upload_all_days');
+    }
+  };
+
+  const handleStartOver = () => {
+    Alert.alert(
+      'Start Over?',
+      'This will delete your group and restart onboarding. You need an internet connection to do this.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Start Over', style: 'destructive', onPress: resetFlow },
+      ],
+    );
+  };
+
   const deleteOfficialLineup = async () => {
     try {
       await apiRequest({
@@ -1261,6 +1340,26 @@ export default function App() {
   };
 
   const resetFlow = async () => {
+    if (memberSession) {
+      if (!isOnline) {
+        Alert.alert(
+          'You\'re Offline',
+          'Connect to the internet to fully reset the app. This ensures your data is deleted from the server.',
+        );
+        return;
+      }
+      try {
+        await apiRequest({
+          baseUrl: apiUrl,
+          path: '/v1/members/me',
+          method: 'DELETE',
+          sessionToken: memberSession,
+          body: { confirm: true },
+        });
+      } catch (_err) {
+        // Backend deletion failed — proceed with local reset anyway.
+      }
+    }
     await clearSessionData(true);
     setUserRole('member');
     setDisplayName('');
@@ -1275,6 +1374,8 @@ export default function App() {
     setFestivalDays([{ dayIndex: 1, label: '' }]);
     setUploadDayIndex(1);
     setDayStates({});
+    setOnboardingLineupState('idle');
+    setOnboardingLineupResult(null);
     setError('');
     setLog(['Reset: onboarding restarted']);
   };
@@ -1336,6 +1437,7 @@ export default function App() {
     () =>
       onboardingStep === 'review_days' &&
       festivalDays.length > 0 &&
+      festivalDays.some((day) => (dayStates[day.dayIndex] || {}).status === 'done') &&
       festivalDays.every((day) => {
         const state = dayStates[day.dayIndex] || { status: 'idle' };
         return state.status === 'idle' || (state.status === 'done' && state.confirmed);
@@ -1475,6 +1577,14 @@ export default function App() {
           onConfirmDay={confirmDay}
           hasOfficialLineup={Boolean(homeSnapshot?.group?.has_official_lineup)}
           onBrowseFullLineup={finishUploadFlow}
+          onboardingLineupState={onboardingLineupState}
+          onboardingLineupResult={onboardingLineupResult}
+          onImportOfficialSchedule={importOfficialScheduleDuringOnboarding}
+          onSkipOfficialSchedule={proceedToPersonalSchedule}
+          onFinishSetup={finishUploadFlow}
+          onGoBack={handleOnboardingBack}
+          onStartOver={handleStartOver}
+          onSkipMemberLineupIntro={skipMemberLineupIntro}
         />
       ) : null}
 
