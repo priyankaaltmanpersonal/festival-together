@@ -433,7 +433,7 @@ export function GroupScheduleScreen({
                                         { backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || C.attendeeBg }
                                       ]}
                                     >
-                                      <Text style={styles.attendeeText}>{initials(attendee.display_name)}</Text>
+                                      <Text style={styles.attendeeText} numberOfLines={1} adjustsFontSizeToFit>{initials(attendee.display_name)}</Text>
                                     </View>
                                   ))}
                                   {overflowCount > 0 ? (
@@ -552,7 +552,7 @@ function AttendeeRow({ attendee, chipColor, isSelf = false }) {
           { backgroundColor: withAlpha(chipColor || C.attendeeBg, 0.2), borderColor: chipColor || C.attendeeBg }
         ]}
       >
-        <Text style={[styles.modalAvatarText, { color: chipColor || C.attendeeBg }]}>
+        <Text style={[styles.modalAvatarText, { color: chipColor || C.attendeeBg }]} numberOfLines={1} adjustsFontSizeToFit>
           {initials(attendee.display_name)}
         </Text>
       </View>

@@ -91,9 +91,9 @@ export function SetupScreen({
           <ActionButton label="← Back" onPress={() => onChoosePath('welcome')} disabled={loading} />
           <Text style={styles.stepTitle}>Create Group</Text>
           <Text style={styles.inputLabel}>Your name</Text>
-          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" maxLength={60} />
+          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} maxLength={60} />
           <Text style={styles.inputLabel}>Group name</Text>
-          <TextInput value={groupName} onChangeText={setGroupName} style={styles.input} placeholder="Group name" maxLength={100} />
+          <TextInput value={groupName} onChangeText={setGroupName} style={styles.input} maxLength={100} />
           <ColorPicker
             options={chipColorOptions}
             selected={selectedChipColor}
@@ -108,7 +108,7 @@ export function SetupScreen({
           <ActionButton label="← Back" onPress={() => onChoosePath('welcome')} disabled={loading} />
           <Text style={styles.stepTitle}>Join Group</Text>
           <Text style={styles.inputLabel}>Your name</Text>
-          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} placeholder="Your name" maxLength={60} />
+          <TextInput value={displayName} onChangeText={setDisplayName} style={styles.input} maxLength={60} />
           <Text style={styles.inputLabel}>Invite code</Text>
           <TextInput
             value={inviteCodeInput}
@@ -139,7 +139,6 @@ export function SetupScreen({
                 value={day.label}
                 onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
                 style={[styles.input, styles.dayInput]}
-                placeholder={index === 0 ? 'e.g. Friday' : index === 1 ? 'e.g. Saturday' : 'e.g. Sunday'}
                 maxLength={20}
               />
               <Pressable
@@ -248,7 +247,7 @@ export function SetupScreen({
               <View style={{ gap: 6 }}>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   <ActivityIndicator color={C.primary} size="small" />
-                  <Text style={styles.helper}>Importing lineup… this may take 1–2 minutes. Please keep the app open.</Text>
+                  <Text style={[styles.helper, { flex: 1 }]}>Importing lineup… this may take 1–2 minutes. Please keep the app open.</Text>
                 </View>
               </View>
             ) : onboardingLineupState === 'done' && onboardingLineupResult ? (

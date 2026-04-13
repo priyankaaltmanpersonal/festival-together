@@ -7,6 +7,7 @@ export function EditMyScheduleScreen({
   personalSets,
   festivalDays,
   onReUploadDay,
+  uploadingDayIndex,
   onSetPreference,
   onDeleteSet,
   onAddSet,
@@ -17,19 +18,21 @@ export function EditMyScheduleScreen({
   const styles = useMemo(() => makeStyles(C), [C]);
   const scrollViewRef = useRef(null);
 
-  // Build dayStates from personalSets so DayTabReview can render them
+  // Build dayStates from personalSets so DayTabReview can render them.
+  // If a day is currently being uploaded, override its status to 'uploading'.
   const dayStates = useMemo(() => {
     const result = {};
     for (const day of (festivalDays || [])) {
+      const isUploading = uploadingDayIndex === day.dayIndex;
       result[day.dayIndex] = {
-        status: 'done',
+        status: isUploading ? 'uploading' : 'done',
         sets: (personalSets || []).filter((s) => s.day_index === day.dayIndex),
         retryCount: 0,
         imageUris: null,
       };
     }
     return result;
-  }, [festivalDays, personalSets]);
+  }, [festivalDays, personalSets, uploadingDayIndex]);
 
   return (
     <ScrollView

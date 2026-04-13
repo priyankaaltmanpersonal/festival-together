@@ -118,6 +118,7 @@ export default function App() {
   const [onboardingLineupState, setOnboardingLineupState] = useState('idle'); // 'idle' | 'uploading' | 'done' | 'error'
   const [onboardingLineupResult, setOnboardingLineupResult] = useState(null); // { sets_created, days_processed } | null
   const [editInitialDay, setEditInitialDay] = useState(null);
+  const [editUploadingDayIndex, setEditUploadingDayIndex] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
@@ -633,6 +634,40 @@ export default function App() {
 
   const skipPickDay = () => {
     advancePickDay(uploadDayIndex);
+  };
+
+  // Post-onboarding re-upload: does NOT touch onboarding state or advance days.
+  // Updates personalSets on success so EditMyScheduleScreen reflects results.
+  const reUploadDayPostOnboarding = async (dayIndex) => {
+    if (!memberSession || !isOnline) {
+      setError(isOnline ? 'Start onboarding first' : 'Upload requires a connection');
+      return;
+    }
+    let uris;
+    try {
+      uris = await pickImages(5);
+    } catch (e) {
+      setError('Photo library permission denied');
+      return;
+    }
+    if (!uris || uris.length === 0) return;
+
+    const currentDay = festivalDays.find((d) => d.dayIndex === dayIndex);
+    const dayLabel = currentDay?.label || '';
+
+    setEditUploadingDayIndex(dayIndex);
+    setError('');
+
+    try {
+      const response = await uploadImages(apiUrl, '/v1/members/me/personal/upload', memberSession, uris, null, dayLabel);
+      if (response.sets && response.sets.length > 0) {
+        await refreshPersonal();
+      }
+    } catch (e) {
+      setError(friendlyError(e instanceof Error ? e.message : String(e)));
+    } finally {
+      setEditUploadingDayIndex(null);
+    }
   };
 
   const finishUploadFlow = () => {
@@ -1649,7 +1684,8 @@ export default function App() {
         <EditMyScheduleScreen
           personalSets={personalSets}
           festivalDays={festivalDays}
-          onReUploadDay={chooseAndUploadDayScreenshot}
+          onReUploadDay={reUploadDayPostOnboarding}
+          uploadingDayIndex={editUploadingDayIndex}
           onSetPreference={setPreference}
           onDeleteSet={deletePersonalSet}
           onAddSet={addPersonalSet}
