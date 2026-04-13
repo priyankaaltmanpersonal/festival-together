@@ -668,7 +668,7 @@ export default function App() {
     try {
       const response = await uploadImages(apiUrl, '/v1/members/me/personal/upload', memberSession, uris, null, dayLabel);
       if (response.sets && response.sets.length > 0) {
-        await refreshPersonal();
+        await Promise.all([refreshPersonal(), refreshCoreSnapshots()]);
       }
     } catch (e) {
       setError(friendlyError(e instanceof Error ? e.message : String(e)));
@@ -1110,6 +1110,36 @@ export default function App() {
   };
 
   const addSetFromGrid = async (setItem) => {
+    const myId = homeSnapshot?.me?.id;
+    const previousScheduleSnapshot = scheduleSnapshot;
+
+    // Optimistic: immediately add ourselves to this set's attendee list so the
+    // grid updates without waiting for the round-trip refresh.
+    if (myId) {
+      setScheduleSnapshot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          sets: (prev.sets || []).map((s) => {
+            if (s.id !== setItem.id) return s;
+            const alreadyIn = (s.attendees || []).some((a) => a.member_id === myId);
+            if (alreadyIn) return s;
+            const newAttendee = {
+              member_id: myId,
+              preference: 'flexible',
+              display_name: homeSnapshot.me.display_name || '',
+              chip_color: homeSnapshot.me.chip_color || null,
+            };
+            return {
+              ...s,
+              attendees: [...(s.attendees || []), newAttendee],
+              attendee_count: (s.attendee_count || 0) + 1,
+            };
+          }),
+        };
+      });
+    }
+
     try {
       await addPersonalSet({
         artist_name: setItem.artist_name,
@@ -1118,8 +1148,12 @@ export default function App() {
         end_time_pt: setItem.end_time_pt,
         day_index: setItem.day_index,
       });
-      await refreshCoreSnapshots();
+      // Refresh in the background — don't block so +Must See can chain immediately
+      refreshCoreSnapshots().catch(() => {});
     } catch (err) {
+      if (myId && previousScheduleSnapshot) {
+        setScheduleSnapshot(previousScheduleSnapshot);
+      }
       setError(friendlyError(err instanceof Error ? err.message : String(err)));
       throw err;
     }

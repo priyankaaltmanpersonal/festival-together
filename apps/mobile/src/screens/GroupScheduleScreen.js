@@ -468,7 +468,7 @@ export function GroupScheduleScreen({
               <ScrollView showsVerticalScrollIndicator={false}>
                 <Text style={styles.modalTitle}>{expandedSet.artist_name}</Text>
                 <Text style={styles.modalSubtitle}>
-                  {expandedSet.stage_name} • {formatTimeStr(expandedSet.start_time_pt)}–{formatTimeStr(expandedSet.end_time_pt)}
+                  {expandedSet.stage_name} • {formatTimeStr(expandedSet.start_time_pt)}{expandedSet.end_time_pt && expandedSet.end_time_pt !== expandedSet.start_time_pt ? `–${formatTimeStr(expandedSet.end_time_pt)}` : ''}
                 </Text>
 
                 <Text style={styles.modalSectionTitle}>Definitely ({expandedSet.definite.length})</Text>

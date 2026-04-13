@@ -59,12 +59,18 @@ def _curfew_for_day(day_label: str) -> str:
 
 
 def _apply_curfew_defaults(results: list[dict], festival_days: list[dict]) -> list[dict]:
-    """Fill in missing end_times using the noise-ordinance curfew for each day."""
+    """Fill in missing end_times using the noise-ordinance curfew for each day.
+
+    Also replaces end_time when it equals start_time, which the vision model
+    sometimes returns for sets whose end time isn't shown in the screenshot.
+    """
     day_label_by_index: dict[int, str] = {
         d["day_index"]: d.get("label", "") for d in festival_days
     }
     for entry in results:
-        if not entry.get("end_time"):
+        end = entry.get("end_time")
+        start = entry.get("start_time", "")
+        if not end or end == start:
             label = day_label_by_index.get(entry.get("day_index", -1), "")
             entry["end_time"] = _curfew_for_day(label)
     return results

@@ -217,3 +217,12 @@ def test_curfew_defaults_saturday_uses_1am():
     entries = [{"artist_name": "D", "end_time": "", "day_index": 2}]
     result = _apply_curfew_defaults(entries, days)
     assert result[0]["end_time"] == "25:00"
+
+
+def test_curfew_defaults_overrides_when_end_equals_start():
+    """When the model returns end_time == start_time, treat it as missing and apply curfew."""
+    from app.core.llm_parser import _apply_curfew_defaults
+    days = [{"day_index": 2, "label": "Saturday"}]
+    entries = [{"artist_name": "Headliner", "start_time": "23:25", "end_time": "23:25", "day_index": 2}]
+    result = _apply_curfew_defaults(entries, days)
+    assert result[0]["end_time"] == "25:00"
