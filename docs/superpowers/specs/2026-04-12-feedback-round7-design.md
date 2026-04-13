@@ -2,7 +2,7 @@
 
 ## Overview
 
-Six independent improvements:
+Seven independent improvements:
 
 1. **Festival Days helper text** — add example day names
 2. **Founder onboarding: Upload Official Schedule step** — let founders import the full lineup during setup, instead of discovering the option only in Founder Tools post-onboarding
@@ -10,6 +10,7 @@ Six independent improvements:
 4. **Back navigation on every onboarding step** — every step after `welcome` has a back button with correct target
 5. **Full reset on "Reset App"** — require online connection and delete backend data before clearing local state
 6. **Fix skip-day spinner** — don't auto-fire `finishUploadFlow` when all days are idle (no personal screenshots were uploaded)
+7. **Founder Tools: partial upload failure display** — show which days succeeded and which failed so founders don't re-upload everything
 
 ---
 
@@ -474,3 +475,77 @@ welcome
 ### New tests (App.js integration — `resetFlow`)
 
 - These are harder to unit test in Jest (due to API mocking complexity). Add a code comment noting the behavior and test manually.
+
+### New tests (FounderToolsScreen.test.js — partial failure)
+
+- Renders success text with no warning when all festival days are in `lineupImportResult.days_processed`
+- Renders amber warning listing missing days when some festival days are absent from `days_processed`
+- Does not render a warning when `lineupImportResult` is null
+
+---
+
+## 7. Founder Tools: Partial Upload Failure Display
+
+### Problem
+
+`FounderToolsScreen` currently shows `lineupImportResult.sets_created` and `lineupImportResult.days_processed` in a success box after upload. It has no concept of partial failure — if Saturday failed to parse but Friday and Sunday succeeded, the founder only sees "✓ N sets imported across Friday, Sunday" with no indication that Saturday is missing. They'd have to remember which days they uploaded and notice the gap themselves.
+
+### Solution
+
+Apply the same partial failure logic as the onboarding `upload_official_schedule` step:
+
+1. Pass `festivalDays` as a new prop to `FounderToolsScreen`
+2. After a `done` upload, compute `missingDays = festivalDays.map(d => d.label).filter(label => !(days_processed || []).includes(label))`
+3. If `missingDays.length > 0`, render an amber warning below the success box: "Couldn't read: {missingDays.join(', ')}. Re-upload just those images to add the missing days."
+
+### Changes
+
+**`FounderToolsScreen.js`** — add `festivalDays` prop and partial-failure warning:
+
+```jsx
+// New prop: festivalDays = [{ dayIndex, label }]
+// Compute inside the component:
+const missingDays = useMemo(() => {
+  if (!lineupImportResult?.days_processed) return [];
+  return (festivalDays || [])
+    .map((d) => d.label)
+    .filter((label) => !lineupImportResult.days_processed.includes(label));
+}, [festivalDays, lineupImportResult]);
+```
+
+In the `done` block, after the existing `successBox`, add:
+
+```jsx
+{missingDays.length > 0 ? (
+  <View style={styles.warningBox}>
+    <Text style={styles.warningText}>
+      Couldn't read: {missingDays.join(', ')}. Re-upload just those images to add the missing days.
+    </Text>
+  </View>
+) : null}
+```
+
+New styles:
+```js
+warningBox: {
+  backgroundColor: C.warningBg || '#fffbeb',
+  borderRadius: 8,
+  padding: 10,
+  borderWidth: 1,
+  borderColor: C.warningBorder || '#fcd34d',
+},
+warningText: { color: C.warning || '#92400e', fontWeight: '600', fontSize: 13 },
+```
+
+**`App.js`** — pass `festivalDays` to `FounderToolsScreen`:
+
+```jsx
+<FounderToolsScreen
+  ...
+  festivalDays={festivalDays}
+/>
+```
+
+### Existing stats box (idle state with lineup already imported)
+
+The `officialLineupStats` box also shows `days` — e.g. "✓ 163 sets across Friday, Saturday, Sunday". No change needed here since it reflects what's actually in the database, not the result of a specific upload attempt. If a day was never imported, it simply won't appear.
