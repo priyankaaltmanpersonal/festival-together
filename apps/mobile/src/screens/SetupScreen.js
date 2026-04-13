@@ -112,7 +112,7 @@ export function SetupScreen({
           <Text style={styles.inputLabel}>Invite code</Text>
           <TextInput
             value={inviteCodeInput}
-            onChangeText={setInviteCodeInput}
+            onChangeText={(t) => setInviteCodeInput(t.trim())}
             style={styles.input}
             autoCapitalize="characters"
             placeholder="Invite code"

@@ -480,7 +480,7 @@ export default function App() {
   };
 
   const setFestivalDayLabel = (dayIndex, text) => {
-    setFestivalDays((prev) => prev.map((d) => d.dayIndex === dayIndex ? { ...d, label: text } : d));
+    setFestivalDays((prev) => prev.map((d) => d.dayIndex === dayIndex ? { ...d, label: text.trim() } : d));
   };
 
   const addFestivalDay = () => {

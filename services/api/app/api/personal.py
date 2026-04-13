@@ -351,7 +351,7 @@ def upload_personal_images(
     # Fetch official canonical sets for this day to use as parsing hints
     effective_day_index = next(
         (d["day_index"] for d in festival_days
-         if d.get("label", "").upper() == effective_day_label.upper()),
+         if d.get("label", "").strip().upper() == effective_day_label.strip().upper()),
         festival_days[0]["day_index"] if festival_days else 1,
     )
     with get_conn() as conn:
