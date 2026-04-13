@@ -166,6 +166,14 @@ export function SetupScreen({
 
         return (
           <View style={styles.stepCard}>
+            {(() => {
+              const isDay1 = dayPosition === 1;
+              const founderOrMemberWithLineup = userRole === 'founder' || hasOfficialLineup;
+              if (!isDay1 || founderOrMemberWithLineup) {
+                return <ActionButton label="← Back" onPress={onGoBack} disabled={loading} />;
+              }
+              return <StartOverLink onPress={onStartOver} styles={styles} />;
+            })()}
             <Text style={styles.stepTitle}>Upload {truncatedLabel} schedule</Text>
             <Text style={styles.helper}>Day {dayPosition} of {totalDays}</Text>
             {dayState.status === 'uploading' ? (
@@ -284,6 +292,7 @@ export function SetupScreen({
                 />
               </>
             )}
+            <StartOverLink onPress={onStartOver} styles={styles} />
           </View>
         );
       })() : null}
@@ -297,11 +306,13 @@ export function SetupScreen({
           <ActionButton label="Go to Group Schedule →" onPress={onFinishSetup} primary disabled={loading} />
           <ActionButton label="Upload my own screenshots →" onPress={onSkipMemberLineupIntro} disabled={loading} />
           <Text style={styles.helper}>You can always upload screenshots later from the My Schedule tab.</Text>
+          <StartOverLink onPress={onStartOver} styles={styles} />
         </View>
       ) : null}
 
       {onboardingStep === 'review_days' ? (
         <View style={styles.stepCard}>
+          <ActionButton label="← Back" onPress={onGoBack} disabled={loading} />
           <Text style={styles.stepTitle}>Review Your Schedule</Text>
           <Text style={styles.helper}>Check each day and fix any mistakes.</Text>
           <DayTabReview
@@ -320,11 +331,19 @@ export function SetupScreen({
       ) : null}
 
       {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
-      {error && onboardingStep !== 'upload_all_days' ? <Text style={styles.error}>{error}</Text> : null}
+      {error && onboardingStep !== 'upload_all_days' && onboardingStep !== 'upload_official_schedule' ? <Text style={styles.error}>{error}</Text> : null}
     </ScrollView>
   );
 }
 
+
+function StartOverLink({ onPress, styles }) {
+  return (
+    <Pressable onPress={onPress} style={styles.startOverLink}>
+      <Text style={styles.startOverText}>Start over</Text>
+    </Pressable>
+  );
+}
 
 function ActionButton({ label, onPress, primary = false, disabled = false, large = false }) {
   const C = useTheme();
@@ -499,6 +518,8 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: '#fcd34d',
   },
   warningText: { color: '#92400e', fontWeight: '600', fontSize: 13 },
+  startOverLink: { alignItems: 'center', paddingTop: 4 },
+  startOverText: { color: C.textMuted, fontSize: 12, textDecorationLine: 'underline' },
   orDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 2 },
   orLine: { flex: 1, height: 1, backgroundColor: C.cardBorder },
   orText: { color: C.textMuted, fontSize: 12, fontWeight: '600' },

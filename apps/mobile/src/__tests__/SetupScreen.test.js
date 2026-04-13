@@ -273,3 +273,107 @@ describe('SetupScreen — member_lineup_intro step', () => {
     expect(onSkipMemberLineupIntro).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SetupScreen — back navigation', () => {
+  it('upload_official_schedule shows "Start over" link, calls onStartOver', () => {
+    const onStartOver = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ onboardingStep: 'upload_official_schedule', onStartOver })} />
+    );
+    expect(getByText('Start over')).toBeTruthy();
+    fireEvent.press(getByText('Start over'));
+    expect(onStartOver).toHaveBeenCalledTimes(1);
+  });
+
+  it('member_lineup_intro shows "Start over" link, calls onStartOver', () => {
+    const onStartOver = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ onboardingStep: 'member_lineup_intro', onStartOver })} />
+    );
+    expect(getByText('Start over')).toBeTruthy();
+    fireEvent.press(getByText('Start over'));
+    expect(onStartOver).toHaveBeenCalledTimes(1);
+  });
+
+  it('upload_all_days day 1 (founder) shows ← Back, calls onGoBack', () => {
+    const onGoBack = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeProps({
+          onboardingStep: 'upload_all_days',
+          userRole: 'founder',
+          uploadDayIndex: 1,
+          festivalDays: [{ dayIndex: 1, label: 'Friday' }],
+          onGoBack,
+          hasOfficialLineup: false,
+        })}
+      />
+    );
+    fireEvent.press(getByText('← Back'));
+    expect(onGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('upload_all_days day 1 (member with lineup) shows ← Back, calls onGoBack', () => {
+    const onGoBack = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeProps({
+          onboardingStep: 'upload_all_days',
+          userRole: 'member',
+          uploadDayIndex: 1,
+          festivalDays: [{ dayIndex: 1, label: 'Friday' }],
+          onGoBack,
+          hasOfficialLineup: true,
+        })}
+      />
+    );
+    fireEvent.press(getByText('← Back'));
+    expect(onGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('upload_all_days day 1 (member without lineup) shows "Start over" link, calls onStartOver', () => {
+    const onStartOver = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeProps({
+          onboardingStep: 'upload_all_days',
+          userRole: 'member',
+          uploadDayIndex: 1,
+          festivalDays: [{ dayIndex: 1, label: 'Friday' }],
+          onStartOver,
+          hasOfficialLineup: false,
+        })}
+      />
+    );
+    expect(getByText('Start over')).toBeTruthy();
+    fireEvent.press(getByText('Start over'));
+    expect(onStartOver).toHaveBeenCalledTimes(1);
+  });
+
+  it('upload_all_days day 2 shows ← Back regardless of role, calls onGoBack', () => {
+    const onGoBack = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeProps({
+          onboardingStep: 'upload_all_days',
+          userRole: 'member',
+          uploadDayIndex: 2,
+          festivalDays: [{ dayIndex: 1, label: 'Friday' }, { dayIndex: 2, label: 'Saturday' }],
+          onGoBack,
+          hasOfficialLineup: false,
+        })}
+      />
+    );
+    fireEvent.press(getByText('← Back'));
+    expect(onGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('review_days shows ← Back, calls onGoBack', () => {
+    const onGoBack = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ onboardingStep: 'review_days', onGoBack })} />
+    );
+    fireEvent.press(getByText('← Back'));
+    expect(onGoBack).toHaveBeenCalledTimes(1);
+  });
+});
