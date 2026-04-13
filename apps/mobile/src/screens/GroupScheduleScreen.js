@@ -410,7 +410,7 @@ export function GroupScheduleScreen({
                         const scaleAnim = cardAnimRef.current.get(setItem.id);
 
                         return (
-                          <Animated.View key={setItem.id} style={[styles.setCardWrap, { top, height, transform: [{ scale: scaleAnim }] }]}>
+                          <Animated.View key={setItem.id} style={[styles.setCardWrap, { top, height }, scaleAnim ? { transform: [{ scale: scaleAnim }] } : null]}>
                             <Pressable
                               onPress={() => handleCardPress(setItem)}
                               style={[
