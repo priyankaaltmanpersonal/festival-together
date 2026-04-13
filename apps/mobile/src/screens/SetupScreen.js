@@ -288,6 +288,18 @@ export function SetupScreen({
         );
       })() : null}
 
+      {onboardingStep === 'member_lineup_intro' ? (
+        <View style={styles.stepCard}>
+          <Text style={styles.stepTitle}>Schedule is Ready</Text>
+          <Text style={styles.helper}>
+            The official lineup has been imported — you can browse every artist and tap to add them to your picks right from the group grid.
+          </Text>
+          <ActionButton label="Go to Group Schedule →" onPress={onFinishSetup} primary disabled={loading} />
+          <ActionButton label="Upload my own screenshots →" onPress={onSkipMemberLineupIntro} disabled={loading} />
+          <Text style={styles.helper}>You can always upload screenshots later from the My Schedule tab.</Text>
+        </View>
+      ) : null}
+
       {onboardingStep === 'review_days' ? (
         <View style={styles.stepCard}>
           <Text style={styles.stepTitle}>Review Your Schedule</Text>

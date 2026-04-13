@@ -238,3 +238,38 @@ describe('SetupScreen — upload_official_schedule step', () => {
     expect(onSkipOfficialSchedule).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SetupScreen — member_lineup_intro step', () => {
+  function makeIntroProps(overrides = {}) {
+    return makeProps({ onboardingStep: 'member_lineup_intro', ...overrides });
+  }
+
+  it('renders Schedule is Ready title', () => {
+    const { getByText } = render(<SetupScreen {...makeIntroProps()} />);
+    expect(getByText('Schedule is Ready')).toBeTruthy();
+  });
+
+  it('renders Go to Group Schedule as primary button', () => {
+    const { getByText } = render(<SetupScreen {...makeIntroProps()} />);
+    expect(getByText('Go to Group Schedule →')).toBeTruthy();
+  });
+
+  it('renders Upload my own screenshots as secondary button', () => {
+    const { getByText } = render(<SetupScreen {...makeIntroProps()} />);
+    expect(getByText('Upload my own screenshots →')).toBeTruthy();
+  });
+
+  it('calls onFinishSetup when primary button pressed', () => {
+    const onFinishSetup = jest.fn();
+    const { getByText } = render(<SetupScreen {...makeIntroProps({ onFinishSetup })} />);
+    fireEvent.press(getByText('Go to Group Schedule →'));
+    expect(onFinishSetup).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onSkipMemberLineupIntro when secondary button pressed', () => {
+    const onSkipMemberLineupIntro = jest.fn();
+    const { getByText } = render(<SetupScreen {...makeIntroProps({ onSkipMemberLineupIntro })} />);
+    fireEvent.press(getByText('Upload my own screenshots →'));
+    expect(onSkipMemberLineupIntro).toHaveBeenCalledTimes(1);
+  });
+});
