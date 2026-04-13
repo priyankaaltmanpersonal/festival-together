@@ -120,7 +120,7 @@ export function SetupScreen({
         <View style={styles.stepCard}>
           <ActionButton label="← Back" onPress={() => onChoosePath('founder')} disabled={loading} />
           <Text style={styles.stepTitle}>Festival Days</Text>
-          <Text style={styles.helper}>Add each day of the festival you're attending.</Text>
+          <Text style={styles.helper}>Add each day of the festival you're attending (e.g. "Friday", "Saturday", "Sunday").</Text>
           {(festivalDays || []).map((day, index) => (
             <View key={day.dayIndex} style={styles.dayRow}>
               <Text style={styles.dayIndexLabel}>Day {index + 1}</Text>

@@ -109,3 +109,12 @@ describe('SetupScreen — upload_all_days step', () => {
     expect(onSkipDay).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('SetupScreen — festival_setup step', () => {
+  it('helper text includes example day names', () => {
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ onboardingStep: 'festival_setup' })} />
+    );
+    expect(getByText(/e\.g\. "Friday", "Saturday", "Sunday"/)).toBeTruthy();
+  });
+});
