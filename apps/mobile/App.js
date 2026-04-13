@@ -718,9 +718,8 @@ export default function App() {
           });
         }
 
-        // Background sync — don't await so nothing here can block the grid update
+        // Sync personalSets in background (Edit My Schedule view)
         refreshPersonal();
-        refreshCoreSnapshots().catch(() => {});
       }
     } catch (e) {
       setError(friendlyError(e instanceof Error ? e.message : String(e)));
