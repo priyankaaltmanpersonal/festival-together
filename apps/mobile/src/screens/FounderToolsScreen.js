@@ -13,9 +13,17 @@ export function FounderToolsScreen({
   lineupImportState = 'idle',
   lineupImportResult = null,
   officialLineupStats = null,
+  festivalDays = [],
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
+
+  const missingDays = useMemo(() => {
+    if (!lineupImportResult?.days_processed) return [];
+    return (festivalDays || [])
+      .map((d) => d.label)
+      .filter((label) => !lineupImportResult.days_processed.includes(label));
+  }, [festivalDays, lineupImportResult]);
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
@@ -47,14 +55,23 @@ export function FounderToolsScreen({
             <Text style={[styles.helper, { flex: 1 }]}>Parsing lineup… this may take 1–2 minutes. Please keep the app open.</Text>
           </View>
         ) : lineupImportState === 'done' && lineupImportResult ? (
-          <View style={styles.successBox}>
-            <Text style={styles.successText}>
-              ✓ {lineupImportResult.sets_created} sets imported
-              {lineupImportResult.days_processed?.length
-                ? ` across ${lineupImportResult.days_processed.join(', ')}`
-                : ''}
-            </Text>
-          </View>
+          <>
+            <View style={styles.successBox}>
+              <Text style={styles.successText}>
+                ✓ {lineupImportResult.sets_created} sets imported
+                {lineupImportResult.days_processed?.length
+                  ? ` across ${lineupImportResult.days_processed.join(', ')}`
+                  : ''}
+              </Text>
+            </View>
+            {missingDays.length > 0 ? (
+              <View style={styles.warningBox}>
+                <Text style={styles.warningText}>
+                  Couldn't read: {missingDays.join(', ')}. Re-upload just those images to add the missing days.
+                </Text>
+              </View>
+            ) : null}
+          </>
         ) : lineupImportState === 'idle' && officialLineupStats?.set_count > 0 ? (
           <View style={styles.statsBox}>
             <Text style={styles.statsText}>
@@ -120,6 +137,14 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: C.successBorder || '#86efac',
   },
   successText: { color: C.success || '#16a34a', fontWeight: '700', fontSize: 13 },
+  warningBox: {
+    backgroundColor: '#fffbeb',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+  },
+  warningText: { color: '#92400e', fontWeight: '600', fontSize: 13 },
   statsBox: {
     borderRadius: 8,
     padding: 10,

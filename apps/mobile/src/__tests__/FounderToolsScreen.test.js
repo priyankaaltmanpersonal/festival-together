@@ -238,3 +238,51 @@ describe('FounderToolsScreen — persistent lineup stats', () => {
     expect(queryByText('Delete All Official Sets')).toBeNull();
   });
 });
+
+describe('FounderToolsScreen — partial failure warning', () => {
+  const FESTIVAL_DAYS = [
+    { dayIndex: 1, label: 'Friday' },
+    { dayIndex: 2, label: 'Saturday' },
+    { dayIndex: 3, label: 'Sunday' },
+  ];
+
+  it('shows no warning when all festival days are in days_processed', () => {
+    const { queryByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          festivalDays: FESTIVAL_DAYS,
+          lineupImportState: 'done',
+          lineupImportResult: { sets_created: 80, days_processed: ['Friday', 'Saturday', 'Sunday'] },
+        })}
+      />
+    );
+    expect(queryByText(/Couldn't read/)).toBeNull();
+  });
+
+  it('shows amber warning listing missing days when some days absent from days_processed', () => {
+    const { getByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          festivalDays: FESTIVAL_DAYS,
+          lineupImportState: 'done',
+          lineupImportResult: { sets_created: 50, days_processed: ['Friday'] },
+        })}
+      />
+    );
+    expect(getByText(/Couldn't read: Saturday, Sunday/)).toBeTruthy();
+    expect(getByText(/Re-upload just those images/)).toBeTruthy();
+  });
+
+  it('shows no warning when lineupImportResult is null', () => {
+    const { queryByText } = render(
+      <FounderToolsScreen
+        {...makeProps({
+          festivalDays: FESTIVAL_DAYS,
+          lineupImportState: 'idle',
+          lineupImportResult: null,
+        })}
+      />
+    );
+    expect(queryByText(/Couldn't read/)).toBeNull();
+  });
+});

@@ -1522,6 +1522,7 @@ export default function App() {
                 }
               : null
           }
+          festivalDays={festivalDays}
         />
       ) : null}
 
