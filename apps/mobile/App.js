@@ -150,14 +150,21 @@ export default function App() {
     loadAppState()
       .then((storedState) => {
         if (!alive || !storedState) return;
-        setActiveView(storedState.activeView || 'onboarding');
+        // If the user has a session and the server confirmed setup complete,
+        // always restore to 'complete' regardless of what's in AsyncStorage.
+        // This prevents mid-onboarding steps (e.g. 'review_days') from being
+        // persisted and trapping users with no nav bar after a bug or crash.
+        const hasSession = Boolean(storedState.memberSession);
+        const setupComplete = storedState.homeSnapshot?.me?.setup_status === 'complete';
+        const forcedComplete = hasSession && setupComplete;
+        setActiveView(forcedComplete && storedState.activeView === 'onboarding' ? 'group' : (storedState.activeView || 'onboarding'));
         setMoreSheetOpen(false);
         setUserRole(storedState.userRole || 'member');
         setDisplayName(storedState.displayName || '');
         setGroupName(storedState.groupName || '');
         setInviteCodeInput(storedState.inviteCodeInput || '');
         setScreenshotCount(storedState.screenshotCount || '3');
-        setOnboardingStep(storedState.onboardingStep || 'welcome');
+        setOnboardingStep(forcedComplete ? 'complete' : (storedState.onboardingStep || 'welcome'));
         setSelectedChipColor(storedState.selectedChipColor || CHIP_COLOR_OPTIONS[0]);
         setAvailableJoinColors(storedState.availableJoinColors || []);
         setMemberSession(storedState.memberSession || '');
