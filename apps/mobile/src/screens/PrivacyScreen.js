@@ -13,7 +13,7 @@ export function PrivacyScreen({ onAccept }) {
 
         <Text style={styles.row}>
           <Text style={styles.label}>What we collect: </Text>
-          <Text style={styles.body}>Your display name, color, and festival schedule screenshots. Screenshots are sent to Google Cloud Vision for text extraction and are not stored.</Text>
+          <Text style={styles.body}>Your display name, color, and festival schedule screenshots. Screenshots are sent to Claude AI for schedule parsing and are not stored.</Text>
         </Text>
         <Text style={styles.row}>
           <Text style={styles.label}>How we use it: </Text>
@@ -21,7 +21,7 @@ export function PrivacyScreen({ onAccept }) {
         </Text>
         <Text style={styles.row}>
           <Text style={styles.label}>Third-party services: </Text>
-          <Text style={styles.body}>Google Cloud Vision reads text from your screenshots (google.com/policies/privacy). Claude AI interprets the schedule text.</Text>
+          <Text style={styles.body}>Claude AI (Anthropic) reads and interprets your schedule screenshots. See anthropic.com/privacy for their privacy policy.</Text>
         </Text>
         <Text style={styles.row}>
           <Text style={styles.label}>Your rights: </Text>
