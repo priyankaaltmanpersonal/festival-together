@@ -11,7 +11,7 @@ export const STAGE_OPTIONS = [
   'Mojave', 'Sahara', 'Yuma', 'Quasar', 'Do Lab', 'Heineken House',
 ];
 
-function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, officialSets }) {
+function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, officialSets, festivalDays }) {
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
   const [stageOpen, setStageOpen] = useState(false);
@@ -23,17 +23,24 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
   const [formError, setFormError] = useState('');
   const [suggestionsHidden, setSuggestionsHidden] = useState(false);
   const [lastPickedName, setLastPickedName] = useState('');
+  // When festivalDays is provided (top-level form), manage day selection internally
+  const [internalDayIndex, setInternalDayIndex] = useState(
+    festivalDays ? (festivalDays[0]?.dayIndex ?? 1) : null
+  );
+  const [dayPickerOpen, setDayPickerOpen] = useState(false);
 
+  const effectiveDayIndex = festivalDays ? internalDayIndex : dayIndex;
   const stages = stageOptions || STAGE_OPTIONS;
 
-  // Autocomplete suggestions from the official schedule for this day
+  // Autocomplete: cross-day when festivalDays provided, single-day otherwise
   const suggestions = useMemo(() => {
     if (!officialSets || !name.trim() || name.trim().length < 2 || suggestionsHidden) return [];
     const q = name.trim().toLowerCase();
-    return officialSets
-      .filter((s) => s.day_index === dayIndex && s.artist_name.toLowerCase().includes(q))
-      .slice(0, 5);
-  }, [officialSets, name, dayIndex, suggestionsHidden]);
+    const pool = festivalDays
+      ? officialSets.filter((s) => s.artist_name.toLowerCase().includes(q))
+      : officialSets.filter((s) => s.day_index === dayIndex && s.artist_name.toLowerCase().includes(q));
+    return pool.slice(0, 5);
+  }, [officialSets, name, dayIndex, suggestionsHidden, festivalDays]);
 
   const handleSelectSuggestion = (s) => {
     setName(s.artist_name);
@@ -41,6 +48,7 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
     setStage(s.stage_name);
     setStageCustom(false);
     setStageOpen(false);
+    if (festivalDays) setInternalDayIndex(s.day_index);
     if (s.start_time_pt) setStartDate(timeStringToDate(s.start_time_pt));
     if (s.end_time_pt) setEndDate(timeStringToDate(s.end_time_pt));
     setSuggestionsHidden(true);
@@ -56,6 +64,10 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
       setFormError('Artist name and stage are required.');
       return;
     }
+    if (festivalDays && !effectiveDayIndex) {
+      setFormError('Please select a day.');
+      return;
+    }
     if (timeToTotalMinutes(startDate) >= timeToTotalMinutes(endDate)) {
       setFormError('End time must be after start time.');
       return;
@@ -68,7 +80,7 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
         stage_name: stage.trim(),
         start_time_pt: formatHHMM(startDate),
         end_time_pt: formatHHMM(endDate),
-        day_index: dayIndex,
+        day_index: effectiveDayIndex,
       });
       onCancel();
     } catch (err) {
@@ -81,6 +93,32 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
   return (
     <View style={styles.addCard}>
       <Text style={styles.addCardLabel}>Add Artist</Text>
+      {festivalDays ? (
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>Day</Text>
+          <Pressable onPress={() => setDayPickerOpen((o) => !o)} style={styles.dropdownTrigger}>
+            <Text style={[styles.dropdownTriggerText, !effectiveDayIndex && styles.dropdownPlaceholder]}>
+              {festivalDays.find((d) => d.dayIndex === effectiveDayIndex)?.label || 'Select day…'}
+            </Text>
+            <Text style={styles.dropdownChevron}>{dayPickerOpen ? '▲' : '▼'}</Text>
+          </Pressable>
+          {dayPickerOpen ? (
+            <View style={styles.dropdownList}>
+              {festivalDays.map((d) => (
+                <Pressable
+                  key={d.dayIndex}
+                  onPress={() => { setInternalDayIndex(d.dayIndex); setDayPickerOpen(false); }}
+                  style={[styles.dropdownOption, effectiveDayIndex === d.dayIndex && styles.dropdownOptionSelected]}
+                >
+                  <Text style={[styles.dropdownOptionText, effectiveDayIndex === d.dayIndex && styles.dropdownOptionSelectedText]}>
+                    {d.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Artist name</Text>
         <TextInput
@@ -101,6 +139,7 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
                 <Text style={styles.suggestionName}>{s.artist_name}</Text>
                 <Text style={styles.suggestionDetail}>
                   {s.stage_name} · {formatTimeStr(s.start_time_pt)}{s.end_time_pt ? `–${formatTimeStr(s.end_time_pt)}` : ''}
+                  {festivalDays ? ` · ${festivalDays.find((d) => d.dayIndex === s.day_index)?.label || ''}` : ''}
                 </Text>
               </Pressable>
             ))}
@@ -233,6 +272,7 @@ export function DayTabReview({
   storageKey,
   officialSets,
   stageOptions,
+  hideAddButton = false,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -329,21 +369,23 @@ export function DayTabReview({
                 <Text style={styles.secondaryBtnText}>Choose New Image</Text>
               </Pressable>
             ) : null}
-            {isAdding ? (
-              <AddArtistForm
-                dayIndex={activeDay}
-                onAdd={(fields) => onAddSet(fields, activeDay)}
-                onCancel={() => setIsAdding(false)}
-                C={C}
-                styles={styles}
-                stageOptions={stageOptions}
-                officialSets={officialSets}
-              />
-            ) : (
-              <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
-                <Text style={styles.secondaryBtnText}>+ Add Manually</Text>
-              </Pressable>
-            )}
+            {!hideAddButton ? (
+              isAdding ? (
+                <AddArtistForm
+                  dayIndex={activeDay}
+                  onAdd={(fields) => onAddSet(fields, activeDay)}
+                  onCancel={() => setIsAdding(false)}
+                  C={C}
+                  styles={styles}
+                  stageOptions={stageOptions}
+                  officialSets={officialSets}
+                />
+              ) : (
+                <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
+                  <Text style={styles.secondaryBtnText}>+ Add Manually</Text>
+                </Pressable>
+              )
+            ) : null}
           </View>
         ) : (
           <>
@@ -367,21 +409,23 @@ export function DayTabReview({
                 stageOptions={stageOptions}
               />
             ))}
-            {isAdding ? (
-              <AddArtistForm
-                dayIndex={activeDay}
-                onAdd={(fields) => onAddSet(fields, activeDay)}
-                onCancel={() => setIsAdding(false)}
-                C={C}
-                styles={styles}
-                stageOptions={stageOptions}
-                officialSets={officialSets}
-              />
-            ) : (
-              <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
-                <Text style={styles.secondaryBtnText}>+ Add Artist</Text>
-              </Pressable>
-            )}
+            {!hideAddButton ? (
+              isAdding ? (
+                <AddArtistForm
+                  dayIndex={activeDay}
+                  onAdd={(fields) => onAddSet(fields, activeDay)}
+                  onCancel={() => setIsAdding(false)}
+                  C={C}
+                  styles={styles}
+                  stageOptions={stageOptions}
+                  officialSets={officialSets}
+                />
+              ) : (
+                <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
+                  <Text style={styles.secondaryBtnText}>+ Add Artist</Text>
+                </Pressable>
+              )
+            ) : null}
             {onReUpload ? (
               <Pressable onPress={() => onReUpload(activeDay)} style={styles.secondaryBtn}>
                 <Text style={styles.secondaryBtnText}>Upload Screenshot</Text>
@@ -407,6 +451,25 @@ export function DayTabReview({
         )}
       </View>
     </View>
+  );
+}
+
+/** Self-contained Add Artist form for use outside DayTabReview (e.g. top-level in EditMyScheduleScreen).
+ *  Handles its own theme and styles so callers don't need to import makeStyles. */
+export function AddArtistFormCard({ dayIndex, festivalDays, onAdd, onCancel, officialSets, stageOptions }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+  return (
+    <AddArtistForm
+      dayIndex={dayIndex}
+      festivalDays={festivalDays}
+      onAdd={onAdd}
+      onCancel={onCancel}
+      C={C}
+      styles={styles}
+      officialSets={officialSets}
+      stageOptions={stageOptions}
+    />
   );
 }
 

@@ -239,6 +239,50 @@ describe('FounderToolsScreen — persistent lineup stats', () => {
   });
 });
 
+describe('FounderToolsScreen — preset options', () => {
+  const PRESETS = [
+    { id: 'coachella_2026_w1', label: 'Coachella 2026 — Weekend 1' },
+    { id: 'coachella_2026_w2', label: 'Coachella 2026 — Weekend 2' },
+  ];
+
+  it('shows preset buttons when availablePresets is provided', () => {
+    const { getByText } = render(
+      <FounderToolsScreen
+        {...makeProps({ availablePresets: PRESETS, onImportFromPreset: jest.fn() })}
+      />
+    );
+    expect(getByText('Coachella 2026 — Weekend 1')).toBeTruthy();
+    expect(getByText('Coachella 2026 — Weekend 2')).toBeTruthy();
+  });
+
+  it('calls onImportFromPreset with correct id when a preset is tapped', () => {
+    const onImportFromPreset = jest.fn();
+    const { getByText } = render(
+      <FounderToolsScreen
+        {...makeProps({ availablePresets: PRESETS, onImportFromPreset })}
+      />
+    );
+    fireEvent.press(getByText('Coachella 2026 — Weekend 2'));
+    expect(onImportFromPreset).toHaveBeenCalledWith('coachella_2026_w2');
+  });
+
+  it('shows "Upload a different festival\'s schedule" when presets are present', () => {
+    const { getByText } = render(
+      <FounderToolsScreen
+        {...makeProps({ availablePresets: PRESETS, onImportFromPreset: jest.fn() })}
+      />
+    );
+    expect(getByText("Upload a different festival's schedule")).toBeTruthy();
+  });
+
+  it('shows "Upload Official Lineup" when no presets are available', () => {
+    const { getByText } = render(
+      <FounderToolsScreen {...makeProps({ availablePresets: [] })} />
+    );
+    expect(getByText('Upload Official Lineup')).toBeTruthy();
+  });
+});
+
 describe('FounderToolsScreen — partial failure warning', () => {
   const FESTIVAL_DAYS = [
     { dayIndex: 1, label: 'Friday' },

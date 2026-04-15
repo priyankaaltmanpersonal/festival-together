@@ -1,0 +1,20 @@
+[
+  {
+    "id": "coachella_2026_w1",
+    "label": "Coachella 2026 — Weekend 1",
+    "days": [
+      {"day_index": 1, "label": "Friday",   "file": "coachella_2026_w1_friday.json"},
+      {"day_index": 2, "label": "Saturday", "file": "coachella_2026_w1_saturday.json"},
+      {"day_index": 3, "label": "Sunday",   "file": "coachella_2026_w1_sunday.json"}
+    ]
+  },
+  {
+    "id": "coachella_2026_w2",
+    "label": "Coachella 2026 — Weekend 2",
+    "days": [
+      {"day_index": 1, "label": "Friday",   "file": "coachella_2026_w2_friday.json"},
+      {"day_index": 2, "label": "Saturday", "file": "coachella_2026_w2_saturday.json"},
+      {"day_index": 3, "label": "Sunday",   "file": "coachella_2026_w2_sunday.json"}
+    ]
+  }
+]

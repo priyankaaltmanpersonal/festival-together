@@ -47,6 +47,8 @@ export function SetupScreen({
   onboardingLineupState = 'idle',
   onboardingLineupResult = null,
   onImportOfficialSchedule,
+  onImportFromPreset,
+  availablePresets = [],
   onSkipOfficialSchedule,
   onFinishSetup,
   // back navigation (added in Task 5)
@@ -281,14 +283,33 @@ export function SetupScreen({
             ) : (
               <>
                 <Text style={styles.helper}>
-                  Upload the official day poster(s) so everyone in your group can browse and pick artists — no screenshots needed.
+                  Import the official schedule so everyone in your group can browse and pick artists — no screenshots needed.
                 </Text>
-                <ActionButton
-                  label="Upload Schedule Images"
-                  onPress={onImportOfficialSchedule}
-                  primary
-                  disabled={loading}
-                />
+                {availablePresets.length > 0 ? (
+                  <>
+                    {availablePresets.map((preset) => (
+                      <ActionButton
+                        key={preset.id}
+                        label={preset.label}
+                        onPress={() => onImportFromPreset(preset.id)}
+                        primary
+                        disabled={loading}
+                      />
+                    ))}
+                    <ActionButton
+                      label="Upload a different festival's schedule"
+                      onPress={onImportOfficialSchedule}
+                      disabled={loading}
+                    />
+                  </>
+                ) : (
+                  <ActionButton
+                    label="Upload Schedule Images"
+                    onPress={onImportOfficialSchedule}
+                    primary
+                    disabled={loading}
+                  />
+                )}
                 <ActionButton
                   label="Skip for Now — upload from Founder Tools after setup"
                   onPress={onSkipOfficialSchedule}

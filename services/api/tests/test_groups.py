@@ -485,3 +485,100 @@ def test_import_official_lineup_parses_multiple_images_concurrently() -> None:
     assert resp.status_code == 200
     assert resp.json()["sets_created"] == 3
     assert mock_parse.call_count == 3
+
+
+# ─── Preset endpoints ─────────────────────────────────────────────────────────
+
+
+def test_list_lineup_presets_returns_manifest() -> None:
+    resp = client.get("/v1/lineup/presets")
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert "presets" in payload
+    ids = [p["id"] for p in payload["presets"]]
+    assert "coachella_2026_w1" in ids
+    assert "coachella_2026_w2" in ids
+    for preset in payload["presets"]:
+        assert "label" in preset
+        assert "days" in preset
+        assert len(preset["days"]) == 3
+
+
+def test_import_lineup_from_preset_seeds_canonical_sets() -> None:
+    founder = _create_group("Preset Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    resp = client.post(
+        f"/v1/groups/{group_id}/lineup/from-preset",
+        headers={"x-session-token": founder_session},
+        json={"preset_id": "coachella_2026_w1"},
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["sets_created"] > 0
+    assert len(payload["days_processed"]) == 3
+
+    with get_conn() as conn:
+        official_rows = conn.execute(
+            "SELECT artist_name FROM canonical_sets WHERE group_id = ? AND source = 'official'",
+            (group_id,),
+        ).fetchall()
+    assert len(official_rows) == payload["sets_created"]
+
+
+def test_import_lineup_from_preset_skips_duplicates() -> None:
+    founder = _create_group("Preset Dupe Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    first = client.post(
+        f"/v1/groups/{group_id}/lineup/from-preset",
+        headers={"x-session-token": founder_session},
+        json={"preset_id": "coachella_2026_w2"},
+    )
+    second = client.post(
+        f"/v1/groups/{group_id}/lineup/from-preset",
+        headers={"x-session-token": founder_session},
+        json={"preset_id": "coachella_2026_w2"},
+    )
+    assert first.json()["sets_created"] > 0
+    assert second.json()["sets_created"] == 0
+
+
+def test_import_lineup_from_preset_requires_founder_role() -> None:
+    founder = _create_group("Preset Auth Crew", "Founder")
+    group_id = founder["group"]["id"]
+    invite_code = founder["group"]["invite_code"]
+
+    seed_canonical_sets(group_id)
+
+    member_creator = _create_group("Tmp2", "Member")
+    member_session = member_creator["session"]["token"]
+    client.post(
+        f"/v1/invites/{invite_code}/join",
+        headers={"x-session-token": member_session},
+        json={"display_name": "Member", "leave_current_group": True},
+    )
+
+    resp = client.post(
+        f"/v1/groups/{group_id}/lineup/from-preset",
+        headers={"x-session-token": member_session},
+        json={"preset_id": "coachella_2026_w1"},
+    )
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == "founder_only"
+
+
+def test_import_lineup_from_preset_unknown_id_returns_404() -> None:
+    founder = _create_group("Preset 404 Crew", "Founder")
+    group_id = founder["group"]["id"]
+    founder_session = founder["session"]["token"]
+
+    resp = client.post(
+        f"/v1/groups/{group_id}/lineup/from-preset",
+        headers={"x-session-token": founder_session},
+        json={"preset_id": "does_not_exist"},
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "preset_not_found"

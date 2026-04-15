@@ -412,3 +412,28 @@ describe('DayTabReview — autocomplete suggestions', () => {
     expect(getByText('Sahara')).toBeTruthy();
   });
 });
+
+describe('DayTabReview — hideAddButton prop', () => {
+  it('shows + Add Artist button by default', () => {
+    const { getByText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: { 1: { status: 'done', sets: [], retryCount: 0, confirmed: false } },
+        })}
+      />
+    );
+    expect(getByText('+ Add Artist')).toBeTruthy();
+  });
+
+  it('hides + Add Artist button when hideAddButton is true', () => {
+    const { queryByText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: { 1: { status: 'done', sets: [], retryCount: 0, confirmed: false } },
+          hideAddButton: true,
+        })}
+      />
+    );
+    expect(queryByText('+ Add Artist')).toBeNull();
+  });
+});

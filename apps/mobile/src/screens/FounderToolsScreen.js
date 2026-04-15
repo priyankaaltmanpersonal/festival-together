@@ -7,6 +7,8 @@ export function FounderToolsScreen({
   groupName,
   onOpenSchedule,
   onImportLineup,
+  onImportFromPreset,
+  availablePresets = [],
   onCopyInvite,
   inviteCopied,
   onDeleteLineup,
@@ -81,13 +83,32 @@ export function FounderToolsScreen({
           </View>
         ) : null}
 
+        {availablePresets.length > 0 && lineupImportState !== 'done' ? (
+          availablePresets.map((preset) => (
+            <Pressable
+              key={preset.id}
+              onPress={() => onImportFromPreset(preset.id)}
+              disabled={lineupImportState === 'uploading'}
+              style={[styles.buttonPrimary, lineupImportState === 'uploading' && styles.buttonDisabled]}
+            >
+              <Text style={styles.buttonPrimaryText}>{preset.label}</Text>
+            </Pressable>
+          ))
+        ) : null}
         <Pressable
           onPress={onImportLineup}
           disabled={lineupImportState === 'uploading'}
-          style={[styles.buttonPrimary, lineupImportState === 'uploading' && styles.buttonDisabled]}
+          style={[
+            availablePresets.length > 0 && lineupImportState !== 'done' ? styles.buttonSecondary : styles.buttonPrimary,
+            lineupImportState === 'uploading' && styles.buttonDisabled,
+          ]}
         >
-          <Text style={styles.buttonPrimaryText}>
-            {lineupImportState === 'done' ? 'Re-upload to Add Missing Sets' : 'Upload Official Lineup'}
+          <Text style={availablePresets.length > 0 && lineupImportState !== 'done' ? styles.buttonSecondaryText : styles.buttonPrimaryText}>
+            {lineupImportState === 'done'
+              ? 'Re-upload to Add Missing Sets'
+              : availablePresets.length > 0
+              ? 'Upload a different festival\'s schedule'
+              : 'Upload Official Lineup'}
           </Text>
         </Pressable>
 
@@ -161,6 +182,16 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
   },
   buttonPrimaryText: { color: '#fff', fontWeight: '700' },
+  buttonSecondary: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    backgroundColor: C.cardBg,
+  },
+  buttonSecondaryText: { color: C.text, fontWeight: '700' },
   buttonDisabled: { opacity: 0.5 },
   buttonDestructive: {
     backgroundColor: '#fee2e2',

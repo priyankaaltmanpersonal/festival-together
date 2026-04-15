@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import logging
+from pathlib import Path
 import sqlite3
 from secrets import token_urlsafe
 from uuid import uuid4
@@ -559,6 +560,145 @@ def delete_member_data(payload: DeleteMemberRequest, session=Depends(require_ses
         conn.execute("DELETE FROM members WHERE id = ?", (member["id"],))
 
     return {"ok": True, "group_deleted": False}
+
+
+_PRESETS_DIR = Path(__file__).parent.parent / "data" / "presets"
+
+
+@router.get("/lineup/presets")
+def list_lineup_presets() -> dict:
+    """Return available official lineup presets (no auth required)."""
+    manifest_path = _PRESETS_DIR / "presets_manifest.json"
+    if not manifest_path.exists():
+        return {"presets": []}
+    with manifest_path.open() as f:
+        presets = json.load(f)
+    return {"presets": presets}
+
+
+@router.post("/groups/{group_id}/lineup/from-preset")
+def import_lineup_from_preset(
+    group_id: str,
+    body: dict,
+    session=Depends(require_session),
+) -> dict:
+    """Seed the group's canonical_sets from a pre-verified JSON preset (founder only).
+
+    Body: { "preset_id": "coachella_2026_w1" }
+    Returns: { "sets_created": int, "days_processed": list[str] }
+    """
+    if session["group_id"] != group_id or session["role"] != "founder":
+        raise HTTPException(status_code=403, detail="founder_only")
+
+    preset_id = body.get("preset_id", "")
+    if not preset_id:
+        raise HTTPException(status_code=400, detail="preset_id_required")
+
+    manifest_path = _PRESETS_DIR / "presets_manifest.json"
+    if not manifest_path.exists():
+        raise HTTPException(status_code=404, detail="presets_not_found")
+
+    with manifest_path.open() as f:
+        presets = json.load(f)
+
+    preset = next((p for p in presets if p["id"] == preset_id), None)
+    if preset is None:
+        raise HTTPException(status_code=404, detail="preset_not_found")
+
+    all_entries: list[dict] = []
+    for day in preset["days"]:
+        day_file = _PRESETS_DIR / day["file"]
+        if not day_file.exists():
+            logger.warning(f"Preset file missing: {day['file']}")
+            continue
+        with day_file.open() as f:
+            entries = json.load(f)
+        all_entries.extend(entries)
+
+    if not all_entries:
+        raise HTTPException(status_code=400, detail="preset_empty")
+
+    with get_conn() as conn:
+        group = conn.execute(
+            "SELECT id FROM groups WHERE id = ?", (group_id,)
+        ).fetchone()
+        if group is None:
+            raise HTTPException(status_code=404, detail="group_not_found")
+
+    now = _now_iso()
+    sets_created = 0
+    days_processed: set[int] = set()
+
+    # Deduplicate preset entries before hitting the DB: same artist can appear
+    # multiple times (e.g. two SURPRISE sets at different times on the same stage).
+    # Use (artist_name, stage_name, start_time, day_index) as the uniqueness key.
+    seen_in_file: set[tuple] = set()
+    unique_entries: list[dict] = []
+    for entry in all_entries:
+        key = (
+            entry["artist_name"].lower().strip(),
+            entry["stage_name"].lower().strip(),
+            entry["start_time"],
+            entry["day_index"],
+        )
+        if key not in seen_in_file:
+            seen_in_file.add(key)
+            unique_entries.append(entry)
+
+    with get_conn() as conn:
+        # Load all existing sets for this group upfront so we can dedup in Python.
+        # Use Python's .lower() (not SQLite's LOWER()) so that Unicode artist names
+        # with non-ASCII characters (e.g. GIVĒON, MËSTIZA) match correctly.
+        existing_rows = conn.execute(
+            "SELECT artist_name, stage_name, start_time_pt, day_index FROM canonical_sets WHERE group_id = ?",
+            (group_id,),
+        ).fetchall()
+        existing_keys: set[tuple] = {
+            (row[0].lower().strip(), row[1].lower().strip(), row[2], row[3])
+            for row in existing_rows
+        }
+
+        for entry in unique_entries:
+            key = (
+                entry["artist_name"].lower().strip(),
+                entry["stage_name"].lower().strip(),
+                entry["start_time"],
+                entry["day_index"],
+            )
+            if key in existing_keys:
+                continue
+
+            conn.execute(
+                """
+                INSERT INTO canonical_sets
+                (id, group_id, artist_name, stage_name, start_time_pt, end_time_pt,
+                 day_index, status, source_confidence, source, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'resolved', 1.0, 'official', ?)
+                """,
+                (
+                    str(uuid4()),
+                    group_id,
+                    entry["artist_name"],
+                    entry["stage_name"],
+                    entry["start_time"],
+                    entry["end_time"] or entry["start_time"],
+                    entry["day_index"],
+                    now,
+                ),
+            )
+            existing_keys.add(key)
+            sets_created += 1
+            days_processed.add(entry["day_index"])
+
+    day_labels = [
+        next(
+            (d["label"] for d in preset["days"] if d["day_index"] == di),
+            f"Day {di}",
+        )
+        for di in sorted(days_processed)
+    ]
+
+    return {"sets_created": sets_created, "days_processed": day_labels}
 
 
 @router.post("/groups/{group_id}/lineup/import")

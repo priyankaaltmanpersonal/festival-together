@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { DayTabReview } from '../components/DayTabReview';
+import { AddArtistFormCard, DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
 export function EditMyScheduleScreen({
@@ -20,6 +20,7 @@ export function EditMyScheduleScreen({
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
   const scrollViewRef = useRef(null);
+  const [isAddingTopLevel, setIsAddingTopLevel] = useState(false);
 
   // Build dayStates from personalSets so DayTabReview can render them.
   // If a day is currently being uploaded, override its status to 'uploading'.
@@ -54,6 +55,26 @@ export function EditMyScheduleScreen({
         <Text style={styles.label}>
           Your Schedule ({(personalSets || []).length} artists)
         </Text>
+        {(festivalDays || []).length > 0 ? (
+          isAddingTopLevel ? (
+            <AddArtistFormCard
+              festivalDays={festivalDays}
+              onAdd={async (fields) => { await onAddSet(fields); setIsAddingTopLevel(false); }}
+              onCancel={() => setIsAddingTopLevel(false)}
+              officialSets={officialSets}
+            />
+          ) : (
+            <Pressable
+              onPress={() => {
+                setIsAddingTopLevel(true);
+                setTimeout(() => scrollViewRef.current?.scrollTo({ y: 0, animated: true }), 50);
+              }}
+              style={styles.addBtn}
+            >
+              <Text style={styles.addBtnText}>+ Add Artist</Text>
+            </Pressable>
+          )
+        ) : null}
         {(festivalDays || []).length === 0 ? (
           <Text style={styles.helper}>No schedule loaded yet.</Text>
         ) : (
@@ -73,6 +94,7 @@ export function EditMyScheduleScreen({
             onReUpload={onReUploadDay}
             onAddOpen={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)}
             officialSets={officialSets}
+            hideAddButton
           />
         )}
       </View>
@@ -92,6 +114,16 @@ const makeStyles = (C) => StyleSheet.create({
   },
   label: { fontWeight: '700', color: C.text },
   helper: { color: C.textMuted, fontSize: 12 },
+  addBtn: {
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: C.primary,
+    backgroundColor: C.cardBg,
+  },
+  addBtnText: { color: C.primary, fontWeight: '700' },
   errorBanner: {
     marginHorizontal: 4,
     marginBottom: 8,

@@ -117,6 +117,7 @@ export default function App() {
   const [dayStates, setDayStates] = useState({});
   const [onboardingLineupState, setOnboardingLineupState] = useState('idle'); // 'idle' | 'uploading' | 'done' | 'error'
   const [onboardingLineupResult, setOnboardingLineupResult] = useState(null); // { sets_created, days_processed } | null
+  const [availablePresets, setAvailablePresets] = useState([]);
   const [editInitialDay, setEditInitialDay] = useState(null);
   const [editUploadingDayIndex, setEditUploadingDayIndex] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -789,13 +790,18 @@ export default function App() {
   };
 
   const addDaySet = async (fields, dayIndex) => {
-    const data = await apiRequest({
-      baseUrl: apiUrl,
-      path: '/v1/members/me/sets',
-      method: 'POST',
-      sessionToken: memberSession,
-      body: fields,
-    });
+    let data;
+    try {
+      data = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/sets',
+        method: 'POST',
+        sessionToken: memberSession,
+        body: fields,
+      });
+    } catch (err) {
+      throw new Error(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
     const newSet = {
       canonical_set_id: data.canonical_set_id,
       artist_name: fields.artist_name,
@@ -1130,13 +1136,18 @@ export default function App() {
 
   const addPersonalSet = async (fields) => {
     // fields: { artist_name, stage_name, start_time_pt, end_time_pt, day_index }
-    const data = await apiRequest({
-      baseUrl: apiUrl,
-      path: '/v1/members/me/sets',
-      method: 'POST',
-      sessionToken: memberSession,
-      body: fields,
-    });
+    let data;
+    try {
+      data = await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/sets',
+        method: 'POST',
+        sessionToken: memberSession,
+        body: fields,
+      });
+    } catch (err) {
+      throw new Error(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
     const newSet = {
       canonical_set_id: data.canonical_set_id,
       artist_name: fields.artist_name,
@@ -1158,6 +1169,67 @@ export default function App() {
         return minutesOf(a.start_time_pt) - minutesOf(b.start_time_pt);
       });
     });
+    const myId = homeSnapshot?.me?.id;
+    if (myId) {
+      const myAttendee = {
+        member_id: myId,
+        preference: 'flexible',
+        display_name: homeSnapshot.me.display_name || '',
+        chip_color: homeSnapshot.me.chip_color || null,
+      };
+      setScheduleSnapshot((prev) => {
+        if (!prev) return prev;
+        const exists = (prev.sets || []).some((s) => s.id === data.canonical_set_id);
+        if (exists) {
+          return {
+            ...prev,
+            sets: (prev.sets || []).map((s) => {
+              if (s.id !== data.canonical_set_id) return s;
+              if ((s.attendees || []).some((a) => a.member_id === myId)) return s;
+              return {
+                ...s,
+                attendees: [...(s.attendees || []), myAttendee],
+                attendee_count: (s.attendee_count || 0) + 1,
+              };
+            }),
+          };
+        }
+        const gridSet = {
+          id: data.canonical_set_id,
+          artist_name: fields.artist_name,
+          stage_name: fields.stage_name,
+          start_time_pt: fields.start_time_pt,
+          end_time_pt: fields.end_time_pt,
+          day_index: fields.day_index,
+          attendees: [myAttendee],
+          attendee_count: 1,
+          must_see_count: 0,
+          popularity_tier: 'low',
+          status: 'resolved',
+          source: 'member',
+        };
+        return { ...prev, sets: [...(prev.sets || []), gridSet] };
+      });
+      setIndividualSnapshot((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          members: (prev.members || []).map((member) =>
+            member.member_id !== myId
+              ? member
+              : {
+                  ...member,
+                  sets: [
+                    ...(member.sets || []),
+                    { canonical_set_id: data.canonical_set_id, ...fields, preference: 'flexible' },
+                  ],
+                }
+          ),
+        };
+      });
+    }
+    // Refresh in the background so server truth catches up
+    refreshCoreSnapshots().catch(() => {});
   };
 
   const addSetFromGrid = async (setItem, preference = 'flexible') => {
@@ -1224,13 +1296,17 @@ export default function App() {
   };
 
   const editCanonicalSet = async (canonicalSetId, fields) => {
-    await apiRequest({
-      baseUrl: apiUrl,
-      path: `/v1/canonical-sets/${canonicalSetId}`,
-      method: 'PATCH',
-      sessionToken: memberSession,
-      body: fields,
-    });
+    try {
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: `/v1/canonical-sets/${canonicalSetId}`,
+        method: 'PATCH',
+        sessionToken: memberSession,
+        body: fields,
+      });
+    } catch (err) {
+      throw new Error(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
     setPersonalSets((prev) =>
       prev.map((s) =>
         s.canonical_set_id === canonicalSetId ? { ...s, ...fields } : s
@@ -1241,7 +1317,7 @@ export default function App() {
       return {
         ...prev,
         sets: (prev.sets || []).map((setItem) =>
-          setItem.canonical_set_id !== canonicalSetId
+          setItem.id !== canonicalSetId
             ? setItem
             : { ...setItem, ...fields }
         ),
@@ -1314,6 +1390,61 @@ export default function App() {
 
   const [lineupImportState, setLineupImportState] = useState('idle'); // 'idle' | 'uploading' | 'done' | 'error'
   const [lineupImportResult, setLineupImportResult] = useState(null); // { sets_created, days_processed }
+
+  // Fetch available presets once the API URL is known
+  useEffect(() => {
+    if (!apiUrl) return;
+    apiRequest({ baseUrl: apiUrl, path: '/v1/lineup/presets', method: 'GET' })
+      .then((data) => setAvailablePresets(data.presets || []))
+      .catch(() => {});
+  }, [apiUrl]);
+
+  const importFromPreset = async (presetId, { duringOnboarding = false } = {}) => {
+    if (duringOnboarding) {
+      setOnboardingLineupState('uploading');
+    } else {
+      setLineupImportState('uploading');
+    }
+    try {
+      const result = await apiRequest({
+        baseUrl: apiUrl,
+        path: `/v1/groups/${groupId}/lineup/from-preset`,
+        method: 'POST',
+        sessionToken: memberSession,
+        body: { preset_id: presetId },
+      });
+      if (duringOnboarding) {
+        setOnboardingLineupResult(result);
+        setOnboardingLineupState('done');
+        const homePayload = await apiRequest({
+          baseUrl: apiUrl,
+          path: '/v1/members/me/home',
+          method: 'GET',
+          sessionToken: memberSession,
+        });
+        setHomeSnapshot(homePayload);
+      } else {
+        setLineupImportResult(result);
+        setLineupImportState('done');
+        const homePayload = await apiRequest({
+          baseUrl: apiUrl,
+          path: '/v1/members/me/home',
+          method: 'GET',
+          sessionToken: memberSession,
+        });
+        setHomeSnapshot(homePayload);
+        const schedulePayload = await fetchSchedule(memberSession, groupId, { memberIds: [] });
+        setScheduleSnapshot(schedulePayload);
+      }
+    } catch (err) {
+      if (duringOnboarding) {
+        setOnboardingLineupState('error');
+      } else {
+        setLineupImportState('error');
+      }
+      setError(friendlyError(err instanceof Error ? err.message : String(err)));
+    }
+  };
 
   const importOfficialLineup = async () => {
     try {
@@ -1715,6 +1846,8 @@ export default function App() {
           onboardingLineupState={onboardingLineupState}
           onboardingLineupResult={onboardingLineupResult}
           onImportOfficialSchedule={importOfficialScheduleDuringOnboarding}
+          onImportFromPreset={(presetId) => importFromPreset(presetId, { duringOnboarding: true })}
+          availablePresets={availablePresets}
           onSkipOfficialSchedule={proceedToPersonalSchedule}
           onFinishSetup={finishUploadFlow}
           onGoBack={handleOnboardingBack}
@@ -1755,6 +1888,8 @@ export default function App() {
           groupName={homeSnapshot?.group?.name}
           onOpenSchedule={() => setActiveView('group')}
           onImportLineup={importOfficialLineup}
+          onImportFromPreset={(presetId) => importFromPreset(presetId)}
+          availablePresets={availablePresets}
           onCopyInvite={copyInviteCode}
           inviteCopied={inviteCopied}
           onDeleteLineup={deleteOfficialLineup}
