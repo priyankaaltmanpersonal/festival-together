@@ -4,14 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { EditableSetCard } from './EditableSetCard';
 import { useTheme } from '../theme';
-import { formatHHMM, formatDisplayTime, timeToTotalMinutes } from '../utils';
+import { formatHHMM, formatDisplayTime, timeToTotalMinutes, timeStringToDate, formatTimeStr } from '../utils';
 
-const STAGE_OPTIONS = [
+export const STAGE_OPTIONS = [
   'Coachella Stage', 'Outdoor Theatre', 'Sonora', 'Gobi',
   'Mojave', 'Sahara', 'Yuma', 'Quasar', 'Do Lab', 'Heineken House',
 ];
 
-function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
+function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, officialSets }) {
   const [name, setName] = useState('');
   const [stage, setStage] = useState('');
   const [stageOpen, setStageOpen] = useState(false);
@@ -21,8 +21,35 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
   const [activeTimePicker, setActiveTimePicker] = useState(null); // 'start' | 'end' | null
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [suggestionsHidden, setSuggestionsHidden] = useState(false);
+  const [lastPickedName, setLastPickedName] = useState('');
 
   const stages = stageOptions || STAGE_OPTIONS;
+
+  // Autocomplete suggestions from the official schedule for this day
+  const suggestions = useMemo(() => {
+    if (!officialSets || !name.trim() || name.trim().length < 2 || suggestionsHidden) return [];
+    const q = name.trim().toLowerCase();
+    return officialSets
+      .filter((s) => s.day_index === dayIndex && s.artist_name.toLowerCase().includes(q))
+      .slice(0, 5);
+  }, [officialSets, name, dayIndex, suggestionsHidden]);
+
+  const handleSelectSuggestion = (s) => {
+    setName(s.artist_name);
+    setLastPickedName(s.artist_name);
+    setStage(s.stage_name);
+    setStageCustom(false);
+    setStageOpen(false);
+    if (s.start_time_pt) setStartDate(timeStringToDate(s.start_time_pt));
+    if (s.end_time_pt) setEndDate(timeStringToDate(s.end_time_pt));
+    setSuggestionsHidden(true);
+  };
+
+  const handleNameChange = (text) => {
+    if (text !== lastPickedName) setSuggestionsHidden(false);
+    setName(text);
+  };
 
   const handleAdd = async () => {
     if (!name.trim() || !stage.trim()) {
@@ -56,7 +83,29 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions }) {
       <Text style={styles.addCardLabel}>Add Artist</Text>
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Artist name</Text>
-        <TextInput value={name} onChangeText={setName} style={styles.input} />
+        <TextInput
+          value={name}
+          onChangeText={handleNameChange}
+          style={styles.input}
+          placeholder="e.g. Bad Bunny"
+          placeholderTextColor={C.textMuted}
+        />
+        {suggestions.length > 0 ? (
+          <View style={styles.suggestionList}>
+            {suggestions.map((s) => (
+              <Pressable
+                key={s.id || `${s.artist_name}-${s.start_time_pt}`}
+                onPress={() => handleSelectSuggestion(s)}
+                style={styles.suggestionRow}
+              >
+                <Text style={styles.suggestionName}>{s.artist_name}</Text>
+                <Text style={styles.suggestionDetail}>
+                  {s.stage_name} · {formatTimeStr(s.start_time_pt)}{s.end_time_pt ? `–${formatTimeStr(s.end_time_pt)}` : ''}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </View>
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Stage</Text>
@@ -182,6 +231,8 @@ export function DayTabReview({
   onConfirmDay,
   initialSelectedDay,
   storageKey,
+  officialSets,
+  stageOptions,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -285,6 +336,8 @@ export function DayTabReview({
                 onCancel={() => setIsAdding(false)}
                 C={C}
                 styles={styles}
+                stageOptions={stageOptions}
+                officialSets={officialSets}
               />
             ) : (
               <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
@@ -311,6 +364,7 @@ export function DayTabReview({
                 onSetPreference={(canonicalSetId, pref) => onSetPreference(canonicalSetId, pref, activeDay)}
                 saving={savingSetId === setItem.canonical_set_id}
                 deleting={false}
+                stageOptions={stageOptions}
               />
             ))}
             {isAdding ? (
@@ -320,6 +374,8 @@ export function DayTabReview({
                 onCancel={() => setIsAdding(false)}
                 C={C}
                 styles={styles}
+                stageOptions={stageOptions}
+                officialSets={officialSets}
               />
             ) : (
               <Pressable onPress={() => { setIsAdding(true); if (onAddOpen) onAddOpen(); }} style={styles.secondaryBtn}>
@@ -466,6 +522,23 @@ const makeStyles = (C) => StyleSheet.create({
   },
   cancelBtnText: { color: C.textMuted, fontWeight: '700', fontSize: 13 },
   saveError: { color: C.error, fontWeight: '700', fontSize: 12 },
+  suggestionList: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    backgroundColor: C.cardBg,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  suggestionRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: C.cardBorder,
+    gap: 2,
+  },
+  suggestionName: { fontSize: 13, fontWeight: '700', color: C.text },
+  suggestionDetail: { fontSize: 11, color: C.textMuted },
   dropdownTrigger: {
     borderWidth: 1,
     borderColor: C.inputBorder,

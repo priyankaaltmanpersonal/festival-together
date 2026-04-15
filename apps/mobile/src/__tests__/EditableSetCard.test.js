@@ -65,11 +65,12 @@ describe('EditableSetCard — view mode', () => {
 
 describe('EditableSetCard — edit mode', () => {
   it('shows form fields with current values pre-filled', () => {
-    const { getByDisplayValue } = render(
+    const { getByDisplayValue, getByText } = render(
       <EditableSetCard {...makeProps({ isEditing: true })} />
     );
     expect(getByDisplayValue('Bad Bunny')).toBeTruthy();
-    expect(getByDisplayValue('Sahara')).toBeTruthy();
+    // Stage is now a dropdown; selected value shown as text in the trigger
+    expect(getByText('Sahara')).toBeTruthy();
   });
 
   it('calls onSave with trimmed fields when save succeeds', async () => {
@@ -118,5 +119,32 @@ describe('EditableSetCard — edit mode', () => {
   it('hides Save button while saving=true', () => {
     const { queryByText } = render(<EditableSetCard {...makeProps({ isEditing: true, saving: true })} />);
     expect(queryByText('Save')).toBeNull();
+  });
+
+  it('opens stage dropdown and allows selecting a different stage', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined);
+    const { getByText, queryByText } = render(
+      <EditableSetCard {...makeProps({ isEditing: true, onSave })} />
+    );
+    // Dropdown initially closed — options not visible
+    expect(queryByText('Gobi')).toBeNull();
+
+    // Open the dropdown
+    fireEvent.press(getByText('Sahara'));
+    expect(getByText('Gobi')).toBeTruthy();
+
+    // Pick a different stage
+    fireEvent.press(getByText('Gobi'));
+
+    // Dropdown closes, trigger shows new selection
+    expect(queryByText('Gobi')).toBeTruthy();
+
+    // Save should include the updated stage
+    await act(async () => {
+      fireEvent.press(getByText('Save'));
+    });
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ stage_name: 'Gobi' })
+    );
   });
 });

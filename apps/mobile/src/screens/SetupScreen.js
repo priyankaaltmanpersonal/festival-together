@@ -54,6 +54,7 @@ export function SetupScreen({
   onStartOver,
   // member_lineup_intro step (added in Task 4)
   onSkipMemberLineupIntro,
+  officialSets,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -63,6 +64,7 @@ export function SetupScreen({
   return (
     <ScrollView
       ref={scrollViewRef}
+      style={styles.scrollView}
       contentContainerStyle={[styles.wrap, isWelcome && styles.wrapWelcome]}
       keyboardShouldPersistTaps="handled"
       automaticallyAdjustKeyboardInsets
@@ -328,6 +330,7 @@ export function SetupScreen({
             onEditSet={onEditDaySet}
             onAddOpen={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)}
             onConfirmDay={onConfirmDay}
+            officialSets={officialSets}
           />
         </View>
       ) : null}
@@ -415,6 +418,7 @@ function ColorPicker({ options, selected, onSelect, availableSet = null }) {
 }
 
 const makeStyles = (C) => StyleSheet.create({
+  scrollView: { flex: 1 },
   wrap: { flexGrow: 1, gap: 10, paddingHorizontal: 16, paddingBottom: 24, paddingTop: 16 },
   wrapWelcome: { paddingTop: 20, flex: 1 },
   welcomeScreen: { flex: 1, justifyContent: 'space-between' },

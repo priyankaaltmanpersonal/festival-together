@@ -336,6 +336,45 @@ describe('GroupScheduleScreen — renders correctly after isolated preference up
   });
 });
 
+describe('GroupScheduleScreen — empty stage column filtering', () => {
+  const MY_ID = 'member-me';
+
+  it('hides stage columns with no visible sets when My Sets filter is active', () => {
+    const mySet = {
+      id: 'set-mine',
+      day_index: 1,
+      artist_name: 'My Artist',
+      stage_name: 'Sahara',
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees: [{ member_id: MY_ID, display_name: 'Me', preference: 'flexible', chip_color: '#f00' }],
+      attendee_count: 1,
+      popularity_tier: 'low',
+    };
+    const { getByText, queryByText } = render(
+      <GroupScheduleScreen
+        {...makeProps([mySet], {
+          myMemberId: MY_ID,
+          scheduleSnapshot: {
+            sets: [mySet],
+            stages: ['Sahara', 'Gobi'], // Gobi has no sets
+          },
+        })}
+      />
+    );
+
+    // Before filtering: Sahara header visible (has sets)
+    expect(getByText('Sahara')).toBeTruthy();
+
+    // Activate "My sets" toggle
+    fireEvent.press(getByText('My sets'));
+
+    // Sahara still visible; Gobi should be gone (no sets matching filter)
+    expect(getByText('Sahara')).toBeTruthy();
+    expect(queryByText('Gobi')).toBeNull();
+  });
+});
+
 describe('userAttendanceCardStyle', () => {
   it('returns empty object when preference is null (not attending)', () => {
     expect(userAttendanceCardStyle(null, lightColors)).toEqual({});

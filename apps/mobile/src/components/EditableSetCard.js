@@ -4,6 +4,11 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 import { useTheme } from '../theme';
 import { timeStringToDate, formatHHMM, timeToTotalMinutes, formatDisplayTime } from '../utils';
 
+const STAGE_OPTIONS = [
+  'Coachella Stage', 'Outdoor Theatre', 'Sonora', 'Gobi',
+  'Mojave', 'Sahara', 'Yuma', 'Quasar', 'Do Lab', 'Heineken House',
+];
+
 /**
  * EditableSetCard — artist card with inline edit expand, delete, and preference toggle.
  *
@@ -28,11 +33,15 @@ export function EditableSetCard({
   onSetPreference,
   saving = false,
   deleting = false,
+  stageOptions,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
+  const stages = stageOptions || STAGE_OPTIONS;
   const [editName, setEditName] = useState(setItem.artist_name);
   const [editStage, setEditStage] = useState(setItem.stage_name);
+  const [editStageOpen, setEditStageOpen] = useState(false);
+  const [editStageCustom, setEditStageCustom] = useState(false);
   const [editStart, setEditStart] = useState(() => timeStringToDate(setItem.start_time_pt));
   const [editEnd, setEditEnd] = useState(() => timeStringToDate(setItem.end_time_pt));
   const [activeTimePicker, setActiveTimePicker] = useState(null); // 'start' | 'end' | null
@@ -43,6 +52,8 @@ export function EditableSetCard({
   const handleStartEdit = () => {
     setEditName(setItem.artist_name);
     setEditStage(setItem.stage_name);
+    setEditStageOpen(false);
+    setEditStageCustom(false);
     setEditStart(timeStringToDate(setItem.start_time_pt));
     setEditEnd(timeStringToDate(setItem.end_time_pt));
     setActiveTimePicker(null);
@@ -89,7 +100,48 @@ export function EditableSetCard({
         </View>
         <View style={styles.fieldGroup}>
           <Text style={styles.fieldLabel}>Stage</Text>
-          <TextInput value={editStage} onChangeText={setEditStage} style={styles.input} />
+          {editStageCustom ? (
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TextInput
+                value={editStage}
+                onChangeText={setEditStage}
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Enter stage name"
+                autoFocus
+              />
+              <Pressable onPress={() => { setEditStageCustom(false); setEditStage(''); }} style={styles.cancelBtn}>
+                <Text style={styles.cancelBtnText}>✕</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <Pressable onPress={() => setEditStageOpen((o) => !o)} style={styles.dropdownTrigger}>
+                <Text style={[styles.dropdownTriggerText, !editStage && styles.dropdownPlaceholder]}>
+                  {editStage || 'Select stage…'}
+                </Text>
+                <Text style={styles.dropdownChevron}>{editStageOpen ? '▲' : '▼'}</Text>
+              </Pressable>
+              {editStageOpen ? (
+                <View style={styles.dropdownList}>
+                  {stages.map((s) => (
+                    <Pressable
+                      key={s}
+                      onPress={() => { setEditStage(s); setEditStageOpen(false); }}
+                      style={[styles.dropdownOption, editStage === s && styles.dropdownOptionSelected]}
+                    >
+                      <Text style={[styles.dropdownOptionText, editStage === s && styles.dropdownOptionSelectedText]}>{s}</Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    onPress={() => { setEditStage(''); setEditStageCustom(true); setEditStageOpen(false); }}
+                    style={styles.dropdownOption}
+                  >
+                    <Text style={[styles.dropdownOptionText, { fontStyle: 'italic' }]}>Other (type manually)…</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+            </>
+          )}
         </View>
         <View style={styles.timeRow}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
@@ -252,6 +304,37 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.inputBg,
     color: C.text,
   },
+  dropdownTrigger: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 9,
+    backgroundColor: C.inputBg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownTriggerText: { fontSize: 13, color: C.text },
+  dropdownPlaceholder: { color: C.textMuted },
+  dropdownChevron: { fontSize: 10, color: C.textMuted },
+  dropdownList: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    backgroundColor: C.cardBg,
+    overflow: 'hidden',
+    marginTop: 2,
+  },
+  dropdownOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: C.cardBorder,
+  },
+  dropdownOptionSelected: { backgroundColor: C.primaryBg },
+  dropdownOptionText: { fontSize: 13, color: C.text },
+  dropdownOptionSelectedText: { color: C.primary, fontWeight: '700' },
   timeRow: { flexDirection: 'row', gap: 8 },
   timePickerBtn: {
     borderWidth: 1,

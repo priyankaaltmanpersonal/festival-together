@@ -15,6 +15,7 @@ export function EditMyScheduleScreen({
   initialDayIndex,
   uploadError,
   onDismissError,
+  officialSets,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -71,6 +72,7 @@ export function EditMyScheduleScreen({
             onEditSet={onEditSet}
             onReUpload={onReUploadDay}
             onAddOpen={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)}
+            officialSets={officialSets}
           />
         )}
       </View>

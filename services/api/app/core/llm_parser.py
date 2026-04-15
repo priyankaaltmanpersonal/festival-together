@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from collections import defaultdict
 from typing import Any
 
 from app.core.config import settings
@@ -36,6 +37,112 @@ _STAGE_ALIASES: dict[str, str] = {
     "sonora stage": "Sonora",
     "yuma stage": "Yuma",
 }
+
+
+def _time_str_to_minutes(t: str) -> int:
+    """Convert a HH:MM (including extended 24:MM–29:MM) string to total minutes."""
+    if not t:
+        return 0
+    parts = t.strip().split(":")
+    if len(parts) != 2:
+        return 0
+    try:
+        return int(parts[0]) * 60 + int(parts[1])
+    except ValueError:
+        return 0
+
+
+def _detect_anomalies(results: list[dict]) -> list[str]:
+    """Return human-readable descriptions of suspicious parse results.
+
+    An empty list means the results look clean.  This function never drops
+    or modifies entries — callers use the returned issues to decide whether
+    to retry the parse with corrective hints.
+
+    Checks:
+    1. Sets starting before 1 PM (13:00) — festival never starts before then;
+       most likely a 12:XX AM → 12:XX PM misparse.
+    2. Sets with an explicit duration > 4 hours — almost certainly a misread.
+    3. Same-stage / same-day overlaps — two artists can't share a stage slot.
+    """
+    MIN_START = 780    # 13:00 = 1 PM
+    MAX_DURATION = 240  # 4 hours
+
+    issues: list[str] = []
+
+    for entry in results:
+        artist = entry.get("artist_name", "?")
+        start_str = entry.get("start_time") or ""
+        end_str = entry.get("end_time") or ""
+        start = _time_str_to_minutes(start_str)
+
+        if start_str and start < MIN_START:
+            # Suggest the midnight-extended equivalent so the model can self-correct
+            try:
+                h, m = start_str.split(":")
+                suggested = f"{int(h) + 24}:{m}"
+            except Exception:
+                suggested = "(use extended 24+ format)"
+            issues.append(
+                f"'{artist}' has start_time {start_str!r} which is before 1 PM — "
+                "festival sets never start before 1 PM; this is almost certainly a "
+                f"12 AM → 12 PM misparse; did you mean {suggested!r}?"
+            )
+
+        if end_str:
+            end = _time_str_to_minutes(end_str)
+            duration = end - start
+            if end > start and duration > MAX_DURATION:
+                issues.append(
+                    f"'{artist}' has duration {duration} min ({start_str}–{end_str}) "
+                    "which exceeds 4 hours — please verify the end time"
+                )
+
+    # Same-stage / same-day overlap check
+    by_stage_day: dict[tuple, list] = defaultdict(list)
+    for entry in results:
+        key = (entry.get("day_index"), (entry.get("stage_name") or "").lower().strip())
+        by_stage_day[key].append(entry)
+
+    for entries in by_stage_day.values():
+        sorted_entries = sorted(
+            entries,
+            key=lambda e: _time_str_to_minutes(e.get("start_time", "")),
+        )
+        for i in range(len(sorted_entries) - 1):
+            curr = sorted_entries[i]
+            nxt = sorted_entries[i + 1]
+            curr_end_str = curr.get("end_time") or ""
+            if curr_end_str:
+                curr_end = _time_str_to_minutes(curr_end_str)
+                nxt_start = _time_str_to_minutes(nxt.get("start_time") or "")
+                if nxt_start < curr_end:
+                    issues.append(
+                        f"'{curr['artist_name']}' (ends {curr_end_str}) and "
+                        f"'{nxt['artist_name']}' (starts {nxt.get('start_time')}) "
+                        f"overlap on stage '{curr.get('stage_name')}' — "
+                        "two artists cannot perform on the same stage at the same time; "
+                        "check stage column assignments or time values"
+                    )
+
+    return issues
+
+
+def _correction_hints_section(anomalies: list[str]) -> str:
+    """Build a prompt addendum describing detected anomalies for a correction retry."""
+    lines = "\n".join(f"  - {a}" for a in anomalies)
+    return (
+        "\n\nCORRECTION REQUIRED — a previous parse of this same image returned "
+        "suspicious entries that indicate reading errors:\n"
+        f"{lines}\n\n"
+        "Please re-examine the image and return a fully corrected JSON array. "
+        "Key reminders:\n"
+        "  • Festival sets NEVER start before 1:00 PM. If you see '12:XX', it is "
+        "midnight (12:XX AM) — output as '24:XX' in extended format.\n"
+        "  • Two artists cannot be on the same stage at the same time. Verify "
+        "each artist's column header.\n"
+        "  • Most sets run 60–90 minutes. A 5+ hour duration is almost always a misread."
+    )
 
 
 def normalize_stage(name: str) -> str:
@@ -150,6 +257,106 @@ def _get_client():
         return None
 
 
+def _call_vision_api(client, image_b64: str, prompt: str, max_tokens: int) -> list:
+    """Make a single vision API call and return the parsed JSON list.
+
+    Raises RuntimeError on API failure, empty response, or non-JSON output.
+    Strips markdown fences if the model wraps its response in them.
+    """
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=max_tokens,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": image_b64,
+                        },
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+    )
+    if not response.content:
+        raise RuntimeError("Vision API returned empty content")
+    text = response.content[0].text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Vision parser returned invalid JSON: {e}\nRaw: {text[:500]}") from e
+    if not isinstance(parsed, list):
+        raise RuntimeError(f"Vision parser returned non-list: {type(parsed)}")
+    return parsed
+
+
+def _normalize_personal_entries(
+    parsed: list,
+    default_day_index: int,
+) -> list[dict]:
+    """Normalize raw parsed entries from parse_schedule_from_image."""
+    results = []
+    for entry in parsed:
+        if not isinstance(entry, dict):
+            continue
+        artist = (entry.get("artist_name") or "").strip()
+        stage = normalize_stage((entry.get("stage_name") or ""))
+        start = (entry.get("start_time") or "").strip()
+        end = entry.get("end_time")
+        if end:
+            end = str(end).strip()
+        day_index = entry.get("day_index")
+        if not isinstance(day_index, int):
+            day_index = default_day_index
+        if not artist or not stage or not start:
+            continue
+        results.append({
+            "artist_name": artist,
+            "stage_name": stage,
+            "start_time": start,
+            "end_time": end,
+            "day_index": day_index,
+        })
+    return results
+
+
+def _normalize_official_entries(parsed: list) -> list[dict]:
+    """Normalize raw parsed entries from parse_official_lineup_from_image."""
+    results = []
+    for entry in parsed:
+        if not isinstance(entry, dict):
+            continue
+        artist = (entry.get("artist_name") or "").strip()
+        stage = normalize_stage((entry.get("stage_name") or ""))
+        start = (entry.get("start_time") or "").strip()
+        end = entry.get("end_time")
+        if end:
+            end = str(end).strip()
+        day_index = entry.get("day_index")
+        if not isinstance(day_index, int):
+            continue  # skip entries where day couldn't be determined
+        if not artist or not stage or not start:
+            continue
+        results.append({
+            "artist_name": artist,
+            "stage_name": stage,
+            "start_time": start,
+            "end_time": end,
+            "day_index": day_index,
+        })
+    return results
+
+
 def parse_schedule_from_image(
     image_bytes: bytes,
     day_label: str,
@@ -160,6 +367,11 @@ def parse_schedule_from_image(
 
     Handles both personal list-view screenshots and full grid screenshots
     with visual highlighting. Returns only the user's selected artists.
+
+    If the initial parse contains suspicious entries (sets before 1 PM,
+    same-stage overlaps, or durations > 4 hours), the image is parsed a
+    second time with the detected issues fed back to the model as correction
+    hints.  The corrected result is returned; no entries are silently dropped.
 
     Args:
         image_bytes: Compressed JPEG bytes from validate_and_compress.
@@ -203,83 +415,37 @@ def parse_schedule_from_image(
 
     image_b64 = base64.standard_b64encode(image_bytes).decode()
 
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/jpeg",
-                                "data": image_b64,
-                            },
-                        },
-                        {"type": "text", "text": prompt},
-                    ],
-                }
-            ],
-        )
-        if not response.content:
-            logger.error("Vision API returned empty content")
-            raise RuntimeError("Vision API returned empty content")
-        text = response.content[0].text.strip()
-        # Strip markdown fences if model wrapped the JSON
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-        parsed = json.loads(text)
-        if not isinstance(parsed, list):
-            raise RuntimeError(f"Vision parser returned non-list: {type(parsed)}")
-    except json.JSONDecodeError as e:
-        logger.error(f"Vision parser returned invalid JSON: {e}\nRaw text: {text[:500]}")
-        raise RuntimeError(f"Vision parser returned invalid JSON: {e}") from e
-    except RuntimeError:
-        raise
-    except Exception as e:
-        logger.error(f"Vision parse failed: {e}")
-        raise RuntimeError(f"Vision API call failed: {e}") from e
-
     # Build day_label → day_index map
-    day_map: dict[str, int] = {}
-    for day in festival_days:
-        label = day.get("label", "")
-        idx = day.get("day_index", 1)
-        day_map[label.upper()] = idx
-
+    day_map: dict[str, int] = {
+        day.get("label", "").upper(): day.get("day_index", 1)
+        for day in festival_days
+    }
     default_day_index = (
         day_map.get(effective_day_label.upper(), festival_days[0]["day_index"])
         if festival_days else 1
     )
 
-    results = []
-    for entry in parsed:
-        if not isinstance(entry, dict):
-            continue
-        artist = (entry.get("artist_name") or "").strip()
-        stage = normalize_stage((entry.get("stage_name") or ""))
-        start = (entry.get("start_time") or "").strip()
-        end = entry.get("end_time")
-        if end:
-            end = str(end).strip()
-        day_index = entry.get("day_index")
-        if not isinstance(day_index, int):
-            day_index = default_day_index
-        if not artist or not stage or not start:
-            continue
-        results.append({
-            "artist_name": artist,
-            "stage_name": stage,
-            "start_time": start,
-            "end_time": end,
-            "day_index": day_index,
-        })
+    try:
+        parsed = _call_vision_api(client, image_b64, prompt, max_tokens=4096)
+    except RuntimeError as e:
+        logger.error(f"Vision parse failed: {e}")
+        raise
+
+    results = _normalize_personal_entries(parsed, default_day_index)
+
+    # Detect anomalies and retry once with correction hints if needed
+    anomalies = _detect_anomalies(results)
+    if anomalies:
+        logger.info(
+            "parse_schedule_from_image: %d anomaly(ies) detected — retrying with correction hints",
+            len(anomalies),
+        )
+        corrected_prompt = prompt + _correction_hints_section(anomalies)
+        try:
+            parsed2 = _call_vision_api(client, image_b64, corrected_prompt, max_tokens=4096)
+            results = _normalize_personal_entries(parsed2, default_day_index)
+        except RuntimeError as e:
+            logger.warning("Correction retry failed (%s) — using initial results", e)
 
     results = _apply_curfew_defaults(results, festival_days)
     logger.info(f"parse_schedule_from_image returned {len(results)} sets")
@@ -294,6 +460,11 @@ def parse_official_lineup_from_image(
 
     Extracts all artists from the full schedule grid (not just selected ones).
     Reads the day from the image text itself ("FRIDAY" / "SATURDAY" / "SUNDAY").
+
+    If the initial parse contains suspicious entries (sets before 1 PM,
+    same-stage overlaps, or durations > 4 hours), the image is parsed a
+    second time with the detected issues fed back to the model as correction
+    hints.  The corrected result is returned; no entries are silently dropped.
 
     Args:
         image_bytes: Compressed JPEG bytes.
@@ -314,68 +485,26 @@ def parse_official_lineup_from_image(
     image_b64 = base64.standard_b64encode(image_bytes).decode()
 
     try:
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=8192,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "image/jpeg",
-                                "data": image_b64,
-                            },
-                        },
-                        {"type": "text", "text": prompt},
-                    ],
-                }
-            ],
-        )
-        if not response.content:
-            raise RuntimeError("Vision API returned empty content")
-        text = response.content[0].text.strip()
-        if text.startswith("```"):
-            text = text.split("```")[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-        parsed = json.loads(text)
-        if not isinstance(parsed, list):
-            raise RuntimeError(f"Official lineup parser returned non-list: {type(parsed)}")
-    except json.JSONDecodeError as e:
-        logger.error(f"Official lineup parser returned invalid JSON: {e}")
-        raise RuntimeError(f"Official lineup parser returned invalid JSON: {e}") from e
-    except RuntimeError:
-        raise
-    except Exception as e:
+        parsed = _call_vision_api(client, image_b64, prompt, max_tokens=8192)
+    except RuntimeError as e:
         logger.error(f"Official lineup parse failed: {e}")
-        raise RuntimeError(f"Vision API call failed: {e}") from e
+        raise
 
-    results = []
-    for entry in parsed:
-        if not isinstance(entry, dict):
-            continue
-        artist = (entry.get("artist_name") or "").strip()
-        stage = normalize_stage((entry.get("stage_name") or ""))
-        start = (entry.get("start_time") or "").strip()
-        end = entry.get("end_time")
-        if end:
-            end = str(end).strip()
-        day_index = entry.get("day_index")
-        if not isinstance(day_index, int):
-            continue  # skip entries where day couldn't be determined
-        if not artist or not stage or not start:
-            continue
-        results.append({
-            "artist_name": artist,
-            "stage_name": stage,
-            "start_time": start,
-            "end_time": end,
-            "day_index": day_index,
-        })
+    results = _normalize_official_entries(parsed)
+
+    # Detect anomalies and retry once with correction hints if needed
+    anomalies = _detect_anomalies(results)
+    if anomalies:
+        logger.info(
+            "parse_official_lineup_from_image: %d anomaly(ies) detected — retrying with correction hints",
+            len(anomalies),
+        )
+        corrected_prompt = prompt + _correction_hints_section(anomalies)
+        try:
+            parsed2 = _call_vision_api(client, image_b64, corrected_prompt, max_tokens=8192)
+            results = _normalize_official_entries(parsed2)
+        except RuntimeError as e:
+            logger.warning("Correction retry failed (%s) — using initial results", e)
 
     results = _apply_curfew_defaults(results, festival_days)
     logger.info(f"parse_official_lineup_from_image returned {len(results)} sets")

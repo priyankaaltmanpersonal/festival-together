@@ -1307,6 +1307,11 @@ export default function App() {
     execute();
   };
 
+  const officialSets = useMemo(
+    () => (scheduleSnapshot?.sets || []).filter((s) => s.source === 'official'),
+    [scheduleSnapshot]
+  );
+
   const [lineupImportState, setLineupImportState] = useState('idle'); // 'idle' | 'uploading' | 'done' | 'error'
   const [lineupImportResult, setLineupImportResult] = useState(null); // { sets_created, days_processed }
 
@@ -1715,6 +1720,7 @@ export default function App() {
           onGoBack={handleOnboardingBack}
           onStartOver={handleStartOver}
           onSkipMemberLineupIntro={skipMemberLineupIntro}
+          officialSets={officialSets}
         />
       ) : null}
 
@@ -1788,6 +1794,7 @@ export default function App() {
           initialDayIndex={editInitialDay}
           uploadError={error}
           onDismissError={() => setError('')}
+          officialSets={officialSets}
         />
       ) : null}
 

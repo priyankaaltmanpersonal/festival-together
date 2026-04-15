@@ -324,3 +324,91 @@ describe('DayTabReview — stage options', () => {
     expect(getByText('Heineken House')).toBeTruthy();
   });
 });
+
+describe('DayTabReview — autocomplete suggestions', () => {
+  const officialSets = [
+    {
+      id: 'official-1',
+      artist_name: 'Tyler the Creator',
+      stage_name: 'Sahara',
+      start_time_pt: '20:00',
+      end_time_pt: '21:30',
+      day_index: 1,
+      source: 'official',
+    },
+    {
+      id: 'official-2',
+      artist_name: 'Bad Bunny',
+      stage_name: 'Coachella Stage',
+      start_time_pt: '23:00',
+      end_time_pt: '24:30',
+      day_index: 1,
+      source: 'official',
+    },
+  ];
+
+  it('shows matching suggestions when typing 2+ characters', async () => {
+    const { getByText, getByPlaceholderText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: { 1: { status: 'done', sets: [], retryCount: 0, confirmed: false } },
+          officialSets,
+        })}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.press(getByText('+ Add Artist'));
+    });
+
+    fireEvent.changeText(getByPlaceholderText('e.g. Bad Bunny'), 'Tyler');
+
+    expect(getByText('Tyler the Creator')).toBeTruthy();
+    expect(getByText(/Sahara/)).toBeTruthy();
+  });
+
+  it('does not show suggestions from a different day', async () => {
+    const crossDaySet = { id: 'other', artist_name: 'Tyler the Creator', stage_name: 'Gobi', start_time_pt: '18:00', end_time_pt: '19:00', day_index: 2, source: 'official' };
+    const { getByText, getByPlaceholderText, queryByText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: { 1: { status: 'done', sets: [], retryCount: 0, confirmed: false } },
+          officialSets: [crossDaySet],
+        })}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.press(getByText('+ Add Artist'));
+    });
+
+    fireEvent.changeText(getByPlaceholderText('e.g. Bad Bunny'), 'Tyler');
+
+    // day_index 2 set should not appear when we're on day 1
+    expect(queryByText('Tyler the Creator')).toBeNull();
+  });
+
+  it('pre-fills stage when a suggestion is selected', async () => {
+    const { getByText, getByPlaceholderText, queryByText } = render(
+      <DayTabReview
+        {...makeProps({
+          dayStates: { 1: { status: 'done', sets: [], retryCount: 0, confirmed: false } },
+          officialSets,
+        })}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.press(getByText('+ Add Artist'));
+    });
+
+    fireEvent.changeText(getByPlaceholderText('e.g. Bad Bunny'), 'Tyler');
+    fireEvent.press(getByText('Tyler the Creator'));
+
+    // Suggestions should be dismissed
+    expect(queryByText(/Sahara · /)).toBeNull();
+
+    // Stage dropdown trigger should now show the pre-filled stage
+    expect(getByText('Sahara')).toBeTruthy();
+  });
+});

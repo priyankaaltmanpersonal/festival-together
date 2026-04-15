@@ -85,7 +85,8 @@ export function GroupScheduleScreen({
       sets: visibleSets
         .filter((item) => item.stage_name === stage)
         .sort((a, b) => timeToMinutes(a.start_time_pt) - timeToMinutes(b.start_time_pt)),
-    }));
+    }))
+    .filter((column) => column.sets.length > 0);
 
   const timeline = buildTimeline(visibleSets, gridBodyHeight || 0);
   const memberColorById = useMemo(

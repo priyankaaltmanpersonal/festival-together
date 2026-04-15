@@ -226,3 +226,139 @@ def test_curfew_defaults_overrides_when_end_equals_start():
     entries = [{"artist_name": "Headliner", "start_time": "23:25", "end_time": "23:25", "day_index": 2}]
     result = _apply_curfew_defaults(entries, days)
     assert result[0]["end_time"] == "25:00"
+
+
+# ── _detect_anomalies ─────────────────────────────────────────────────────────
+
+def test_detect_anomalies_before_1pm_returns_issue():
+    """A set starting before 1 PM should produce an anomaly issue string."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "Misparse", "stage_name": "Sahara", "start_time": "12:00", "end_time": "13:00", "day_index": 1},
+    ]
+    issues = _detect_anomalies(entries)
+    assert len(issues) == 1
+    assert "12:00" in issues[0]
+    assert "1 PM" in issues[0]
+
+
+def test_detect_anomalies_1pm_start_clean():
+    """A set starting exactly at 13:00 should produce no anomalies."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "Opener", "stage_name": "Gobi", "start_time": "13:00", "end_time": "14:00", "day_index": 1},
+    ]
+    assert _detect_anomalies(entries) == []
+
+
+def test_detect_anomalies_over_4_hours_returns_issue():
+    """A set with duration > 240 min should produce an anomaly issue string."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "Marathon", "stage_name": "Sahara", "start_time": "14:00", "end_time": "19:00", "day_index": 1},
+    ]
+    issues = _detect_anomalies(entries)
+    assert len(issues) == 1
+    assert "300 min" in issues[0]
+
+
+def test_detect_anomalies_exactly_4_hours_clean():
+    """A set lasting exactly 4 hours should produce no anomalies."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "Long Set", "stage_name": "Sahara", "start_time": "14:00", "end_time": "18:00", "day_index": 1},
+    ]
+    assert _detect_anomalies(entries) == []
+
+
+def test_detect_anomalies_same_stage_overlap_returns_issue():
+    """Two overlapping sets on the same stage+day should produce an issue."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "First", "stage_name": "Sahara", "start_time": "20:00", "end_time": "21:30", "day_index": 1},
+        {"artist_name": "Overlap", "stage_name": "Sahara", "start_time": "21:00", "end_time": "22:00", "day_index": 1},
+    ]
+    issues = _detect_anomalies(entries)
+    assert len(issues) == 1
+    assert "First" in issues[0]
+    assert "Overlap" in issues[0]
+
+
+def test_detect_anomalies_non_overlapping_same_stage_clean():
+    """Back-to-back sets on the same stage should produce no anomalies."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "Set A", "stage_name": "Gobi", "start_time": "18:00", "end_time": "19:00", "day_index": 1},
+        {"artist_name": "Set B", "stage_name": "Gobi", "start_time": "19:00", "end_time": "20:00", "day_index": 1},
+    ]
+    assert _detect_anomalies(entries) == []
+
+
+def test_detect_anomalies_midnight_set_clean():
+    """Extended-format midnight sets (24:00+) are after 1 PM and should not flag."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "Headliner", "stage_name": "Coachella Stage", "start_time": "24:00", "end_time": "25:00", "day_index": 1},
+    ]
+    assert _detect_anomalies(entries) == []
+
+
+def test_detect_anomalies_different_stages_overlap_clean():
+    """Overlapping times on different stages are valid — no issue."""
+    from app.core.llm_parser import _detect_anomalies
+    entries = [
+        {"artist_name": "Artist A", "stage_name": "Sahara", "start_time": "20:00", "end_time": "21:30", "day_index": 1},
+        {"artist_name": "Artist B", "stage_name": "Gobi", "start_time": "20:30", "end_time": "21:30", "day_index": 1},
+    ]
+    assert _detect_anomalies(entries) == []
+
+
+# ── Anomaly-triggered retry ────────────────────────────────────────────────────
+
+def test_parse_schedule_retries_when_anomalies_detected():
+    """When the initial parse has anomalies, the client is called a second time."""
+    from unittest.mock import call
+
+    bad_json = '[{"artist_name":"Misparse","stage_name":"Sahara","start_time":"12:00","end_time":"13:00","day_index":1}]'
+    good_json = '[{"artist_name":"Misparse","stage_name":"Sahara","start_time":"24:00","end_time":"25:00","day_index":1}]'
+
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = [
+        MagicMock(content=[MagicMock(text=bad_json)]),   # first call — bad result
+        MagicMock(content=[MagicMock(text=good_json)]),  # correction retry
+    ]
+    with patch("app.core.llm_parser._get_client", return_value=mock_client):
+        result = parse_schedule_from_image(_make_test_image_bytes(), "Friday", FESTIVAL_DAYS)
+
+    assert mock_client.messages.create.call_count == 2
+    assert result[0]["start_time"] == "24:00"
+
+
+def test_parse_schedule_no_retry_when_clean():
+    """When the initial parse is clean, the client is called exactly once."""
+    clean_json = '[{"artist_name":"Lady Gaga","stage_name":"Main Stage","start_time":"21:00","end_time":"22:30","day_index":1}]'
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = MagicMock(content=[MagicMock(text=clean_json)])
+    with patch("app.core.llm_parser._get_client", return_value=mock_client):
+        result = parse_schedule_from_image(_make_test_image_bytes(), "Friday", FESTIVAL_DAYS)
+
+    assert mock_client.messages.create.call_count == 1
+    assert result[0]["artist_name"] == "Lady Gaga"
+
+
+def test_parse_official_lineup_retries_when_anomalies_detected():
+    """Official lineup parser also retries when anomalies are detected."""
+    bad_json = '[{"artist_name":"Misparse","stage_name":"Sahara","start_time":"12:00","end_time":"13:00","day_index":1}]'
+    good_json = '[{"artist_name":"Misparse","stage_name":"Sahara","start_time":"24:00","end_time":"25:00","day_index":1}]'
+
+    mock_client = MagicMock()
+    mock_client.messages.create.side_effect = [
+        MagicMock(content=[MagicMock(text=bad_json)]),
+        MagicMock(content=[MagicMock(text=good_json)]),
+    ]
+    with patch("app.core.llm_parser._get_client", return_value=mock_client):
+        result = parse_official_lineup_from_image(_make_test_image_bytes(), FESTIVAL_DAYS)
+
+    assert mock_client.messages.create.call_count == 2
+    assert result[0]["start_time"] == "24:00"
