@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AddArtistFormCard, DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
@@ -21,6 +21,9 @@ export function EditMyScheduleScreen({
   const styles = useMemo(() => makeStyles(C), [C]);
   const scrollViewRef = useRef(null);
   const [isAddingTopLevel, setIsAddingTopLevel] = useState(false);
+  const [addedDayLabel, setAddedDayLabel] = useState(null);
+  const successTimerRef = useRef(null);
+  useEffect(() => () => { if (successTimerRef.current) clearTimeout(successTimerRef.current); }, []);
 
   // Build dayStates from personalSets so DayTabReview can render them.
   // If a day is currently being uploaded, override its status to 'uploading'.
@@ -59,7 +62,14 @@ export function EditMyScheduleScreen({
           isAddingTopLevel ? (
             <AddArtistFormCard
               festivalDays={festivalDays}
-              onAdd={async (fields) => { await onAddSet(fields); setIsAddingTopLevel(false); }}
+              onAdd={async (fields) => {
+                await onAddSet(fields);
+                const dayLabel = (festivalDays || []).find((d) => d.dayIndex === fields.day_index)?.label;
+                setIsAddingTopLevel(false);
+                setAddedDayLabel(dayLabel || null);
+                if (successTimerRef.current) clearTimeout(successTimerRef.current);
+                successTimerRef.current = setTimeout(() => setAddedDayLabel(null), 2500);
+              }}
               onCancel={() => setIsAddingTopLevel(false)}
               officialSets={officialSets}
             />
@@ -74,6 +84,11 @@ export function EditMyScheduleScreen({
               <Text style={styles.addBtnText}>+ Add Artist</Text>
             </Pressable>
           )
+        ) : null}
+        {addedDayLabel ? (
+          <View style={styles.successBanner}>
+            <Text style={styles.successBannerText}>✓ Added to {addedDayLabel}</Text>
+          </View>
         ) : null}
         {(festivalDays || []).length === 0 ? (
           <Text style={styles.helper}>No schedule loaded yet.</Text>
@@ -124,6 +139,15 @@ const makeStyles = (C) => StyleSheet.create({
     backgroundColor: C.cardBg,
   },
   addBtnText: { color: C.primary, fontWeight: '700' },
+  successBanner: {
+    backgroundColor: C.successBg || '#f0fdf4',
+    borderWidth: 1,
+    borderColor: C.successBorder || '#86efac',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  successBannerText: { color: C.success || '#16a34a', fontWeight: '700', fontSize: 13 },
   errorBanner: {
     marginHorizontal: 4,
     marginBottom: 8,

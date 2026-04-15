@@ -111,6 +111,26 @@ describe('EditMyScheduleScreen — top-level Add Artist form', () => {
     expect(queryByText('+ Add Artist')).toBeTruthy();
   });
 
+  it('shows success banner with day label after adding', async () => {
+    const onAddSet = jest.fn().mockResolvedValue(undefined);
+    const { getByText, getAllByText, getByPlaceholderText, findByText } = render(
+      <EditMyScheduleScreen {...makeProps({ onAddSet })} />
+    );
+    await act(async () => {
+      fireEvent.press(getByText('+ Add Artist'));
+    });
+    fireEvent.changeText(getByPlaceholderText('e.g. Bad Bunny'), 'Kendrick');
+    await act(async () => {
+      fireEvent.press(getAllByText('Kendrick Lamar')[0]);
+    });
+    await act(async () => {
+      fireEvent.press(getByText('Add'));
+    });
+    // Success banner should appear naming the day
+    const banner = await findByText(/✓ Added to/);
+    expect(banner).toBeTruthy();
+  });
+
   it('cancels form when Cancel is pressed', async () => {
     const { getByText, getByPlaceholderText, queryByText } = render(
       <EditMyScheduleScreen {...makeProps()} />
