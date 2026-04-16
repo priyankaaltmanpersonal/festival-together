@@ -412,7 +412,7 @@ export function GroupScheduleScreen({
                           : definite.slice(0, maxBubbles);
                         const overflowCount = hasOverflow ? definite.length - (maxBubbles - 1) : 0;
                         const actualRows = Math.ceil(shownBubbles.length / BUBBLES_PER_ROW) || 1;
-                        const bubblesHeight = actualRows === 1 ? 16 : 35;
+                        const bubblesHeight = actualRows === 1 ? 12 : 27;
                         const showSummary = height >= bubblesHeight + 40;
 
                         const myEffectivePref = myMemberId
@@ -740,8 +740,8 @@ const makeStyles = (C) => StyleSheet.create({
   },
   attendeeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
   attendeeBubble: {
-    width: 16,
-    height: 16,
+    width: 12,
+    height: 12,
     borderRadius: 999,
     backgroundColor: C.attendeeBg,
     alignItems: 'center',
@@ -749,16 +749,16 @@ const makeStyles = (C) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.75)',
   },
-  attendeeText: { color: C.attendeeText, fontSize: 7, fontWeight: '700' },
+  attendeeText: { color: C.attendeeText, fontSize: 6, fontWeight: '700' },
   overflowBubble: {
-    width: 16,
-    height: 16,
+    width: 12,
+    height: 12,
     borderRadius: 999,
     backgroundColor: C.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  overflowText: { color: '#fff', fontSize: 6.5, fontWeight: '700' },
+  overflowText: { color: '#fff', fontSize: 5.5, fontWeight: '700' },
   summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 11 },
   modalOverlay: {
     flex: 1,
