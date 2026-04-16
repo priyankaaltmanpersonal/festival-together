@@ -23,10 +23,9 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
   const [formError, setFormError] = useState('');
   const [suggestionsHidden, setSuggestionsHidden] = useState(false);
   const [lastPickedName, setLastPickedName] = useState('');
-  // When festivalDays is provided (top-level form), manage day selection internally
-  const [internalDayIndex, setInternalDayIndex] = useState(
-    festivalDays ? (festivalDays[0]?.dayIndex ?? 1) : null
-  );
+  // When festivalDays is provided (top-level form), start with no day selected
+  // so the field shows placeholder text until a suggestion auto-fills it
+  const [internalDayIndex, setInternalDayIndex] = useState(null);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
 
   const effectiveDayIndex = festivalDays ? internalDayIndex : dayIndex;
