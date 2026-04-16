@@ -732,8 +732,8 @@ export default function App() {
           });
         }
 
-        // Sync personalSets in background (Edit My Schedule view)
-        refreshPersonal();
+        // Sync personalSets; await so the uploading spinner stays until sets are ready
+        await refreshPersonal();
       }
     } catch (e) {
       setError(friendlyError(e instanceof Error ? e.message : String(e)));
