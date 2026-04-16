@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DaySelector } from '../components/DaySelector';
 import { useTheme } from '../theme';
 import { formatTimeStr } from '../utils';
@@ -26,6 +26,23 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
 
   const availableDays = festivalDays || [];
   const [selectedDay, setSelectedDay] = useState(availableDays[0]?.dayIndex ?? null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [collapsedIds, setCollapsedIds] = useState(new Set());
+
+  const filteredMembers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter((m) => m.display_name?.toLowerCase().includes(q));
+  }, [members, searchQuery]);
+
+  const toggleCollapse = (memberId) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) next.delete(memberId);
+      else next.add(memberId);
+      return next;
+    });
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
@@ -38,6 +55,14 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
           ) : null}
           <Text style={styles.label}>Individual Schedules</Text>
         </View>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by name…"
+          placeholderTextColor={C.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCorrect={false}
+        />
         {availableDays.length > 1 ? (
           <DaySelector
             days={availableDays}
@@ -51,35 +76,47 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
         {!members.length ? <Text style={styles.helper}>No data yet. Run member setup and refresh.</Text> : null}
       </View>
 
-      {members.map((member) => {
+      {filteredMembers.map((member) => {
+        const isCollapsed = collapsedIds.has(member.member_id);
         const daySets = selectedDay !== null
           ? (member.sets || []).filter((s) => s.day_index === selectedDay)
           : (member.sets || []);
         const dayLabel = availableDays.find((d) => d.dayIndex === selectedDay)?.label || '';
+        const chipColor = member.chip_color || C.primary;
         return (
           <View key={member.member_id} style={styles.card}>
-            <Text style={styles.memberName}>{member.display_name}</Text>
-            <Text style={styles.helper}>Setup: {member.setup_status}</Text>
-            {daySets.length ? (
-              daySets.map((setItem) => (
-                <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
-                  <Text style={styles.setTitle}>{setItem.artist_name}</Text>
-                  <Text style={styles.helper}>
-                    {setItem.stage_name} • {formatTimeStr(setItem.start_time_pt)}–{formatTimeStr(setItem.end_time_pt)}
-                  </Text>
-                  <PreferenceBadge preference={setItem.preference} styles={styles} />
-                </View>
-              ))
-            ) : (
-              <Text style={styles.helper}>
-                {(member.sets || []).length > 0
-                  ? `No sets on ${dayLabel}.`
-                  : 'No mapped sets yet for this member.'}
-              </Text>
-            )}
+            <Pressable onPress={() => toggleCollapse(member.member_id)} style={styles.memberHeader}>
+              <View style={[styles.memberColorDot, { backgroundColor: chipColor }]} />
+              <Text style={styles.memberName}>{member.display_name}</Text>
+              <Text style={styles.collapseIcon}>{isCollapsed ? '›' : '⌄'}</Text>
+            </Pressable>
+            {!isCollapsed ? (
+              daySets.length ? (
+                daySets.map((setItem) => (
+                  <View key={`${member.member_id}-${setItem.canonical_set_id}`} style={styles.setRow}>
+                    <Text style={styles.setTitle}>{setItem.artist_name}</Text>
+                    <Text style={styles.helper}>
+                      {setItem.stage_name} • {formatTimeStr(setItem.start_time_pt)}–{formatTimeStr(setItem.end_time_pt)}
+                    </Text>
+                    <PreferenceBadge preference={setItem.preference} styles={styles} />
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.helper}>
+                  {(member.sets || []).length > 0
+                    ? `No sets on ${dayLabel}.`
+                    : 'No mapped sets yet for this member.'}
+                </Text>
+              )
+            ) : null}
           </View>
         );
       })}
+      {searchQuery && filteredMembers.length === 0 ? (
+        <View style={styles.card}>
+          <Text style={styles.helper}>No members match "{searchQuery}".</Text>
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -98,7 +135,28 @@ const makeStyles = (C) => StyleSheet.create({
   backBtn: { alignSelf: 'flex-start' },
   backBtnText: { color: C.primary, fontWeight: '700', fontSize: 13 },
   label: { fontWeight: '700', color: C.text },
-  memberName: { fontWeight: '700', fontSize: 16, color: C.text },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    backgroundColor: C.inputBg,
+    color: C.text,
+  },
+  memberHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  memberColorDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+  },
+  memberName: { fontWeight: '700', fontSize: 16, color: C.text, flex: 1 },
+  collapseIcon: { fontSize: 18, color: C.textMuted },
   helper: { color: C.textMuted, fontSize: 12 },
   buttonSecondary: {
     backgroundColor: C.btnSecondaryBg,

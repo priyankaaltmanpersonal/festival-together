@@ -1600,6 +1600,7 @@ export default function App() {
         sessionToken: memberSession,
       });
       setHomeSnapshot(homePayload);
+      await refreshPersonal();
     } catch (err) {
       setError(friendlyError(err instanceof Error ? err.message : String(err)));
     }
@@ -1822,15 +1823,7 @@ export default function App() {
         <GroupScheduleScreen
           homeSnapshot={homeSnapshot}
           scheduleSnapshot={scheduleSnapshot}
-          selectedMemberIds={selectedMemberIds}
           loading={loading}
-          onToggleMember={(memberId) => {
-            const nextMemberIds = selectedMemberIds.includes(memberId)
-              ? selectedMemberIds.filter((id) => id !== memberId)
-              : [...selectedMemberIds, memberId];
-            applyScheduleFilters(nextMemberIds, { debounceMs: 300 });
-          }}
-          onResetFilters={() => applyScheduleFilters([], { debounceMs: 300 })}
           inviteCode={inviteCode}
           onCopyInvite={copyInviteCode}
           inviteCopied={inviteCopied}

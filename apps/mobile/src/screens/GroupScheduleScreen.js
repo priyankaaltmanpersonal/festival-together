@@ -12,9 +12,7 @@ const BUBBLES_PER_ROW = 6;
 export function GroupScheduleScreen({
   homeSnapshot,
   scheduleSnapshot,
-  selectedMemberIds,
   loading,
-  onToggleMember,
   onResetFilters,
   inviteCode,
   onCopyInvite,
@@ -35,7 +33,6 @@ export function GroupScheduleScreen({
     ? Math.max(0, containerHeight - filterHeight - GRID_HEADER_HEIGHT)
     : null;
   const members = homeSnapshot?.members || [];
-  const hasActiveFilters = (selectedMemberIds || []).length > 0;
   const sets = scheduleSnapshot?.sets || [];
   const stages = scheduleSnapshot?.stages || [];
 
@@ -227,19 +224,12 @@ export function GroupScheduleScreen({
     <View style={styles.wrap} onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}>
       <View style={styles.filterSection} onLayout={(e) => setFilterHeight(e.nativeEvent.layout.height)}>
         <View style={styles.filterBar}>
-          <View style={styles.topRow}>
-            {hasActiveFilters ? (
-              <Pressable onPress={onResetFilters} style={styles.resetBtn}>
-                <Text style={styles.resetBtnText}>Clear Filters</Text>
-              </Pressable>
-            ) : null}
-            {inviteCode ? (
-              <Pressable onPress={onCopyInvite} style={styles.inviteRow}>
-                <Text style={styles.inviteText}>Invite Your Friends to Join: <Text style={styles.inviteCode}>{inviteCode}</Text></Text>
-                <Text style={styles.inviteCopyIcon}>{inviteCopied ? '✓' : '📋'}</Text>
-              </Pressable>
-            ) : null}
-          </View>
+          {inviteCode ? (
+            <Pressable onPress={onCopyInvite} style={styles.inviteRow}>
+              <Text style={styles.inviteText}>Invite Your Friends to Join: <Text style={styles.inviteCode}>{inviteCode}</Text></Text>
+              <Text style={styles.inviteCopyIcon}>{inviteCopied ? '✓' : '📋'}</Text>
+            </Pressable>
+          ) : null}
           {availableDays.length > 1 ? (
             <DaySelector
               days={availableDays.map((dayIdx) => ({
@@ -274,24 +264,6 @@ export function GroupScheduleScreen({
               ) : null}
             </View>
           ) : null}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
-            {members.map((member) => {
-              const selected = (selectedMemberIds || []).includes(member.id);
-              const memberColor = member.chip_color || '#5c5c5c';
-              return (
-                <Pressable
-                  key={member.id}
-                  onPress={() => onToggleMember(member.id)}
-                  disabled={loading}
-                  style={[styles.chip, selected && styles.chipSelected]}
-                >
-                  <Text style={[styles.chipText, { color: memberColor }]}>
-                    {member.display_name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
         </View>
       </View>
 
@@ -404,7 +376,9 @@ export function GroupScheduleScreen({
                         const definite = effectiveAttendees.filter((a) => a.preference === 'must_see');
                         const maybe = effectiveAttendees.filter((a) => a.preference !== 'must_see');
                         const maybeCount = maybe.length;
-                        const maxRows = height < 43 ? 1 : 2;
+                        const isSmallCard = height < 43;
+                        const bubbleSize = isSmallCard ? 12 : 16;
+                        const maxRows = isSmallCard ? 1 : 2;
                         const maxBubbles = maxRows * BUBBLES_PER_ROW;
                         const hasOverflow = definite.length > maxBubbles;
                         const shownBubbles = hasOverflow
@@ -412,7 +386,7 @@ export function GroupScheduleScreen({
                           : definite.slice(0, maxBubbles);
                         const overflowCount = hasOverflow ? definite.length - (maxBubbles - 1) : 0;
                         const actualRows = Math.ceil(shownBubbles.length / BUBBLES_PER_ROW) || 1;
-                        const bubblesHeight = actualRows === 1 ? 12 : 27;
+                        const bubblesHeight = actualRows === 1 ? bubbleSize : bubbleSize * 2 + 3;
                         const showSummary = height >= bubblesHeight + 40;
 
                         const myEffectivePref = myMemberId
@@ -442,15 +416,15 @@ export function GroupScheduleScreen({
                                       key={attendee.member_id}
                                       style={[
                                         styles.attendeeBubble,
-                                        { backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || C.attendeeBg }
+                                        { width: bubbleSize, height: bubbleSize, backgroundColor: attendee.chip_color || memberColorById[attendee.member_id] || C.attendeeBg }
                                       ]}
                                     >
-                                      <Text style={styles.attendeeText} numberOfLines={1} adjustsFontSizeToFit>{initials(attendee.display_name)}</Text>
+                                      <Text style={[styles.attendeeText, { fontSize: isSmallCard ? 6 : 7 }]} numberOfLines={1} adjustsFontSizeToFit>{initials(attendee.display_name)}</Text>
                                     </View>
                                   ))}
                                   {overflowCount > 0 ? (
-                                    <View style={styles.overflowBubble}>
-                                      <Text style={styles.overflowText}>+{overflowCount}</Text>
+                                    <View style={[styles.overflowBubble, { width: bubbleSize, height: bubbleSize }]}>
+                                      <Text style={[styles.overflowText, { fontSize: isSmallCard ? 5.5 : 6.5 }]}>+{overflowCount}</Text>
                                     </View>
                                   ) : null}
                                 </View>
@@ -740,8 +714,6 @@ const makeStyles = (C) => StyleSheet.create({
   },
   attendeeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
   attendeeBubble: {
-    width: 12,
-    height: 12,
     borderRadius: 999,
     backgroundColor: C.attendeeBg,
     alignItems: 'center',
@@ -749,16 +721,14 @@ const makeStyles = (C) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.75)',
   },
-  attendeeText: { color: C.attendeeText, fontSize: 6, fontWeight: '700' },
+  attendeeText: { color: C.attendeeText, fontWeight: '700' },
   overflowBubble: {
-    width: 12,
-    height: 12,
     borderRadius: 999,
     backgroundColor: C.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  overflowText: { color: '#fff', fontSize: 5.5, fontWeight: '700' },
+  overflowText: { color: '#fff', fontWeight: '700' },
   summaryText: { color: C.setCardSummaryTxt, fontSize: 8, lineHeight: 11 },
   modalOverlay: {
     flex: 1,
