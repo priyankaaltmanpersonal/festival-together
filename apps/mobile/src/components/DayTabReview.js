@@ -93,32 +93,6 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
   return (
     <View style={styles.addCard}>
       <Text style={styles.addCardLabel}>Add Artist</Text>
-      {festivalDays ? (
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Day</Text>
-          <Pressable onPress={() => setDayPickerOpen((o) => !o)} style={styles.dropdownTrigger}>
-            <Text style={[styles.dropdownTriggerText, !effectiveDayIndex && styles.dropdownPlaceholder]}>
-              {festivalDays.find((d) => d.dayIndex === effectiveDayIndex)?.label || 'Select day…'}
-            </Text>
-            <Text style={styles.dropdownChevron}>{dayPickerOpen ? '▲' : '▼'}</Text>
-          </Pressable>
-          {dayPickerOpen ? (
-            <View style={styles.dropdownList}>
-              {festivalDays.map((d) => (
-                <Pressable
-                  key={d.dayIndex}
-                  onPress={() => { setInternalDayIndex(d.dayIndex); setDayPickerOpen(false); }}
-                  style={[styles.dropdownOption, effectiveDayIndex === d.dayIndex && styles.dropdownOptionSelected]}
-                >
-                  <Text style={[styles.dropdownOptionText, effectiveDayIndex === d.dayIndex && styles.dropdownOptionSelectedText]}>
-                    {d.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      ) : null}
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Artist name</Text>
         <TextInput
@@ -146,6 +120,32 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
           </View>
         ) : null}
       </View>
+      {festivalDays ? (
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>Day</Text>
+          <Pressable onPress={() => setDayPickerOpen((o) => !o)} style={styles.dropdownTrigger}>
+            <Text style={[styles.dropdownTriggerText, !effectiveDayIndex && styles.dropdownPlaceholder]}>
+              {festivalDays.find((d) => d.dayIndex === effectiveDayIndex)?.label || 'Select day…'}
+            </Text>
+            <Text style={styles.dropdownChevron}>{dayPickerOpen ? '▲' : '▼'}</Text>
+          </Pressable>
+          {dayPickerOpen ? (
+            <View style={styles.dropdownList}>
+              {festivalDays.map((d) => (
+                <Pressable
+                  key={d.dayIndex}
+                  onPress={() => { setInternalDayIndex(d.dayIndex); setDayPickerOpen(false); }}
+                  style={[styles.dropdownOption, effectiveDayIndex === d.dayIndex && styles.dropdownOptionSelected]}
+                >
+                  <Text style={[styles.dropdownOptionText, effectiveDayIndex === d.dayIndex && styles.dropdownOptionSelectedText]}>
+                    {d.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>Stage</Text>
         {stageCustom ? (

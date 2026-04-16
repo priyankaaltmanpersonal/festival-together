@@ -1,5 +1,5 @@
 [
-  {"artist_name": "Justin Bieber",                  "stage_name": "Coachella Stage",  "start_time": "23:25", "end_time": null,    "day_index": 2},
+  {"artist_name": "Justin Bieber",                  "stage_name": "Coachella Stage",  "start_time": "23:25", "end_time": "25:00", "day_index": 2},
   {"artist_name": "The Strokes",                     "stage_name": "Coachella Stage",  "start_time": "21:00", "end_time": "22:10", "day_index": 2},
   {"artist_name": "GIVĒON",                          "stage_name": "Coachella Stage",  "start_time": "19:00", "end_time": "19:50", "day_index": 2},
   {"artist_name": "Addison Rae",                     "stage_name": "Coachella Stage",  "start_time": "17:25", "end_time": "18:20", "day_index": 2},

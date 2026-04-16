@@ -1,5 +1,5 @@
 [
-  {"artist_name": "Anyma",                          "stage_name": "Coachella Stage",  "start_time": "24:00", "end_time": null,    "day_index": 1},
+  {"artist_name": "Anyma",                          "stage_name": "Coachella Stage",  "start_time": "24:00", "end_time": "25:00", "day_index": 1},
   {"artist_name": "Sabrina Carpenter",               "stage_name": "Coachella Stage",  "start_time": "21:05", "end_time": "22:35", "day_index": 1},
   {"artist_name": "The xx",                          "stage_name": "Coachella Stage",  "start_time": "19:00", "end_time": "19:55", "day_index": 1},
   {"artist_name": "Teddy Swims",                     "stage_name": "Coachella Stage",  "start_time": "17:30", "end_time": "18:20", "day_index": 1},
