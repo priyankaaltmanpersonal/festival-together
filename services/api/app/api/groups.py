@@ -462,7 +462,14 @@ def member_home(session=Depends(require_session)) -> dict:
                 for row in day_rows
             ]
 
+    parsed_festival_days = json.loads(member["festival_days"]) if member["festival_days"] else [
+        {"day_index": 1, "label": "Friday"},
+        {"day_index": 2, "label": "Saturday"},
+        {"day_index": 3, "label": "Sunday"},
+    ]
+
     return {
+        "festival_days": parsed_festival_days,
         "me": {
             "id": member["id"],
             "display_name": member["display_name"],
@@ -474,11 +481,7 @@ def member_home(session=Depends(require_session)) -> dict:
             "id": member["group_id"],
             "name": member["group_name"],
             "icon_url": member["icon_url"],
-            "festival_days": json.loads(member["festival_days"]) if member["festival_days"] else [
-                {"day_index": 1, "label": "Friday"},
-                {"day_index": 2, "label": "Saturday"},
-                {"day_index": 3, "label": "Sunday"},
-            ],
+            "festival_days": parsed_festival_days,
             "has_official_lineup": has_official_lineup,
             "official_set_count": official_set_count,
             "official_days": official_days,
