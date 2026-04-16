@@ -10,10 +10,15 @@ jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 
 const FESTIVAL_DAYS = [{ dayIndex: 1, label: 'Friday' }];
 
+const PRESETS = [
+  { id: 'coachella_2026_w1', label: 'Coachella 2026 — Weekend 1', days: [{ day_index: 1, label: 'Friday' }, { day_index: 2, label: 'Saturday' }, { day_index: 3, label: 'Sunday' }] },
+  { id: 'coachella_2026_w2', label: 'Coachella 2026 — Weekend 2', days: [{ day_index: 1, label: 'Friday' }, { day_index: 2, label: 'Saturday' }, { day_index: 3, label: 'Sunday' }] },
+];
+
 function makeProps(overrides = {}) {
   return {
     userRole: 'founder',
-    onboardingStep: 'upload_all_days',
+    onboardingStep: 'festival_setup',
     displayName: 'Test User',
     setDisplayName: jest.fn(),
     groupName: 'Test Crew',
@@ -34,96 +39,109 @@ function makeProps(overrides = {}) {
     onCompleteFestivalSetup: jest.fn(),
     onResetFlow: jest.fn(),
     onChoosePath: jest.fn(),
-    uploadDayIndex: 1,
-    dayStates: { 1: { status: 'idle' } },
-    onChooseDayScreenshot: jest.fn(),
-    onSkipDay: jest.fn(),
-    onRetryDay: jest.fn(),
-    onChooseNewImage: jest.fn(),
-    onDeleteDaySet: jest.fn(),
-    onAddDaySet: jest.fn().mockResolvedValue(undefined),
-    onSetDayPreference: jest.fn(),
-    onEditDaySet: jest.fn(),
-    onConfirmDay: jest.fn(),
-    hasOfficialLineup: false,
-    onBrowseFullLineup: jest.fn(),
     onboardingLineupState: 'idle',
     onboardingLineupResult: null,
     onImportOfficialSchedule: jest.fn(),
+    onImportFromPreset: jest.fn(),
+    availablePresets: [],
+    pendingPresetId: null,
+    onChoosePresetForSetup: jest.fn(),
+    onClearPresetForSetup: jest.fn(),
     onSkipOfficialSchedule: jest.fn(),
     onFinishSetup: jest.fn(),
     onGoBack: jest.fn(),
     onStartOver: jest.fn(),
-    onSkipMemberLineupIntro: jest.fn(),
     ...overrides,
   };
 }
 
-describe('SetupScreen — upload_all_days step', () => {
-  it('renders Choose Screenshot and Skip This Day buttons', () => {
+describe('SetupScreen — festival_setup step (no presets)', () => {
+  it('shows manual day entry when no presets available', () => {
     const { getByText } = render(<SetupScreen {...makeProps()} />);
-    expect(getByText('Choose Screenshot')).toBeTruthy();
-    expect(getByText('Skip This Day')).toBeTruthy();
+    expect(getByText(/e\.g\. "Friday", "Saturday", "Sunday"/)).toBeTruthy();
+    expect(getByText('Continue')).toBeTruthy();
   });
 
-  it('does NOT show Browse Full Lineup when hasOfficialLineup is false', () => {
-    const { queryByText } = render(<SetupScreen {...makeProps({ hasOfficialLineup: false })} />);
-    expect(queryByText('Browse Full Lineup →')).toBeNull();
-  });
-
-  it('shows Browse Full Lineup button when hasOfficialLineup is true', () => {
-    const { getByText } = render(<SetupScreen {...makeProps({ hasOfficialLineup: true })} />);
-    expect(getByText('Browse Full Lineup →')).toBeTruthy();
-  });
-
-  it('calls onBrowseFullLineup when Browse Full Lineup is pressed', () => {
-    const onBrowseFullLineup = jest.fn();
-    const { getByText } = render(
-      <SetupScreen {...makeProps({ hasOfficialLineup: true, onBrowseFullLineup })} />
-    );
-    fireEvent.press(getByText('Browse Full Lineup →'));
-    expect(onBrowseFullLineup).toHaveBeenCalledTimes(1);
-  });
-
-  it('shows day label in the upload step header', () => {
-    const { getByText } = render(<SetupScreen {...makeProps()} />);
-    expect(getByText(/Friday/)).toBeTruthy();
-  });
-
-  it('shows lineup info message when hasOfficialLineup is true', () => {
-    const { getByText } = render(<SetupScreen {...makeProps({ hasOfficialLineup: true })} />);
-    expect(getByText(/The full lineup is already imported/)).toBeTruthy();
-  });
-
-  it('shows Skip for Now (not Skip This Day) when hasOfficialLineup is true', () => {
-    const { getByText, queryByText } = render(
-      <SetupScreen {...makeProps({ hasOfficialLineup: true })} />
-    );
-    expect(getByText('Skip for Now')).toBeTruthy();
-    expect(queryByText('Skip This Day')).toBeNull();
-  });
-
-  it('still shows Skip This Day when hasOfficialLineup is false', () => {
-    const { getByText } = render(<SetupScreen {...makeProps({ hasOfficialLineup: false })} />);
-    expect(getByText('Skip This Day')).toBeTruthy();
-  });
-
-  it('calls onSkipDay when Skip for Now is pressed (hasOfficialLineup true)', () => {
-    const onSkipDay = jest.fn();
-    const { getByText } = render(
-      <SetupScreen {...makeProps({ hasOfficialLineup: true, onSkipDay })} />
-    );
-    fireEvent.press(getByText('Skip for Now'));
-    expect(onSkipDay).toHaveBeenCalledTimes(1);
+  it('calls onCompleteFestivalSetup when Continue pressed', () => {
+    const onCompleteFestivalSetup = jest.fn();
+    const { getByText } = render(<SetupScreen {...makeProps({ onCompleteFestivalSetup })} />);
+    fireEvent.press(getByText('Continue'));
+    expect(onCompleteFestivalSetup).toHaveBeenCalledTimes(1);
   });
 });
 
-describe('SetupScreen — festival_setup step', () => {
-  it('helper text includes example day names', () => {
+describe('SetupScreen — festival_setup step (with presets)', () => {
+  it('shows preset buttons when availablePresets is provided', () => {
     const { getByText } = render(
-      <SetupScreen {...makeProps({ onboardingStep: 'festival_setup' })} />
+      <SetupScreen {...makeProps({ availablePresets: PRESETS })} />
     );
-    expect(getByText(/e\.g\. "Friday", "Saturday", "Sunday"/)).toBeTruthy();
+    expect(getByText('Coachella 2026 — Weekend 1')).toBeTruthy();
+    expect(getByText('Coachella 2026 — Weekend 2')).toBeTruthy();
+  });
+
+  it('calls onChoosePresetForSetup with correct id when preset tapped', () => {
+    const onChoosePresetForSetup = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ availablePresets: PRESETS, onChoosePresetForSetup })} />
+    );
+    fireEvent.press(getByText('Coachella 2026 — Weekend 1'));
+    expect(onChoosePresetForSetup).toHaveBeenCalledWith('coachella_2026_w1');
+  });
+
+  it('shows manual day entry section below preset buttons', () => {
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ availablePresets: PRESETS })} />
+    );
+    expect(getByText(/or enter days manually/i)).toBeTruthy();
+  });
+
+  it('shows selected preset confirmation and days when pendingPresetId is set', () => {
+    const { getByText } = render(
+      <SetupScreen
+        {...makeProps({
+          availablePresets: PRESETS,
+          pendingPresetId: 'coachella_2026_w1',
+          festivalDays: [
+            { dayIndex: 1, label: 'Friday' },
+            { dayIndex: 2, label: 'Saturday' },
+            { dayIndex: 3, label: 'Sunday' },
+          ],
+        })}
+      />
+    );
+    expect(getByText(/Coachella 2026 — Weekend 1/)).toBeTruthy();
+    expect(getByText(/Friday.*Saturday.*Sunday/)).toBeTruthy();
+    expect(getByText('Continue →')).toBeTruthy();
+  });
+
+  it('calls onClearPresetForSetup when Change pressed', () => {
+    const onClearPresetForSetup = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeProps({
+          availablePresets: PRESETS,
+          pendingPresetId: 'coachella_2026_w1',
+          onClearPresetForSetup,
+        })}
+      />
+    );
+    fireEvent.press(getByText('Change'));
+    expect(onClearPresetForSetup).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onCompleteFestivalSetup when Continue → pressed with preset', () => {
+    const onCompleteFestivalSetup = jest.fn();
+    const { getByText } = render(
+      <SetupScreen
+        {...makeProps({
+          availablePresets: PRESETS,
+          pendingPresetId: 'coachella_2026_w1',
+          onCompleteFestivalSetup,
+        })}
+      />
+    );
+    fireEvent.press(getByText('Continue →'));
+    expect(onCompleteFestivalSetup).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -239,141 +257,15 @@ describe('SetupScreen — upload_official_schedule step', () => {
   });
 });
 
-describe('SetupScreen — member_lineup_intro step', () => {
-  function makeIntroProps(overrides = {}) {
-    return makeProps({ onboardingStep: 'member_lineup_intro', ...overrides });
-  }
-
-  it('renders Schedule is Ready title', () => {
-    const { getByText } = render(<SetupScreen {...makeIntroProps()} />);
-    expect(getByText('Schedule is Ready')).toBeTruthy();
-  });
-
-  it('renders Go to Group Schedule as primary button', () => {
-    const { getByText } = render(<SetupScreen {...makeIntroProps()} />);
-    expect(getByText('Go to Group Schedule →')).toBeTruthy();
-  });
-
-  it('renders Upload my own screenshots as secondary button', () => {
-    const { getByText } = render(<SetupScreen {...makeIntroProps()} />);
-    expect(getByText('Upload my own screenshots →')).toBeTruthy();
-  });
-
-  it('calls onFinishSetup when primary button pressed', () => {
-    const onFinishSetup = jest.fn();
-    const { getByText } = render(<SetupScreen {...makeIntroProps({ onFinishSetup })} />);
-    fireEvent.press(getByText('Go to Group Schedule →'));
-    expect(onFinishSetup).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls onSkipMemberLineupIntro when secondary button pressed', () => {
-    const onSkipMemberLineupIntro = jest.fn();
-    const { getByText } = render(<SetupScreen {...makeIntroProps({ onSkipMemberLineupIntro })} />);
-    fireEvent.press(getByText('Upload my own screenshots →'));
-    expect(onSkipMemberLineupIntro).toHaveBeenCalledTimes(1);
-  });
-});
-
 describe('SetupScreen — back navigation', () => {
-  it('upload_official_schedule shows "Start over" link, calls onStartOver', () => {
+  it('upload_official_schedule shows ← Back and Start over', () => {
+    const onGoBack = jest.fn();
     const onStartOver = jest.fn();
     const { getByText } = render(
-      <SetupScreen {...makeProps({ onboardingStep: 'upload_official_schedule', onStartOver })} />
+      <SetupScreen {...makeProps({ onboardingStep: 'upload_official_schedule', onGoBack, onStartOver })} />
     );
+    fireEvent.press(getByText('← Back'));
+    expect(onGoBack).toHaveBeenCalledTimes(1);
     expect(getByText('Start over')).toBeTruthy();
-    fireEvent.press(getByText('Start over'));
-    expect(onStartOver).toHaveBeenCalledTimes(1);
-  });
-
-  it('member_lineup_intro shows "Start over" link, calls onStartOver', () => {
-    const onStartOver = jest.fn();
-    const { getByText } = render(
-      <SetupScreen {...makeProps({ onboardingStep: 'member_lineup_intro', onStartOver })} />
-    );
-    expect(getByText('Start over')).toBeTruthy();
-    fireEvent.press(getByText('Start over'));
-    expect(onStartOver).toHaveBeenCalledTimes(1);
-  });
-
-  it('upload_all_days day 1 (founder) shows ← Back, calls onGoBack', () => {
-    const onGoBack = jest.fn();
-    const { getByText } = render(
-      <SetupScreen
-        {...makeProps({
-          onboardingStep: 'upload_all_days',
-          userRole: 'founder',
-          uploadDayIndex: 1,
-          festivalDays: [{ dayIndex: 1, label: 'Friday' }],
-          onGoBack,
-          hasOfficialLineup: false,
-        })}
-      />
-    );
-    fireEvent.press(getByText('← Back'));
-    expect(onGoBack).toHaveBeenCalledTimes(1);
-  });
-
-  it('upload_all_days day 1 (member with lineup) shows ← Back, calls onGoBack', () => {
-    const onGoBack = jest.fn();
-    const { getByText } = render(
-      <SetupScreen
-        {...makeProps({
-          onboardingStep: 'upload_all_days',
-          userRole: 'member',
-          uploadDayIndex: 1,
-          festivalDays: [{ dayIndex: 1, label: 'Friday' }],
-          onGoBack,
-          hasOfficialLineup: true,
-        })}
-      />
-    );
-    fireEvent.press(getByText('← Back'));
-    expect(onGoBack).toHaveBeenCalledTimes(1);
-  });
-
-  it('upload_all_days day 1 (member without lineup) shows "Start over" link, calls onStartOver', () => {
-    const onStartOver = jest.fn();
-    const { getByText } = render(
-      <SetupScreen
-        {...makeProps({
-          onboardingStep: 'upload_all_days',
-          userRole: 'member',
-          uploadDayIndex: 1,
-          festivalDays: [{ dayIndex: 1, label: 'Friday' }],
-          onStartOver,
-          hasOfficialLineup: false,
-        })}
-      />
-    );
-    expect(getByText('Start over')).toBeTruthy();
-    fireEvent.press(getByText('Start over'));
-    expect(onStartOver).toHaveBeenCalledTimes(1);
-  });
-
-  it('upload_all_days day 2 shows ← Back regardless of role, calls onGoBack', () => {
-    const onGoBack = jest.fn();
-    const { getByText } = render(
-      <SetupScreen
-        {...makeProps({
-          onboardingStep: 'upload_all_days',
-          userRole: 'member',
-          uploadDayIndex: 2,
-          festivalDays: [{ dayIndex: 1, label: 'Friday' }, { dayIndex: 2, label: 'Saturday' }],
-          onGoBack,
-          hasOfficialLineup: false,
-        })}
-      />
-    );
-    fireEvent.press(getByText('← Back'));
-    expect(onGoBack).toHaveBeenCalledTimes(1);
-  });
-
-  it('review_days shows ← Back, calls onGoBack', () => {
-    const onGoBack = jest.fn();
-    const { getByText } = render(
-      <SetupScreen {...makeProps({ onboardingStep: 'review_days', onGoBack })} />
-    );
-    fireEvent.press(getByText('← Back'));
-    expect(onGoBack).toHaveBeenCalledTimes(1);
   });
 });

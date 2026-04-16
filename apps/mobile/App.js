@@ -118,6 +118,7 @@ export default function App() {
   const [onboardingLineupState, setOnboardingLineupState] = useState('idle'); // 'idle' | 'uploading' | 'done' | 'error'
   const [onboardingLineupResult, setOnboardingLineupResult] = useState(null); // { sets_created, days_processed } | null
   const [availablePresets, setAvailablePresets] = useState([]);
+  const [pendingPresetId, setPendingPresetId] = useState(null);
   const [editInitialDay, setEditInitialDay] = useState(null);
   const [editUploadingDayIndex, setEditUploadingDayIndex] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -489,6 +490,18 @@ export default function App() {
       const nextIndex = prev.length + 1;
       return [...prev, { dayIndex: nextIndex, label: '' }];
     });
+  };
+
+  const choosePresetForSetup = (presetId) => {
+    const preset = availablePresets.find((p) => p.id === presetId);
+    if (!preset) return;
+    setFestivalDays(preset.days.map((d) => ({ dayIndex: d.day_index, label: d.label })));
+    setPendingPresetId(presetId);
+  };
+
+  const clearPresetForSetup = () => {
+    setPendingPresetId(null);
+    setFestivalDays([{ dayIndex: 1, label: '' }]);
   };
 
   const removeFestivalDay = (dayIndex) => {
@@ -927,20 +940,30 @@ export default function App() {
       setHomeSnapshot(homePayload);
       setGroupId(homePayload.group.id);
       setInviteCode(inviteCodeInput.trim().toUpperCase());
-      setLastSyncAt(new Date().toISOString());
       setFestivalDays((homePayload.festival_days || []).map((d) => ({ dayIndex: d.day_index, label: d.label })));
-      setUploadDayIndex((homePayload.festival_days || [{ day_index: 1 }])[0].day_index);
       setDayStates({});
-      if (homePayload.group?.has_official_lineup) {
-        setOnboardingStep('member_lineup_intro');
-      } else {
-        setOnboardingStep('upload_all_days');
-      }
+      // Complete setup inline and go straight to the grid — no personal upload step
+      await apiRequest({
+        baseUrl: apiUrl,
+        path: '/v1/members/me/setup/complete',
+        method: 'POST',
+        sessionToken: joinerSession,
+        body: { confirm: true },
+      });
+      const schedulePayload = await fetchSchedule(joinerSession, homePayload.group.id, { memberIds: [] });
+      setSelectedMemberIds([]);
+      setScheduleSnapshot(schedulePayload);
+      setLastSyncAt(new Date().toISOString());
+      setOnboardingStep('complete');
+      setActiveView('group');
+      setMoreSheetOpen(false);
     });
 
   const completeFestivalSetup = () =>
     run('create group', async () => {
-      if (festivalDays.some((d) => !d.label.trim())) throw new Error('Enter a name for each day');
+      if (!pendingPresetId && festivalDays.some((d) => !d.label.trim())) {
+        throw new Error('Enter a name for each day');
+      }
       if (!isOnline) throw new Error('Creating the group requires a connection');
       const payload = await apiRequest({
         baseUrl: apiUrl,
@@ -953,14 +976,48 @@ export default function App() {
           festival_days: festivalDays.map((d) => ({ day_index: d.dayIndex, label: d.label.trim() }))
         }
       });
-      setMemberSession(payload.session.token);
-      setGroupId(payload.group.id);
+      const token = payload.session.token;
+      const newGroupId = payload.group.id;
+      setMemberSession(token);
+      setGroupId(newGroupId);
       setInviteCode(payload.group.invite_code);
       setIsFounder(true);
-      setLastSyncAt(new Date().toISOString());
       setDayStates({});
-      setUploadDayIndex(festivalDays[0]?.dayIndex ?? 1);
-      setOnboardingStep('upload_official_schedule');
+      if (pendingPresetId) {
+        // Preset chosen: import lineup + complete setup inline → straight to grid
+        await apiRequest({
+          baseUrl: apiUrl,
+          path: `/v1/groups/${newGroupId}/lineup/from-preset`,
+          method: 'POST',
+          sessionToken: token,
+          body: { preset_id: pendingPresetId },
+        });
+        await apiRequest({
+          baseUrl: apiUrl,
+          path: '/v1/members/me/setup/complete',
+          method: 'POST',
+          sessionToken: token,
+          body: { confirm: true },
+        });
+        const homePayload = await apiRequest({
+          baseUrl: apiUrl,
+          path: '/v1/members/me/home',
+          method: 'GET',
+          sessionToken: token,
+        });
+        setHomeSnapshot(homePayload);
+        const schedulePayload = await fetchSchedule(token, newGroupId, { memberIds: [] });
+        setSelectedMemberIds([]);
+        setScheduleSnapshot(schedulePayload);
+        setLastSyncAt(new Date().toISOString());
+        setOnboardingStep('complete');
+        setActiveView('group');
+        setMoreSheetOpen(false);
+      } else {
+        setLastSyncAt(new Date().toISOString());
+        setUploadDayIndex(festivalDays[0]?.dayIndex ?? 1);
+        setOnboardingStep('upload_official_schedule');
+      }
     });
 
   const importPersonal = () =>
@@ -1507,30 +1564,9 @@ export default function App() {
     }
   };
 
-  const proceedToPersonalSchedule = () => {
-    setOnboardingLineupState('idle');
-    setOnboardingStep('upload_all_days');
-  };
-
-  const skipMemberLineupIntro = () => {
-    setOnboardingStep('upload_all_days');
-  };
-
   const handleOnboardingBack = () => {
     if (onboardingStep === 'upload_official_schedule') {
       setOnboardingStep('festival_setup');
-    } else if (onboardingStep === 'upload_all_days') {
-      const currentIdx = festivalDays.findIndex((d) => d.dayIndex === uploadDayIndex);
-      if (currentIdx > 0) {
-        setUploadDayIndex(festivalDays[currentIdx - 1].dayIndex);
-      } else if (userRole === 'founder') {
-        setOnboardingStep('upload_official_schedule');
-      } else {
-        setOnboardingStep('member_lineup_intro');
-      }
-    } else if (onboardingStep === 'review_days') {
-      setUploadDayIndex(festivalDays[festivalDays.length - 1]?.dayIndex ?? 1);
-      setOnboardingStep('upload_all_days');
     }
   };
 
@@ -1632,6 +1668,8 @@ export default function App() {
     setGroupName('');
     setInviteCodeInput('');
     setScreenshotCount('3');
+    setPendingPresetId(null);
+    setFestivalDays([{ dayIndex: 1, label: '' }]);
     setOnboardingStep('welcome');
     setActiveView('onboarding');
     setMoreSheetOpen(false);
@@ -1699,66 +1737,6 @@ export default function App() {
 
   const canOpenMenu = onboardingStep === 'complete';
 
-  const allDaysReady = useMemo(
-    () =>
-      onboardingStep === 'review_days' &&
-      festivalDays.length > 0 &&
-      festivalDays.some((day) => (dayStates[day.dayIndex] || {}).status === 'done') &&
-      festivalDays.every((day) => {
-        const state = dayStates[day.dayIndex] || { status: 'idle' };
-        return state.status === 'idle' || (state.status === 'done' && state.confirmed);
-      }),
-    [onboardingStep, festivalDays, dayStates]
-  );
-
-  const autoAdvancedRef = useRef(false);
-
-  useEffect(() => {
-    if (allDaysReady && !autoAdvancedRef.current) {
-      autoAdvancedRef.current = true;
-      finishUploadFlow();
-    }
-  }, [allDaysReady]);
-
-  useEffect(() => {
-    if (onboardingStep !== 'review_days') {
-      autoAdvancedRef.current = false;
-    }
-  }, [onboardingStep]);
-
-  const handleContinueFromReview = () => {
-    if (allDaysReady) {
-      finishUploadFlow();
-      return;
-    }
-
-    const failedLabels = festivalDays
-      .filter((day) => {
-        const s = (dayStates[day.dayIndex] || {}).status;
-        return s === 'failed' || s === 'uploading';
-      })
-      .map((day) => day.label || `Day ${day.dayIndex}`);
-
-    const unconfirmedLabels = festivalDays
-      .filter((day) => {
-        const state = dayStates[day.dayIndex] || { status: 'idle' };
-        return state.status === 'done' && !state.confirmed;
-      })
-      .map((day) => day.label || `Day ${day.dayIndex}`);
-
-    const parts = [];
-    if (failedLabels.length) parts.push(`${failedLabels.join(', ')} ${failedLabels.length === 1 ? 'failed to parse' : 'failed to parse'}.`);
-    if (unconfirmedLabels.length) parts.push(`${unconfirmedLabels.join(', ')} ${unconfirmedLabels.length === 1 ? 'hasn\'t been confirmed yet' : 'haven\'t been confirmed yet'}.`);
-
-    Alert.alert(
-      'Not all days are ready',
-      `${parts.join(' ')} You can always edit your schedule or re-upload screenshots after continuing.`,
-      [
-        { text: 'Go back', style: 'cancel' },
-        { text: 'Continue anyway', onPress: () => finishUploadFlow() },
-      ]
-    );
-  };
 
   const title = useMemo(() => {
     if (activeView === 'group') return homeSnapshot?.group?.name || 'Group Schedule';
@@ -1782,11 +1760,6 @@ export default function App() {
             <View style={styles.pendingDot} />
           ) : null}
         </View>
-        {activeView === 'onboarding' && onboardingStep === 'review_days' ? (
-          <Pressable onPress={handleContinueFromReview} disabled={loading} style={styles.continueBtn}>
-            <Text style={styles.continueBtnText}>›</Text>
-          </Pressable>
-        ) : null}
         {activeView === 'group' ? (
           <Pressable onPress={handleRefreshGroup} disabled={refreshing} style={styles.refreshBtn}>
             {refreshing ? (
@@ -1830,30 +1803,18 @@ export default function App() {
           onCompleteFestivalSetup={completeFestivalSetup}
           onResetFlow={resetFlow}
           onChoosePath={choosePath}
-          uploadDayIndex={uploadDayIndex}
-          dayStates={dayStates}
-          onChooseDayScreenshot={chooseAndUploadDayScreenshot}
-          onSkipDay={skipPickDay}
-          onRetryDay={retryDayUpload}
-          onChooseNewImage={rePickAndUploadDay}
-          onDeleteDaySet={deleteDaySet}
-          onAddDaySet={addDaySet}
-          onSetDayPreference={setDaySetPreference}
-          onEditDaySet={editCanonicalSet}
-          onConfirmDay={confirmDay}
-          hasOfficialLineup={Boolean(homeSnapshot?.group?.has_official_lineup)}
-          onBrowseFullLineup={finishUploadFlow}
           onboardingLineupState={onboardingLineupState}
           onboardingLineupResult={onboardingLineupResult}
           onImportOfficialSchedule={importOfficialScheduleDuringOnboarding}
           onImportFromPreset={(presetId) => importFromPreset(presetId, { duringOnboarding: true })}
           availablePresets={availablePresets}
-          onSkipOfficialSchedule={proceedToPersonalSchedule}
+          pendingPresetId={pendingPresetId}
+          onChoosePresetForSetup={choosePresetForSetup}
+          onClearPresetForSetup={clearPresetForSetup}
+          onSkipOfficialSchedule={finishUploadFlow}
           onFinishSetup={finishUploadFlow}
           onGoBack={handleOnboardingBack}
           onStartOver={handleStartOver}
-          onSkipMemberLineupIntro={skipMemberLineupIntro}
-          officialSets={officialSets}
         />
       ) : null}
 

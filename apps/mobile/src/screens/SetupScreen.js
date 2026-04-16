@@ -1,7 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useRef } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { DayTabReview } from '../components/DayTabReview';
 import { useTheme } from '../theme';
 
 
@@ -28,35 +27,19 @@ export function SetupScreen({
   onCompleteFestivalSetup,
   onResetFlow,
   onChoosePath,
-  // upload_all_days step
-  uploadDayIndex,
-  dayStates,
-  onChooseDayScreenshot,
-  onSkipDay,
-  // review_days step
-  onRetryDay,
-  onChooseNewImage,
-  onDeleteDaySet,
-  onAddDaySet,
-  onSetDayPreference,
-  onEditDaySet,
-  onConfirmDay,
-  hasOfficialLineup,
-  onBrowseFullLineup,
   // upload_official_schedule step
   onboardingLineupState = 'idle',
   onboardingLineupResult = null,
   onImportOfficialSchedule,
   onImportFromPreset,
   availablePresets = [],
+  pendingPresetId = null,
+  onChoosePresetForSetup,
+  onClearPresetForSetup,
   onSkipOfficialSchedule,
   onFinishSetup,
-  // back navigation (added in Task 5)
   onGoBack,
   onStartOver,
-  // member_lineup_intro step (added in Task 4)
-  onSkipMemberLineupIntro,
-  officialSets,
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -134,109 +117,90 @@ export function SetupScreen({
       {onboardingStep === 'festival_setup' ? (
         <View style={styles.stepCard}>
           <ActionButton label="← Back" onPress={() => onChoosePath('founder')} disabled={loading} />
-          <Text style={styles.stepTitle}>Festival Days</Text>
-          <Text style={styles.helper}>Add each day of the festival you're attending (e.g. "Friday", "Saturday", "Sunday").</Text>
-          {(festivalDays || []).map((day, index) => (
-            <View key={day.dayIndex} style={styles.dayRow}>
-              <Text style={styles.dayIndexLabel}>Day {index + 1}</Text>
-              <TextInput
-                value={day.label}
-                onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
-                style={[styles.input, styles.dayInput]}
-                maxLength={20}
-              />
-              <Pressable
-                onPress={() => onRemoveFestivalDay(day.dayIndex)}
-                disabled={(festivalDays || []).length <= 1}
-                style={[styles.removeButton, (festivalDays || []).length <= 1 && styles.removeButtonDisabled]}
-              >
-                <Text style={styles.removeButtonText}>×</Text>
-              </Pressable>
-            </View>
-          ))}
-          <ActionButton label="＋ Add Day" onPress={onAddFestivalDay} disabled={loading} />
-          <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading} />
+          <Text style={styles.stepTitle}>Your Festival</Text>
+
+          {pendingPresetId ? (
+            // Preset selected — show confirmation and read-only days
+            <>
+              <View style={styles.presetSelectedBox}>
+                <Text style={styles.presetSelectedText}>
+                  ✓ {availablePresets.find((p) => p.id === pendingPresetId)?.label}
+                </Text>
+                <ActionButton label="Change" onPress={onClearPresetForSetup} disabled={loading} />
+              </View>
+              <Text style={styles.helper}>
+                Days: {(festivalDays || []).map((d) => d.label).join(' · ')}
+              </Text>
+              <ActionButton label="Continue →" onPress={onCompleteFestivalSetup} primary disabled={loading} />
+            </>
+          ) : availablePresets.length > 0 ? (
+            // Show preset options first, then manual entry below
+            <>
+              <Text style={styles.helper}>Select your festival:</Text>
+              {availablePresets.map((preset) => (
+                <ActionButton
+                  key={preset.id}
+                  label={preset.label}
+                  onPress={() => onChoosePresetForSetup(preset.id)}
+                  primary
+                  disabled={loading}
+                />
+              ))}
+              <View style={styles.orDivider}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>or enter days manually</Text>
+                <View style={styles.orLine} />
+              </View>
+              {(festivalDays || []).map((day, index) => (
+                <View key={day.dayIndex} style={styles.dayRow}>
+                  <Text style={styles.dayIndexLabel}>Day {index + 1}</Text>
+                  <TextInput
+                    value={day.label}
+                    onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
+                    style={[styles.input, styles.dayInput]}
+                    maxLength={20}
+                  />
+                  <Pressable
+                    onPress={() => onRemoveFestivalDay(day.dayIndex)}
+                    disabled={(festivalDays || []).length <= 1}
+                    style={[styles.removeButton, (festivalDays || []).length <= 1 && styles.removeButtonDisabled]}
+                  >
+                    <Text style={styles.removeButtonText}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+              <ActionButton label="＋ Add Day" onPress={onAddFestivalDay} disabled={loading} />
+              <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading} />
+            </>
+          ) : (
+            // No presets — plain day entry
+            <>
+              <Text style={styles.helper}>Add each day of the festival you're attending (e.g. "Friday", "Saturday", "Sunday").</Text>
+              {(festivalDays || []).map((day, index) => (
+                <View key={day.dayIndex} style={styles.dayRow}>
+                  <Text style={styles.dayIndexLabel}>Day {index + 1}</Text>
+                  <TextInput
+                    value={day.label}
+                    onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
+                    style={[styles.input, styles.dayInput]}
+                    maxLength={20}
+                  />
+                  <Pressable
+                    onPress={() => onRemoveFestivalDay(day.dayIndex)}
+                    disabled={(festivalDays || []).length <= 1}
+                    style={[styles.removeButton, (festivalDays || []).length <= 1 && styles.removeButtonDisabled]}
+                  >
+                    <Text style={styles.removeButtonText}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+              <ActionButton label="＋ Add Day" onPress={onAddFestivalDay} disabled={loading} />
+              <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading} />
+            </>
+          )}
         </View>
       ) : null}
 
-      {onboardingStep === 'upload_all_days' ? (() => {
-        const totalDays = (festivalDays || []).length;
-        const dayPosition = (festivalDays || []).findIndex((d) => d.dayIndex === uploadDayIndex) + 1;
-        const currentDay = (festivalDays || []).find((d) => d.dayIndex === uploadDayIndex);
-        const dayLabel = currentDay?.label || `Day ${uploadDayIndex}`;
-        const truncatedLabel = dayLabel.length > 15 ? dayLabel.slice(0, 15) + '…' : dayLabel;
-        const dayState = (dayStates || {})[uploadDayIndex] || { status: 'idle' };
-
-        return (
-          <View style={styles.stepCard}>
-            {(() => {
-              const isDay1 = dayPosition === 1;
-              const founderOrMemberWithLineup = userRole === 'founder' || hasOfficialLineup;
-              if (!isDay1 || founderOrMemberWithLineup) {
-                return <ActionButton label="← Back" onPress={onGoBack} disabled={loading} />;
-              }
-              return <StartOverLink onPress={onStartOver} styles={styles} />;
-            })()}
-            <Text style={styles.stepTitle}>Upload {truncatedLabel} schedule</Text>
-            <Text style={styles.helper}>Day {dayPosition} of {totalDays}</Text>
-            {dayState.status === 'uploading' ? (
-              <View style={{ gap: 6 }}>
-                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                  <ActivityIndicator color={C.primary} size="small" />
-                  <Text style={styles.helper}>Parsing your schedule…</Text>
-                </View>
-                <Text style={styles.helper}>This usually takes 15–30 seconds. Please keep the app open!</Text>
-              </View>
-            ) : dayState.status === 'done' ? (
-              <Text style={styles.helper}>✓ {(dayState.sets || []).length} artists found</Text>
-            ) : dayState.status === 'failed' ? (
-              <Text style={[styles.helper, { color: C.error }]}>Upload failed — retry in review</Text>
-            ) : null}
-            {hasOfficialLineup ? (
-              <>
-                <Text style={styles.helper}>
-                  The full lineup is already imported! You can add artists directly from the group grid, or upload a screenshot of your personal schedule to mark your picks.
-                </Text>
-                <ActionButton
-                  label="Browse Full Lineup →"
-                  onPress={onBrowseFullLineup}
-                  primary
-                  disabled={loading}
-                />
-                <View style={styles.orDivider}>
-                  <View style={styles.orLine} />
-                  <Text style={styles.orText}>or</Text>
-                  <View style={styles.orLine} />
-                </View>
-                <ActionButton
-                  label="Choose Screenshot"
-                  onPress={() => onChooseDayScreenshot(uploadDayIndex)}
-                  disabled={loading}
-                />
-                <ActionButton
-                  label="Skip for Now"
-                  onPress={onSkipDay}
-                  disabled={loading}
-                />
-              </>
-            ) : (
-              <>
-                <ActionButton
-                  label="Choose Screenshot"
-                  onPress={() => onChooseDayScreenshot(uploadDayIndex)}
-                  primary
-                  disabled={loading}
-                />
-                <ActionButton
-                  label="Skip This Day"
-                  onPress={onSkipDay}
-                  disabled={loading}
-                />
-              </>
-            )}
-          </View>
-        );
-      })() : null}
 
       {onboardingStep === 'upload_official_schedule' ? (() => {
         const daysProcessed = onboardingLineupResult?.days_processed || [];
@@ -322,39 +286,6 @@ export function SetupScreen({
         );
       })() : null}
 
-      {onboardingStep === 'member_lineup_intro' ? (
-        <View style={styles.stepCard}>
-          <Text style={styles.stepTitle}>Schedule is Ready</Text>
-          <Text style={styles.helper}>
-            The official lineup has been imported — you can browse every artist and tap to add them to your picks right from the group grid.
-          </Text>
-          <ActionButton label="Go to Group Schedule →" onPress={onFinishSetup} primary disabled={loading} />
-          <ActionButton label="Upload my own screenshots →" onPress={onSkipMemberLineupIntro} disabled={loading} />
-          <Text style={styles.helper}>You can always upload screenshots later from the My Schedule tab.</Text>
-          <StartOverLink onPress={onStartOver} styles={styles} />
-        </View>
-      ) : null}
-
-      {onboardingStep === 'review_days' ? (
-        <View style={styles.stepCard}>
-          <ActionButton label="← Back" onPress={onGoBack} disabled={loading} />
-          <Text style={styles.stepTitle}>Review Your Schedule</Text>
-          <Text style={styles.helper}>Check each day and fix any mistakes.</Text>
-          <DayTabReview
-            festivalDays={festivalDays || []}
-            dayStates={dayStates || {}}
-            onRetry={onRetryDay}
-            onReUpload={onChooseNewImage}
-            onDeleteSet={onDeleteDaySet}
-            onAddSet={onAddDaySet}
-            onSetPreference={onSetDayPreference}
-            onEditSet={onEditDaySet}
-            onAddOpen={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)}
-            onConfirmDay={onConfirmDay}
-            officialSets={officialSets}
-          />
-        </View>
-      ) : null}
 
       {loading ? <ActivityIndicator style={{ marginTop: 8 }} /> : null}
       {error && onboardingStep !== 'upload_all_days' && onboardingStep !== 'upload_official_schedule' ? <Text style={styles.error}>{error}</Text> : null}
@@ -545,6 +476,19 @@ const makeStyles = (C) => StyleSheet.create({
     borderColor: '#fcd34d',
   },
   warningText: { color: '#92400e', fontWeight: '700', fontSize: 13 },
+  presetSelectedBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: C.successBg || '#f0fdf4',
+    borderWidth: 1,
+    borderColor: C.successBorder || '#86efac',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  presetSelectedText: { color: C.success || '#16a34a', fontWeight: '700', fontSize: 13, flex: 1 },
   startOverLink: { alignItems: 'center', paddingTop: 4 },
   startOverText: { color: C.textMuted, fontSize: 12, textDecorationLine: 'underline' },
   orDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 2 },
