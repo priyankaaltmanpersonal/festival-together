@@ -84,16 +84,20 @@ export function FounderToolsScreen({
         ) : null}
 
         {availablePresets.length > 0 && lineupImportState !== 'done' ? (
-          availablePresets.map((preset) => (
-            <Pressable
-              key={preset.id}
-              onPress={() => onImportFromPreset(preset.id)}
-              disabled={lineupImportState === 'uploading'}
-              style={[styles.buttonPrimary, lineupImportState === 'uploading' && styles.buttonDisabled]}
-            >
-              <Text style={styles.buttonPrimaryText}>{preset.label}</Text>
-            </Pressable>
-          ))
+          availablePresets.map((preset) => {
+            const alreadyImported = officialLineupStats?.set_count > 0;
+            const isDisabled = lineupImportState === 'uploading' || alreadyImported;
+            return (
+              <Pressable
+                key={preset.id}
+                onPress={() => onImportFromPreset(preset.id)}
+                disabled={isDisabled}
+                style={[styles.buttonPrimary, isDisabled && styles.buttonDisabled]}
+              >
+                <Text style={styles.buttonPrimaryText}>{preset.label}</Text>
+              </Pressable>
+            );
+          })
         ) : null}
         <Pressable
           onPress={onImportLineup}

@@ -7,7 +7,7 @@ export function EditMyScheduleScreen({
   personalSets,
   festivalDays,
   onReUploadDay,
-  uploadingDayIndex,
+  uploadingDayIndices,
   onSetPreference,
   onDeleteSet,
   onAddSet,
@@ -30,7 +30,7 @@ export function EditMyScheduleScreen({
   const dayStates = useMemo(() => {
     const result = {};
     for (const day of (festivalDays || [])) {
-      const isUploading = uploadingDayIndex === day.dayIndex;
+      const isUploading = uploadingDayIndices instanceof Set ? uploadingDayIndices.has(day.dayIndex) : false;
       const daySets = (personalSets || []).filter((s) => s.day_index === day.dayIndex);
       result[day.dayIndex] = {
         status: isUploading ? 'uploading' : daySets.length > 0 ? 'done' : 'idle',
@@ -40,7 +40,7 @@ export function EditMyScheduleScreen({
       };
     }
     return result;
-  }, [festivalDays, personalSets, uploadingDayIndex]);
+  }, [festivalDays, personalSets, uploadingDayIndices]);
 
   return (
     <ScrollView

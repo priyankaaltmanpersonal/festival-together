@@ -33,7 +33,7 @@ function makeProps(overrides = {}) {
     personalSets: [],
     festivalDays: FESTIVAL_DAYS,
     onReUploadDay: jest.fn(),
-    uploadingDayIndex: null,
+    uploadingDayIndices: new Set(),
     onSetPreference: jest.fn(),
     onDeleteSet: jest.fn(),
     onAddSet: jest.fn().mockResolvedValue(undefined),

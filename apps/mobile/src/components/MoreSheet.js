@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,10 @@ export function MoreSheet({
   const [draftColor, setDraftColor] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    if (!visible) setProfileOpen(false);
+  }, [visible]);
 
   const openProfile = () => {
     setDraftName(currentDisplayName || '');

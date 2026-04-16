@@ -120,7 +120,7 @@ export default function App() {
   const [availablePresets, setAvailablePresets] = useState([]);
   const [pendingPresetId, setPendingPresetId] = useState(null);
   const [editInitialDay, setEditInitialDay] = useState(null);
-  const [editUploadingDayIndex, setEditUploadingDayIndex] = useState(null);
+  const [editUploadingDayIndices, setEditUploadingDayIndices] = useState(new Set());
   const [refreshing, setRefreshing] = useState(false);
 
   const appendLog = (line) => setLog((prev) => [line, ...prev].slice(0, 16));
@@ -676,7 +676,7 @@ export default function App() {
     const currentDay = festivalDays.find((d) => d.dayIndex === dayIndex);
     const dayLabel = currentDay?.label || '';
 
-    setEditUploadingDayIndex(dayIndex);
+    setEditUploadingDayIndices((prev) => new Set([...prev, dayIndex]));
     setError('');
 
     try {
@@ -738,7 +738,7 @@ export default function App() {
     } catch (e) {
       setError(friendlyError(e instanceof Error ? e.message : String(e)));
     } finally {
-      setEditUploadingDayIndex(null);
+      setEditUploadingDayIndices((prev) => { const next = new Set(prev); next.delete(dayIndex); return next; });
     }
   };
 
@@ -1882,7 +1882,7 @@ export default function App() {
           personalSets={personalSets}
           festivalDays={festivalDays}
           onReUploadDay={reUploadDayPostOnboarding}
-          uploadingDayIndex={editUploadingDayIndex}
+          uploadingDayIndices={editUploadingDayIndices}
           onSetPreference={setPreference}
           onDeleteSet={deletePersonalSet}
           onAddSet={addPersonalSet}
