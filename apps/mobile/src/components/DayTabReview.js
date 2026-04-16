@@ -48,7 +48,16 @@ function AddArtistForm({ dayIndex, onAdd, onCancel, C, styles, stageOptions, off
     setStageCustom(false);
     setStageOpen(false);
     if (festivalDays) setInternalDayIndex(s.day_index);
-    if (s.start_time_pt) setStartDate(timeStringToDate(s.start_time_pt));
+    if (s.start_time_pt) {
+      const newStart = timeStringToDate(s.start_time_pt);
+      setStartDate(newStart);
+      if (!s.end_time_pt) {
+        // No end time in data — default to start + 1 hour to avoid validation error
+        const newEnd = new Date(newStart);
+        newEnd.setHours(newEnd.getHours() + 1);
+        setEndDate(newEnd);
+      }
+    }
     if (s.end_time_pt) setEndDate(timeStringToDate(s.end_time_pt));
     setSuggestionsHidden(true);
   };
