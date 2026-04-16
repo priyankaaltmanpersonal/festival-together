@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { DaySelector } from '../components/DaySelector';
 import { useTheme } from '../theme';
 import { formatTimeStr } from '../utils';
@@ -28,6 +28,7 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
   const [selectedDay, setSelectedDay] = useState(availableDays[0]?.dayIndex ?? null);
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedIds, setCollapsedIds] = useState(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
   const filteredMembers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -70,8 +71,14 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
             onSelect={setSelectedDay}
           />
         ) : null}
-        <Pressable onPress={onLoadIndividual} style={styles.buttonSecondary}>
-          <Text style={styles.buttonText}>Refresh Individual Schedules</Text>
+        <Pressable
+          onPress={async () => { setRefreshing(true); await onLoadIndividual(); setRefreshing(false); }}
+          disabled={refreshing}
+          style={[styles.buttonSecondary, refreshing && { opacity: 0.6 }]}
+        >
+          {refreshing
+            ? <ActivityIndicator size="small" color={C.primary} />
+            : <Text style={styles.buttonText}>Refresh Individual Schedules</Text>}
         </Pressable>
         {!members.length ? <Text style={styles.helper}>No data yet. Run member setup and refresh.</Text> : null}
       </View>
@@ -88,7 +95,7 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
             <Pressable onPress={() => toggleCollapse(member.member_id)} style={styles.memberHeader}>
               <View style={[styles.memberColorDot, { backgroundColor: chipColor }]} />
               <Text style={styles.memberName}>{member.display_name}</Text>
-              <Text style={styles.collapseIcon}>{isCollapsed ? '›' : '⌄'}</Text>
+              <Text style={[styles.collapseIcon, !isCollapsed && { transform: [{ rotate: '90deg' }] }]}>›</Text>
             </Pressable>
             {!isCollapsed ? (
               daySets.length ? (

@@ -1609,7 +1609,7 @@ export default function App() {
   const loadIndividual = () => {
     setActiveView('individual');
     setMoreSheetOpen(false);
-    run('load individual schedules', async () => {
+    return run('load individual schedules', async () => {
       if (!memberSession || !groupId) throw new Error('Need group and member session first');
       if (!isOnline) {
         if (individualSnapshot) {

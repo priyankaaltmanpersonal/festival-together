@@ -169,6 +169,7 @@ def individual_schedules(group_id: str, session=Depends(require_session)) -> dic
             SELECT
               m.id AS member_id,
               m.display_name,
+              m.chip_color,
               m.setup_status,
               cs.id AS canonical_set_id,
               cs.artist_name,
@@ -194,6 +195,7 @@ def individual_schedules(group_id: str, session=Depends(require_session)) -> dic
             by_member[member_id] = {
                 "member_id": member_id,
                 "display_name": row["display_name"],
+                "chip_color": row["chip_color"],
                 "setup_status": row["setup_status"],
                 "sets": [],
             }
