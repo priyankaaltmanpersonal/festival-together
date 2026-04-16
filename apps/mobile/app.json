@@ -21,7 +21,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.festivaltogether.app",
-      "buildNumber": "1.0.27",
+      "buildNumber": "1.0.29",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Festival Together needs access to your photo library so you can upload screenshots of the festival schedule.",
         "ITSAppUsesNonExemptEncryption": false
