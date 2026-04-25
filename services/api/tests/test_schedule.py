@@ -5,7 +5,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.db import get_conn, init_db
+from app.core.db import init_db
 from app.main import app
 from tests.conftest import make_jpeg_bytes, seed_canonical_sets
 

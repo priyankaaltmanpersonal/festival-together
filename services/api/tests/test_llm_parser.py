@@ -1,4 +1,3 @@
-import base64
 import io
 from unittest.mock import MagicMock, patch
 
@@ -317,7 +316,6 @@ def test_detect_anomalies_different_stages_overlap_clean():
 
 def test_parse_schedule_retries_when_anomalies_detected():
     """When the initial parse has anomalies, the client is called a second time."""
-    from unittest.mock import call
 
     bad_json = '[{"artist_name":"Misparse","stage_name":"Sahara","start_time":"12:00","end_time":"13:00","day_index":1}]'
     good_json = '[{"artist_name":"Misparse","stage_name":"Sahara","start_time":"24:00","end_time":"25:00","day_index":1}]'

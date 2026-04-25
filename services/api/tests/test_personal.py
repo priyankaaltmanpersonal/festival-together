@@ -32,7 +32,6 @@ def _create_group(group_name: str, display_name: str) -> dict:
 def test_personal_import_and_setup_completion() -> None:
     founder = _create_group("Crew", "Founder")
     founder_group_id = founder["group"]["id"]
-    founder_session = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
     seed_canonical_sets(founder_group_id)
@@ -155,7 +154,6 @@ def _make_test_image() -> bytes:
 def test_personal_upload_with_vision_mock() -> None:
     founder = _create_group("Upload Personal Crew", "Founder")
     group_id = founder["group"]["id"]
-    founder_token = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
     seed_canonical_sets(group_id)

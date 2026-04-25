@@ -2,7 +2,6 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from unittest.mock import patch
-from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
@@ -32,7 +31,6 @@ def _create_group(group_name: str, display_name: str) -> dict:
 def test_group_create_and_preview_and_join_blocking() -> None:
     founder = _create_group("Weekend Crew", "Priyanka")
     founder_group_id = founder["group"]["id"]
-    founder_session = founder["session"]["token"]
 
     invite_code = founder["group"]["invite_code"]
     preview = client.get(f"/v1/invites/{invite_code}/preview")
@@ -69,7 +67,6 @@ def test_group_create_and_preview_and_join_blocking() -> None:
 def test_join_with_anonymous_session_does_not_create_temp_group() -> None:
     founder = _create_group("Weekend Crew", "Priyanka")
     founder_group_id = founder["group"]["id"]
-    founder_session = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
     seed_canonical_sets(founder_group_id)
@@ -123,7 +120,6 @@ def test_anonymous_session_rate_limited_per_ip() -> None:
 def test_join_rejects_taken_chip_color() -> None:
     founder = _create_group("Weekend Crew", "Priyanka")
     founder_group_id = founder["group"]["id"]
-    founder_session = founder["session"]["token"]
     invite_code = founder["group"]["invite_code"]
 
     seed_canonical_sets(founder_group_id)
@@ -356,7 +352,6 @@ def test_home_official_days_uses_fallback_label_for_unknown_day_index() -> None:
 # ─── Delete official lineup ───────────────────────────────────────────────────
 
 def test_delete_official_lineup_removes_sets_and_preferences() -> None:
-    from datetime import datetime, timezone
 
     founder = _create_group("Delete Lineup Crew", "Founder")
     group_id = founder["group"]["id"]

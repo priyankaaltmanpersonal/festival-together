@@ -15,11 +15,8 @@ from app.core.colors import CHIP_COLOR_PALETTE, normalize_chip_color, validate_c
 from app.core.db import get_conn
 from app.core.image_utils import validate_and_compress, ImageValidationError
 from app.core.llm_parser import parse_official_lineup_from_image
-
-logger = logging.getLogger(__name__)
 from app.schemas.groups import (
     DeleteMemberRequest,
-    FestivalDay,
     GroupCreateRequest,
     GroupCreateResponse,
     GroupSummary,
@@ -32,6 +29,8 @@ from app.schemas.groups import (
     SessionSummary,
     _DEFAULT_FESTIVAL_DAYS,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["groups"])
 
