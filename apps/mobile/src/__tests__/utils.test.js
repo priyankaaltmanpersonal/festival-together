@@ -10,6 +10,11 @@ import {
   formatHHMM,
   timeToTotalMinutes,
   formatDisplayTime,
+  currentFestivalTimePosition,
+  formatDateKey,
+  dateFromDateKey,
+  weekdayLabelForDate,
+  generateFestivalDaysFromRange,
   SLOT_MINUTES,
   SLOT_HEIGHT,
 } from '../utils';
@@ -359,5 +364,91 @@ describe('formatTimeStr', () => {
 
   it('formats 9:00 AM correctly', () => {
     expect(formatTimeStr('09:00')).toBe('9:00 AM');
+  });
+});
+
+describe('currentFestivalTimePosition', () => {
+  const timeline = {
+    startMinute: 17 * 60,
+    endMinute: 26 * 60,
+    labels: [],
+    totalHeight: 0,
+  };
+  const festivalDays = [{ dayIndex: 1, label: 'Friday', date: '2026-04-10' }];
+
+  it('returns a line position when now matches the selected festival date in timezone', () => {
+    const result = currentFestivalTimePosition({
+      festivalDays,
+      selectedDay: 1,
+      timeline,
+      now: new Date('2026-04-11T04:30:00Z'), // 2026-04-10 9:30 PM in Los Angeles
+      timeZone: 'America/Los_Angeles',
+    });
+    expect(result.minute).toBe(21 * 60 + 30);
+    expect(result.top).toBe(minuteToY(21 * 60 + 30, timeline.startMinute));
+  });
+
+  it('keeps after-midnight festival time on the previous festival day', () => {
+    const result = currentFestivalTimePosition({
+      festivalDays,
+      selectedDay: 1,
+      timeline,
+      now: new Date('2026-04-11T08:30:00Z'), // 2026-04-11 1:30 AM in Los Angeles
+      timeZone: 'America/Los_Angeles',
+    });
+    expect(result.minute).toBe(25 * 60 + 30);
+  });
+
+  it('returns null when the selected day has no ISO date', () => {
+    expect(currentFestivalTimePosition({
+      festivalDays: [{ dayIndex: 1, label: 'Friday' }],
+      selectedDay: 1,
+      timeline,
+      now: new Date('2026-04-11T04:30:00Z'),
+    })).toBeNull();
+  });
+
+  it('returns null when now is outside the selected festival date', () => {
+    expect(currentFestivalTimePosition({
+      festivalDays,
+      selectedDay: 1,
+      timeline,
+      now: new Date('2026-04-12T04:30:00Z'),
+      timeZone: 'America/Los_Angeles',
+    })).toBeNull();
+  });
+});
+
+describe('festival date helpers', () => {
+  it('formats local dates as YYYY-MM-DD', () => {
+    expect(formatDateKey(new Date(2026, 3, 10, 12))).toBe('2026-04-10');
+  });
+
+  it('creates a noon local Date from YYYY-MM-DD', () => {
+    const date = dateFromDateKey('2026-04-10');
+    expect(date.getFullYear()).toBe(2026);
+    expect(date.getMonth()).toBe(3);
+    expect(date.getDate()).toBe(10);
+    expect(date.getHours()).toBe(12);
+  });
+
+  it('derives weekday labels from ISO dates', () => {
+    expect(weekdayLabelForDate('2026-04-10')).toBe('Friday');
+  });
+
+  it('generates consecutive festival days from a start and end date', () => {
+    expect(generateFestivalDaysFromRange('2026-04-10', '2026-04-12')).toEqual([
+      { dayIndex: 1, label: 'Friday', date: '2026-04-10' },
+      { dayIndex: 2, label: 'Saturday', date: '2026-04-11' },
+      { dayIndex: 3, label: 'Sunday', date: '2026-04-12' },
+    ]);
+  });
+
+  it('orders reversed date ranges chronologically', () => {
+    expect(generateFestivalDaysFromRange('2026-04-12', '2026-04-10').map((day) => day.date)).toEqual([
+      '2026-04-10',
+      '2026-04-11',
+      '2026-04-12',
+    ]);
   });
 });

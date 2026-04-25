@@ -502,6 +502,8 @@ def test_list_lineup_presets_returns_manifest() -> None:
         assert "label" in preset
         assert "days" in preset
         assert len(preset["days"]) == 3
+        for day in preset["days"]:
+            assert day["date"].startswith("2026-04-")
 
 
 def test_import_lineup_from_preset_seeds_canonical_sets() -> None:

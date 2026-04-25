@@ -8,11 +8,11 @@ jest.mock('expo-linear-gradient', () => ({
 
 jest.mock('@react-native-community/datetimepicker', () => 'DateTimePicker');
 
-const FESTIVAL_DAYS = [{ dayIndex: 1, label: 'Friday' }];
+const FESTIVAL_DAYS = [{ dayIndex: 1, label: 'Friday', date: '2026-04-10' }];
 
 const PRESETS = [
-  { id: 'coachella_2026_w1', label: 'Coachella 2026 — Weekend 1', days: [{ day_index: 1, label: 'Friday' }, { day_index: 2, label: 'Saturday' }, { day_index: 3, label: 'Sunday' }] },
-  { id: 'coachella_2026_w2', label: 'Coachella 2026 — Weekend 2', days: [{ day_index: 1, label: 'Friday' }, { day_index: 2, label: 'Saturday' }, { day_index: 3, label: 'Sunday' }] },
+  { id: 'coachella_2026_w1', label: 'Coachella 2026 — Weekend 1', days: [{ day_index: 1, label: 'Friday', date: '2026-04-10' }, { day_index: 2, label: 'Saturday', date: '2026-04-11' }, { day_index: 3, label: 'Sunday', date: '2026-04-12' }] },
+  { id: 'coachella_2026_w2', label: 'Coachella 2026 — Weekend 2', days: [{ day_index: 1, label: 'Friday', date: '2026-04-17' }, { day_index: 2, label: 'Saturday', date: '2026-04-18' }, { day_index: 3, label: 'Sunday', date: '2026-04-19' }] },
 ];
 
 function makeProps(overrides = {}) {
@@ -30,9 +30,7 @@ function makeProps(overrides = {}) {
     chipColorOptions: ['#4D73FF'],
     availableJoinColors: [],
     festivalDays: FESTIVAL_DAYS,
-    setFestivalDayLabel: jest.fn(),
-    onAddFestivalDay: jest.fn(),
-    onRemoveFestivalDay: jest.fn(),
+    onSetFestivalDateRange: jest.fn(),
     loading: false,
     error: '',
     onBeginProfile: jest.fn(),
@@ -56,9 +54,12 @@ function makeProps(overrides = {}) {
 }
 
 describe('SetupScreen — festival_setup step (no presets)', () => {
-  it('shows manual day entry when no presets available', () => {
+  it('shows manual date range entry when no presets available', () => {
     const { getByText } = render(<SetupScreen {...makeProps()} />);
-    expect(getByText(/e\.g\. "Friday", "Saturday", "Sunday"/)).toBeTruthy();
+    expect(getByText(/Choose the first and last date/)).toBeTruthy();
+    expect(getByText('Start date')).toBeTruthy();
+    expect(getByText('End date')).toBeTruthy();
+    expect(getByText(/Friday 2026-04-10/)).toBeTruthy();
     expect(getByText('Continue')).toBeTruthy();
   });
 
@@ -67,6 +68,27 @@ describe('SetupScreen — festival_setup step (no presets)', () => {
     const { getByText } = render(<SetupScreen {...makeProps({ onCompleteFestivalSetup })} />);
     fireEvent.press(getByText('Continue'));
     expect(onCompleteFestivalSetup).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Continue until a manual date range exists', () => {
+    const onCompleteFestivalSetup = jest.fn();
+    const { getByText } = render(
+      <SetupScreen {...makeProps({ festivalDays: [{ dayIndex: 1, label: '', date: '' }], onCompleteFestivalSetup })} />
+    );
+    fireEvent.press(getByText('Continue'));
+    expect(onCompleteFestivalSetup).not.toHaveBeenCalled();
+  });
+
+  it('opens the date picker and sends selected start date', () => {
+    const onSetFestivalDateRange = jest.fn();
+    const { getAllByText, UNSAFE_getByType } = render(
+      <SetupScreen {...makeProps({ onSetFestivalDateRange })} />
+    );
+
+    fireEvent.press(getAllByText('2026-04-10')[0]);
+    fireEvent(UNSAFE_getByType('DateTimePicker'), 'onChange', {}, new Date(2026, 3, 12, 12));
+
+    expect(onSetFestivalDateRange).toHaveBeenCalledWith('2026-04-12', '2026-04-12');
   });
 });
 
@@ -92,7 +114,7 @@ describe('SetupScreen — festival_setup step (with presets)', () => {
     const { getByText } = render(
       <SetupScreen {...makeProps({ availablePresets: PRESETS })} />
     );
-    expect(getByText(/or enter days manually/i)).toBeTruthy();
+    expect(getByText(/or choose dates manually/i)).toBeTruthy();
   });
 
   it('shows selected preset confirmation and days when pendingPresetId is set', () => {

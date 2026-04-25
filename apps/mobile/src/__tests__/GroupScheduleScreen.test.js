@@ -297,6 +297,78 @@ describe('GroupScheduleScreen — hide-unattended toggle', () => {
   });
 });
 
+describe('GroupScheduleScreen — member search', () => {
+  it('filters visible sets by attendee display name', () => {
+    const sets = [
+      {
+        ...makeSet('lydia-set', 1, 'Lydia Artist'),
+        attendees: [{ member_id: 'lydia', display_name: 'Lydia', preference: 'must_see', chip_color: '#f00' }],
+        attendee_count: 1,
+      },
+      {
+        ...makeSet('chris-set', 1, 'Chris Artist'),
+        attendees: [{ member_id: 'chris', display_name: 'Chris', preference: 'must_see', chip_color: '#00f' }],
+        attendee_count: 1,
+      },
+    ];
+    const { getByPlaceholderText, getByText, queryByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, {
+          homeSnapshot: {
+            members: [
+              { id: 'lydia', display_name: 'Lydia', chip_color: '#f00' },
+              { id: 'chris', display_name: 'Chris', chip_color: '#00f' },
+            ],
+          },
+        })}
+      />
+    );
+
+    expect(getByText('Lydia Artist')).toBeTruthy();
+    expect(getByText('Chris Artist')).toBeTruthy();
+
+    fireEvent.changeText(getByPlaceholderText('Search member'), 'lyd');
+
+    expect(getByText('Lydia Artist')).toBeTruthy();
+    expect(queryByText('Chris Artist')).toBeNull();
+  });
+});
+
+describe('GroupScheduleScreen — current time line', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-11T04:30:00Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('renders the current-time line when selected festival date matches now', () => {
+    const { getByTestId } = render(
+      <GroupScheduleScreen
+        {...makeProps([makeSet('current', 1, 'Current Artist', '21:00', '22:00')], {
+          festivalDays: [{ dayIndex: 1, label: 'Friday', date: '2026-04-10' }],
+        })}
+      />
+    );
+
+    expect(getByTestId('current-time-line')).toBeTruthy();
+  });
+
+  it('does not render the current-time line when the selected day date does not match now', () => {
+    const { queryByTestId } = render(
+      <GroupScheduleScreen
+        {...makeProps([makeSet('not-current', 1, 'Not Current Artist', '21:00', '22:00')], {
+          festivalDays: [{ dayIndex: 1, label: 'Friday', date: '2026-04-09' }],
+        })}
+      />
+    );
+
+    expect(queryByTestId('current-time-line')).toBeNull();
+  });
+});
+
 describe('GroupScheduleScreen — renders correctly after isolated preference update', () => {
   const MY_ID = 'me';
 
@@ -555,6 +627,41 @@ describe('GroupScheduleScreen — modal footer (round 6)', () => {
     act(() => { jest.advanceTimersByTime(300); });
     fireEvent.press(getByText('+ Maybe'));
     expect(onAdd).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('tapping "+ Must See" adds the set with must_see preference', async () => {
+    jest.useFakeTimers();
+    const onAdd = jest.fn().mockResolvedValue();
+    const onSetPreference = jest.fn().mockResolvedValue();
+    const sets = [{
+      id: 'set-must-see',
+      day_index: 1,
+      artist_name: 'Must See Artist',
+      stage_name: STAGE,
+      start_time_pt: '20:00',
+      end_time_pt: '21:00',
+      attendees: [],
+      attendee_count: 0,
+      popularity_tier: null,
+    }];
+    const { getByText } = render(
+      <GroupScheduleScreen
+        {...makeProps(sets, {
+          myMemberId: MY_ID,
+          onNavigateToEditSet: jest.fn(),
+          onAddToMySchedule: onAdd,
+          onSetPreferenceFromGrid: onSetPreference,
+        })}
+      />
+    );
+    fireEvent.press(getByText('Must See Artist'));
+    act(() => { jest.advanceTimersByTime(300); });
+    await act(async () => {
+      fireEvent.press(getByText('+ Must See'));
+    });
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ id: 'set-must-see' }), 'must_see');
+    expect(onSetPreference).toHaveBeenCalledWith('set-must-see', 'must_see');
     jest.useRealTimers();
   });
 });

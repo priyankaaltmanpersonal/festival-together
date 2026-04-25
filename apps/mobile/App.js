@@ -17,6 +17,7 @@ import { PrivacyScreen } from './src/screens/PrivacyScreen';
 import { SetupScreen } from './src/screens/SetupScreen';
 import { clearOfflineState, loadAppState, loadMutationQueue, saveAppState, saveMutationQueue } from './src/state/offlineStore';
 import { pickImages, uploadImages } from './src/services/uploadImages';
+import { generateFestivalDaysFromRange } from './src/utils';
 
 const DEFAULT_API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
@@ -46,6 +47,22 @@ const API_ERROR_MESSAGES = {
 
 function friendlyError(msg) {
   return API_ERROR_MESSAGES[msg] || msg;
+}
+
+function normalizeFestivalDays(days) {
+  return (days || []).map((day) => ({
+    dayIndex: day.dayIndex ?? day.day_index,
+    label: day.label || '',
+    ...(day.date ? { date: day.date } : {}),
+  }));
+}
+
+function festivalDaysForApi(days) {
+  return (days || []).map((day) => ({
+    day_index: day.dayIndex,
+    label: day.label.trim(),
+    ...(day.date ? { date: day.date } : {}),
+  }));
 }
 const CHIP_COLOR_OPTIONS = [
   '#4D73FF',
@@ -179,7 +196,7 @@ export default function App() {
         setIndividualSnapshot(storedState.individualSnapshot || null);
         setSelectedMemberIds(storedState.selectedMemberIds || []);
         setPrivacyAccepted(Boolean(storedState.privacyAccepted));
-        setFestivalDays(storedState.festivalDays || [{ dayIndex: 1, label: '' }]);
+        setFestivalDays(normalizeFestivalDays(storedState.festivalDays || [{ dayIndex: 1, label: '' }]));
         setLog(storedState.log || []);
         setLastSyncAt(storedState.lastSyncAt || '');
         setUploadDayIndex(storedState.uploadDayIndex || 1);
@@ -481,36 +498,20 @@ export default function App() {
     return payload.token;
   };
 
-  const setFestivalDayLabel = (dayIndex, text) => {
-    setFestivalDays((prev) => prev.map((d) => d.dayIndex === dayIndex ? { ...d, label: text.trim() } : d));
-  };
-
-  const addFestivalDay = () => {
-    setFestivalDays((prev) => {
-      const nextIndex = prev.length + 1;
-      return [...prev, { dayIndex: nextIndex, label: '' }];
-    });
+  const setFestivalDateRange = (startDate, endDate) => {
+    setFestivalDays(generateFestivalDaysFromRange(startDate, endDate));
   };
 
   const choosePresetForSetup = (presetId) => {
     const preset = availablePresets.find((p) => p.id === presetId);
     if (!preset) return;
-    setFestivalDays(preset.days.map((d) => ({ dayIndex: d.day_index, label: d.label })));
+    setFestivalDays(normalizeFestivalDays(preset.days));
     setPendingPresetId(presetId);
   };
 
   const clearPresetForSetup = () => {
     setPendingPresetId(null);
-    setFestivalDays([{ dayIndex: 1, label: '' }]);
-  };
-
-  const removeFestivalDay = (dayIndex) => {
-    setFestivalDays((prev) => {
-      if (prev.length <= 1) return prev; // minimum 1
-      const filtered = prev.filter((d) => d.dayIndex !== dayIndex);
-      // Reassign sequential indices
-      return filtered.map((d, i) => ({ ...d, dayIndex: i + 1 }));
-    });
+    setFestivalDays([{ dayIndex: 1, label: '', date: '' }]);
   };
 
   // ── Upload-all-days flow ─────────────────────────────────────────────────
@@ -940,7 +941,7 @@ export default function App() {
       setHomeSnapshot(homePayload);
       setGroupId(homePayload.group.id);
       setInviteCode(inviteCodeInput.trim().toUpperCase());
-      setFestivalDays((homePayload.festival_days || []).map((d) => ({ dayIndex: d.day_index, label: d.label })));
+      setFestivalDays(normalizeFestivalDays(homePayload.festival_days));
       setDayStates({});
       // Complete setup inline and go straight to the grid — no personal upload step
       await apiRequest({
@@ -961,8 +962,8 @@ export default function App() {
 
   const completeFestivalSetup = () =>
     run('create group', async () => {
-      if (!pendingPresetId && festivalDays.some((d) => !d.label.trim())) {
-        throw new Error('Enter a name for each day');
+      if (!pendingPresetId && (!festivalDays.length || festivalDays.some((d) => !d.date || !d.label.trim()))) {
+        throw new Error('Choose festival start and end dates');
       }
       if (!isOnline) throw new Error('Creating the group requires a connection');
       const payload = await apiRequest({
@@ -973,7 +974,7 @@ export default function App() {
           group_name: groupName.trim(),
           display_name: displayName.trim(),
           chip_color: selectedChipColor,
-          festival_days: festivalDays.map((d) => ({ day_index: d.dayIndex, label: d.label.trim() }))
+          festival_days: festivalDaysForApi(festivalDays)
         }
       });
       const token = payload.session.token;
@@ -1795,9 +1796,7 @@ export default function App() {
           chipColorOptions={CHIP_COLOR_OPTIONS}
           availableJoinColors={availableJoinColors}
           festivalDays={festivalDays}
-          setFestivalDayLabel={setFestivalDayLabel}
-          onAddFestivalDay={addFestivalDay}
-          onRemoveFestivalDay={removeFestivalDay}
+          onSetFestivalDateRange={setFestivalDateRange}
           loading={loading}
           error={error}
           onBeginProfile={beginProfile}

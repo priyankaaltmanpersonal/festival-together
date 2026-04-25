@@ -83,11 +83,15 @@ export function MoreSheet({
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={0}
           >
             <View style={styles.handle} />
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets
+            >
 
             {inviteCode ? (
               <Pressable onPress={onCopyInvite} style={styles.inviteCard}>
@@ -112,6 +116,9 @@ export function MoreSheet({
                   style={styles.input}
                   maxLength={60}
                   placeholder="Your name"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveProfile}
                 />
                 <Text style={styles.fieldLabel}>Chip color</Text>
                 <View style={styles.colorGrid}>

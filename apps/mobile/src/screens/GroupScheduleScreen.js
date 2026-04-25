@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../theme';
 import { DaySelector } from '../components/DaySelector';
-import { timeToMinutes, formatTime, formatTimeStr, minuteToY, buildTimeline, initials, withAlpha, SLOT_MINUTES, SLOT_HEIGHT } from '../utils';
+import { timeToMinutes, formatTime, formatTimeStr, minuteToY, buildTimeline, currentFestivalTimePosition, initials, withAlpha, SLOT_MINUTES, SLOT_HEIGHT } from '../utils';
 
 const GRID_HEADER_HEIGHT = 33; // header row height (padding 6+6 + font ~12 + border 1)
 const BUBBLES_PER_ROW = 6;
@@ -23,6 +23,7 @@ export function GroupScheduleScreen({
   onRemoveFromGrid,
   onNavigateToEditSet,
   festivalDays,
+  festivalTimezone = 'America/Los_Angeles',
 }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -45,6 +46,8 @@ export function GroupScheduleScreen({
   const [selectedDay, setSelectedDay] = useState(null);
   const [hideUnattended, setHideUnattended] = useState(false);
   const [myOnly, setMyOnly] = useState(false);
+  const [memberQuery, setMemberQuery] = useState('');
+  const [now, setNow] = useState(() => new Date());
 
   // Default to first available day; stay on selected if it's still valid
   const effectiveDay = selectedDay !== null && availableDays.includes(selectedDay)
@@ -66,7 +69,26 @@ export function GroupScheduleScreen({
   const [optimisticAttendance, setOptimisticAttendance] = useState(() => new Map());
   optimisticRef.current = optimisticAttendance; // keep ref in sync for stable callbacks
 
+  const memberSearchQuery = memberQuery.trim().toLowerCase();
+  const memberFilteredSets = memberSearchQuery
+    ? filteredSets.filter((s) =>
+        (s.attendees || []).some((attendee) =>
+          attendee.display_name?.toLowerCase().includes(memberSearchQuery)
+        )
+      )
+    : filteredSets;
+
   const visibleSets = myOnly && myMemberId
+    ? memberFilteredSets.filter((s) => {
+        const inServer = (s.attendees || []).some((a) => a.member_id === myMemberId);
+        const optimistic = optimisticAttendance.get(s.id);
+        return inServer || (optimistic && optimistic !== 'none');
+      })
+    : hideUnattended
+      ? memberFilteredSets.filter((s) => s.attendee_count > 0)
+      : memberFilteredSets;
+
+  const visibleSetsBeforeMemberSearch = myOnly && myMemberId
     ? filteredSets.filter((s) => {
         const inServer = (s.attendees || []).some((a) => a.member_id === myMemberId);
         const optimistic = optimisticAttendance.get(s.id);
@@ -86,6 +108,13 @@ export function GroupScheduleScreen({
     .filter((column) => column.sets.length > 0);
 
   const timeline = buildTimeline(visibleSets, gridBodyHeight || 0);
+  const currentTimePosition = currentFestivalTimePosition({
+    festivalDays,
+    selectedDay: effectiveDay,
+    timeline,
+    now,
+    timeZone: festivalTimezone,
+  });
   const memberColorById = useMemo(
     () => Object.fromEntries(members.map((member) => [member.id, member.chip_color])),
     [members]
@@ -94,8 +123,15 @@ export function GroupScheduleScreen({
 
   useEffect(() => {
     AsyncStorage.getItem('group_grid_selected_day').then((val) => {
-      if (val !== null) setSelectedDay(Number(val));
+      const parsed = Number(val);
+      if (val !== null && Number.isFinite(parsed)) setSelectedDay(parsed);
     });
+  }, []);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'test') return undefined;
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -240,6 +276,18 @@ export function GroupScheduleScreen({
               onSelect={handleDaySelect}
             />
           ) : null}
+          {members.length ? (
+            <TextInput
+              style={styles.memberSearchInput}
+              placeholder="Search member"
+              placeholderTextColor={C.textMuted}
+              value={memberQuery}
+              onChangeText={setMemberQuery}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+            />
+          ) : null}
           {(hasUnattendedSets || myMemberId) ? (
             <View style={styles.toggleRow}>
               {hasUnattendedSets ? (
@@ -267,7 +315,13 @@ export function GroupScheduleScreen({
         </View>
       </View>
 
-      {myOnly && myMemberId && visibleSets.length === 0 ? (
+      {memberSearchQuery && visibleSets.length === 0 && visibleSetsBeforeMemberSearch.length > 0 ? (
+        <View style={styles.myOnlyEmpty}>
+          <Text style={styles.myOnlyEmptyText}>
+            No sets match "{memberQuery.trim()}" for this day.
+          </Text>
+        </View>
+      ) : myOnly && myMemberId && visibleSets.length === 0 ? (
         <View style={styles.myOnlyEmpty}>
           <Text style={styles.myOnlyEmptyText}>
             You haven't added any sets for this day yet. Turn off My Sets to browse all sets and double-tap to add one.
@@ -338,6 +392,15 @@ export function GroupScheduleScreen({
                           style={[styles.rowLine, { top: minuteToY(minute, timeline.startMinute) }]}
                         />
                       ))}
+                      {currentTimePosition ? (
+                        <View
+                          testID="current-time-line"
+                          pointerEvents="none"
+                          style={[styles.currentTimeLine, { top: currentTimePosition.top }]}
+                        >
+                          <View style={styles.currentTimeDot} />
+                        </View>
+                      ) : null}
 
                       {column.sets.map((setItem) => {
                         const top = minuteToY(timeToMinutes(setItem.start_time_pt), timeline.startMinute);
@@ -625,6 +688,16 @@ const makeStyles = (C) => StyleSheet.create({
     textDecorationColor: C.resetBtnUnderline
   },
   helperPad: { color: C.textMuted, fontSize: 12, paddingHorizontal: 2, paddingTop: 2 },
+  memberSearchInput: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontSize: 13,
+    backgroundColor: C.inputBg,
+    color: C.text,
+  },
   toggleRow: { flexDirection: 'row', justifyContent: 'flex-end' },
   togglePill: {
     borderWidth: 1,
@@ -660,6 +733,23 @@ const makeStyles = (C) => StyleSheet.create({
   timeTick: { position: 'absolute', left: 4 },
   timeText: { color: C.gridTimeText, fontWeight: '700', fontSize: 11 },
   rowLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: C.gridRowLine },
+  currentTimeLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#dc2626',
+    zIndex: 5,
+  },
+  currentTimeDot: {
+    position: 'absolute',
+    left: -4,
+    top: -3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#dc2626',
+  },
   setCardWrap: {
     position: 'absolute',
     left: 3,
@@ -822,4 +912,3 @@ export function userAttendanceCardStyle(preference, C) {
   }
   return {};
 }
-

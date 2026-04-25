@@ -1,7 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMemo, useRef } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useTheme } from '../theme';
+import { dateFromDateKey, formatDateKey } from '../utils';
 
 
 export function SetupScreen({
@@ -18,9 +20,7 @@ export function SetupScreen({
   chipColorOptions,
   availableJoinColors,
   festivalDays,
-  setFestivalDayLabel,
-  onAddFestivalDay,
-  onRemoveFestivalDay,
+  onSetFestivalDateRange,
   loading,
   error,
   onBeginProfile,
@@ -45,6 +45,7 @@ export function SetupScreen({
   const styles = useMemo(() => makeStyles(C), [C]);
   const scrollViewRef = useRef(null);
   const isWelcome = onboardingStep === 'welcome';
+  const manualDateRangeReady = (festivalDays || []).some((day) => day.date);
 
   return (
     <ScrollView
@@ -148,54 +149,26 @@ export function SetupScreen({
               ))}
               <View style={styles.orDivider}>
                 <View style={styles.orLine} />
-                <Text style={styles.orText}>or enter days manually</Text>
+                <Text style={styles.orText}>or choose dates manually</Text>
                 <View style={styles.orLine} />
               </View>
-              {(festivalDays || []).map((day, index) => (
-                <View key={day.dayIndex} style={styles.dayRow}>
-                  <Text style={styles.dayIndexLabel}>Day {index + 1}</Text>
-                  <TextInput
-                    value={day.label}
-                    onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
-                    style={[styles.input, styles.dayInput]}
-                    maxLength={20}
-                  />
-                  <Pressable
-                    onPress={() => onRemoveFestivalDay(day.dayIndex)}
-                    disabled={(festivalDays || []).length <= 1}
-                    style={[styles.removeButton, (festivalDays || []).length <= 1 && styles.removeButtonDisabled]}
-                  >
-                    <Text style={styles.removeButtonText}>×</Text>
-                  </Pressable>
-                </View>
-              ))}
-              <ActionButton label="＋ Add Day" onPress={onAddFestivalDay} disabled={loading} />
-              <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading} />
+              <FestivalDateRangePicker
+                festivalDays={festivalDays}
+                onSetFestivalDateRange={onSetFestivalDateRange}
+                disabled={loading}
+              />
+              <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading || !manualDateRangeReady} />
             </>
           ) : (
             // No presets — plain day entry
             <>
-              <Text style={styles.helper}>Add each day of the festival you're attending (e.g. "Friday", "Saturday", "Sunday").</Text>
-              {(festivalDays || []).map((day, index) => (
-                <View key={day.dayIndex} style={styles.dayRow}>
-                  <Text style={styles.dayIndexLabel}>Day {index + 1}</Text>
-                  <TextInput
-                    value={day.label}
-                    onChangeText={(text) => setFestivalDayLabel(day.dayIndex, text)}
-                    style={[styles.input, styles.dayInput]}
-                    maxLength={20}
-                  />
-                  <Pressable
-                    onPress={() => onRemoveFestivalDay(day.dayIndex)}
-                    disabled={(festivalDays || []).length <= 1}
-                    style={[styles.removeButton, (festivalDays || []).length <= 1 && styles.removeButtonDisabled]}
-                  >
-                    <Text style={styles.removeButtonText}>×</Text>
-                  </Pressable>
-                </View>
-              ))}
-              <ActionButton label="＋ Add Day" onPress={onAddFestivalDay} disabled={loading} />
-              <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading} />
+              <Text style={styles.helper}>Choose the first and last date you're attending. We'll create each festival day and label it automatically.</Text>
+              <FestivalDateRangePicker
+                festivalDays={festivalDays}
+                onSetFestivalDateRange={onSetFestivalDateRange}
+                disabled={loading}
+              />
+              <ActionButton label="Continue" onPress={onCompleteFestivalSetup} primary disabled={loading || !manualDateRangeReady} />
             </>
           )}
         </View>
@@ -302,6 +275,84 @@ function StartOverLink({ onPress, styles }) {
   );
 }
 
+function FestivalDateRangePicker({ festivalDays, onSetFestivalDateRange, disabled = false }) {
+  const C = useTheme();
+  const styles = useMemo(() => makeStyles(C), [C]);
+  const fallbackDate = formatDateKey(new Date());
+  const firstDate = (festivalDays || []).find((day) => day.date)?.date || '';
+  const lastDate = [...(festivalDays || [])].reverse().find((day) => day.date)?.date || '';
+  const [activePicker, setActivePicker] = useState(null);
+
+  const updateRange = (which, selectedDate) => {
+    const nextKey = formatDateKey(selectedDate);
+    if (which === 'start') {
+      const nextEnd = lastDate && lastDate >= nextKey ? lastDate : nextKey;
+      onSetFestivalDateRange(nextKey, nextEnd);
+    } else {
+      const nextStart = firstDate && firstDate <= nextKey ? firstDate : nextKey;
+      onSetFestivalDateRange(nextStart, nextKey);
+    }
+  };
+
+  return (
+    <View style={styles.dateRangeCard}>
+      <View style={styles.dateButtonRow}>
+        <View style={styles.dateField}>
+          <Text style={styles.inputLabel}>Start date</Text>
+          <Pressable
+            disabled={disabled}
+            onPress={() => setActivePicker(activePicker === 'start' ? null : 'start')}
+            style={[styles.dateButton, activePicker === 'start' && styles.dateButtonActive, disabled && styles.buttonDisabled]}
+          >
+            <Text style={[styles.dateButtonText, !firstDate && styles.dateButtonPlaceholder]}>
+              {firstDate || 'Select'}
+            </Text>
+          </Pressable>
+        </View>
+        <View style={styles.dateField}>
+          <Text style={styles.inputLabel}>End date</Text>
+          <Pressable
+            disabled={disabled}
+            onPress={() => setActivePicker(activePicker === 'end' ? null : 'end')}
+            style={[styles.dateButton, activePicker === 'end' && styles.dateButtonActive, disabled && styles.buttonDisabled]}
+          >
+            <Text style={[styles.dateButtonText, !lastDate && styles.dateButtonPlaceholder]}>
+              {lastDate || 'Select'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {activePicker ? (
+        <View style={styles.pickerContainer}>
+          <DateTimePicker
+            value={dateFromDateKey((activePicker === 'start' ? firstDate : lastDate) || firstDate || fallbackDate)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            onChange={(event, selectedDate) => {
+              if (Platform.OS === 'android') setActivePicker(null);
+              if (selectedDate) updateRange(activePicker, selectedDate);
+            }}
+            style={styles.datePicker}
+            textColor={C.text}
+          />
+          {Platform.OS === 'ios' ? (
+            <Pressable onPress={() => setActivePicker(null)} style={styles.pickerDoneBtn}>
+              <Text style={styles.pickerDoneText}>Done</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {(festivalDays || []).some((day) => day.date) ? (
+        <Text style={styles.helper}>
+          Days: {(festivalDays || []).map((day) => `${day.label} ${day.date}`).join(' · ')}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function ActionButton({ label, onPress, primary = false, disabled = false, large = false }) {
   const C = useTheme();
   const styles = useMemo(() => makeStyles(C), [C]);
@@ -405,9 +456,35 @@ const makeStyles = (C) => StyleSheet.create({
     paddingVertical: 9,
     backgroundColor: C.inputBg
   },
-  dayRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dayIndexLabel: { color: C.fieldLabelText, fontSize: 12, fontWeight: '700', width: 40 },
-  dayInput: { flex: 1 },
+  dateRangeCard: { gap: 8 },
+  dateButtonRow: { flexDirection: 'row', gap: 8 },
+  dateField: { flex: 1, gap: 4 },
+  dateButton: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: C.inputBg,
+  },
+  dateButtonActive: { borderColor: C.primary, backgroundColor: C.primaryBg },
+  dateButtonText: { color: C.text, fontWeight: '700', fontSize: 13 },
+  dateButtonPlaceholder: { color: C.textMuted },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 10,
+    backgroundColor: C.inputBg,
+    overflow: 'hidden',
+  },
+  datePicker: { alignSelf: 'stretch' },
+  pickerDoneBtn: {
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: C.inputBorder,
+  },
+  pickerDoneText: { color: C.primary, fontWeight: '700' },
   buttonPrimaryWrap: {
     borderRadius: 10,
     overflow: 'hidden',
@@ -453,12 +530,6 @@ const makeStyles = (C) => StyleSheet.create({
   colorSwatchDisabled: {
     opacity: 0.25
   },
-  removeButton: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: C.stepCardBorder, alignItems: 'center', justifyContent: 'center'
-  },
-  removeButtonDisabled: { opacity: 0.3 },
-  removeButtonText: { fontSize: 18, color: C.fieldLabelText, fontWeight: '700', lineHeight: 20 },
   error: { color: C.error, fontWeight: '700' },
   successBox: {
     backgroundColor: '#f0fdf4',

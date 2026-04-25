@@ -45,6 +45,14 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
     });
   };
 
+  const collapseAll = () => {
+    setCollapsedIds(new Set(filteredMembers.map((member) => member.member_id)));
+  };
+
+  const expandAll = () => {
+    setCollapsedIds(new Set());
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.wrap}>
       <View style={styles.card}>
@@ -70,6 +78,16 @@ export function IndividualSchedulesScreen({ individualSnapshot, festivalDays, on
             selectedDay={selectedDay}
             onSelect={setSelectedDay}
           />
+        ) : null}
+        {members.length ? (
+          <View style={styles.expandRow}>
+            <Pressable onPress={expandAll} style={styles.smallButton}>
+              <Text style={styles.smallButtonText}>Expand all</Text>
+            </Pressable>
+            <Pressable onPress={collapseAll} style={styles.smallButton}>
+              <Text style={styles.smallButtonText}>Collapse all</Text>
+            </Pressable>
+          </View>
         ) : null}
         <Pressable
           onPress={async () => { setRefreshing(true); await onLoadIndividual(); setRefreshing(false); }}
@@ -175,6 +193,17 @@ const makeStyles = (C) => StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: { color: C.btnSecondaryText, fontWeight: '700' },
+  expandRow: { flexDirection: 'row', gap: 8 },
+  smallButton: {
+    flex: 1,
+    backgroundColor: C.inputBg,
+    borderWidth: 1,
+    borderColor: C.inputBorder,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  smallButtonText: { color: C.textMuted, fontWeight: '700', fontSize: 12 },
   setRow: {
     borderWidth: 1,
     borderColor: C.setRowBorder,

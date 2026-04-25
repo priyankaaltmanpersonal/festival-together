@@ -92,6 +92,105 @@ export function buildTimeline(sets, minBodyHeight = 0) {
   };
 }
 
+export function zonedDateParts(date = new Date(), timeZone = 'America/Los_Angeles') {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    dateKey: `${byType.year}-${byType.month}-${byType.day}`,
+    hour: Number(byType.hour),
+    minute: Number(byType.minute),
+  };
+}
+
+export function subtractOneUtcDay(dateKey) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey || '')) return dateKey;
+  const date = new Date(`${dateKey}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
+export function currentFestivalTimePosition({
+  festivalDays = [],
+  selectedDay,
+  timeline,
+  now = new Date(),
+  timeZone = 'America/Los_Angeles',
+} = {}) {
+  if (!timeline || selectedDay == null) return null;
+  const selected = festivalDays.find((day) => day.dayIndex === selectedDay);
+  if (!selected?.date || !/^\d{4}-\d{2}-\d{2}$/.test(selected.date)) return null;
+
+  const parts = zonedDateParts(now, timeZone);
+  const festivalDateKey = parts.hour < 6 ? subtractOneUtcDay(parts.dateKey) : parts.dateKey;
+  if (festivalDateKey !== selected.date) return null;
+
+  const currentMinute = (parts.hour < 6 ? parts.hour + 24 : parts.hour) * 60 + parts.minute;
+  if (currentMinute < timeline.startMinute || currentMinute > timeline.endMinute) return null;
+
+  return {
+    minute: currentMinute,
+    top: minuteToY(currentMinute, timeline.startMinute),
+  };
+}
+
+export function formatDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function dateFromDateKey(dateKey) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey || '')) {
+    const fallback = new Date();
+    fallback.setHours(12, 0, 0, 0);
+    return fallback;
+  }
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+export function weekdayLabelForDate(dateKey, timeZone = 'America/Los_Angeles') {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey || '')) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    timeZone,
+  }).format(new Date(`${dateKey}T12:00:00`));
+}
+
+export function generateFestivalDaysFromRange(startDateKey, endDateKey, maxDays = 10) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDateKey || '') || !/^\d{4}-\d{2}-\d{2}$/.test(endDateKey || '')) {
+    return [];
+  }
+
+  const start = dateFromDateKey(startDateKey);
+  const end = dateFromDateKey(endDateKey);
+  const orderedStart = start <= end ? start : end;
+  const orderedEnd = start <= end ? end : start;
+  const days = [];
+  const cursor = new Date(orderedStart);
+
+  while (cursor <= orderedEnd && days.length < maxDays) {
+    const date = formatDateKey(cursor);
+    days.push({
+      dayIndex: days.length + 1,
+      label: weekdayLabelForDate(date),
+      date,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
 // ─── Display utilities ────────────────────────────────────────────────────────
 
 /**

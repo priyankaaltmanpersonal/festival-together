@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { IndividualSchedulesScreen } from '../screens/IndividualSchedulesScreen';
 
 function makeProps(overrides = {}) {
@@ -156,5 +156,57 @@ describe('IndividualSchedulesScreen — preference badge styling', () => {
     );
     expect(queryByText(/• Definitely/)).toBeNull();
     expect(queryByText(/• Maybe/)).toBeNull();
+  });
+});
+
+describe('IndividualSchedulesScreen — expand/collapse all', () => {
+  const snapshot = {
+    members: [
+      {
+        member_id: 'mem-1',
+        display_name: 'Alice',
+        setup_status: 'done',
+        sets: [{
+          canonical_set_id: 'set-1',
+          artist_name: 'Alice Artist',
+          stage_name: 'Sahara',
+          start_time_pt: '21:00',
+          end_time_pt: '22:00',
+          day_index: 1,
+          preference: 'must_see',
+        }],
+      },
+      {
+        member_id: 'mem-2',
+        display_name: 'Priyanka',
+        setup_status: 'done',
+        sets: [{
+          canonical_set_id: 'set-2',
+          artist_name: 'Priyanka Artist',
+          stage_name: 'Gobi',
+          start_time_pt: '20:00',
+          end_time_pt: '21:00',
+          day_index: 1,
+          preference: 'flexible',
+        }],
+      },
+    ],
+  };
+
+  it('collapses and expands all visible member schedules', () => {
+    const { getByText, queryByText } = render(
+      <IndividualSchedulesScreen {...makeProps({ individualSnapshot: snapshot })} />
+    );
+
+    expect(getByText('Alice Artist')).toBeTruthy();
+    expect(getByText('Priyanka Artist')).toBeTruthy();
+
+    fireEvent.press(getByText('Collapse all'));
+    expect(queryByText('Alice Artist')).toBeNull();
+    expect(queryByText('Priyanka Artist')).toBeNull();
+
+    fireEvent.press(getByText('Expand all'));
+    expect(getByText('Alice Artist')).toBeTruthy();
+    expect(getByText('Priyanka Artist')).toBeTruthy();
   });
 });
